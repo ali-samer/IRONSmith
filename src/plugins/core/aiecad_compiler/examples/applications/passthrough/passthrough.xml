@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="passthroughjit">
+
+    <!-- =================================== -->
+    <!-- SYMBOLS / DECLARATIONS              -->
+    <!-- =================================== -->
+    <Symbols> 
+
+        <!-- Constants -->
+        <Const name="line_size" type="int">1024</Const>
+        <Const name="N" type="int">4096</Const>
+
+        <!-- Imported modules -->
+        <Import name="sys" />
+        <Import name="numpy" alias="np" />
+        <Import name="aie.iron" alias="iron">
+            <Submodule name="Program" />
+            <Submodule name="Runtime" />
+            <Submodule name="ObjectFifo" />
+            <Submodule name="SequentialPlacer" />
+            <Submodule name="NPU1Col1" />
+            <Submodule name="NPU2Col1" />
+            <Submodule name="XCVC1902" />
+            <Function name="jit" />
+            <Function name="get_current_device" />
+            <Function name="set_current_device" />
+            <Function name="arange" />
+            <Function name="zeros" />
+        </Import>
+
+        <!-- Tensor type abstractions -->
+        <TypeAbstraction name="vector_ty">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><var>N</var></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>int32</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="line_ty">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><var>line_size</var></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>int32</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+    </Symbols>
+
+    <!-- =================================== -->
+    <!-- DATAFLOW GRAPH                      -->
+    <!-- =================================== -->
+    <DataFlow>
+
+        <!-- ObjectFifo: of_in -->
+        <ObjectFifo name="of_in">
+            <obj_type>
+                <type_ref>line_ty</type_ref>
+            </obj_type>
+            <attributes>
+                <kwarg name="name" value="in" />
+            </attributes>
+        </ObjectFifo>
+
+        <!-- ObjectFifo: of_out = of_in.cons().forward() -->
+        <ObjectFifo name="of_out">
+            <source>
+                <method_chain>
+                    <call>
+                        <method ref="of_in" name="cons" />
+                    </call>
+                    <call>
+                        <method name="forward" />
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <!-- Runtime context -->
+        <Runtime name="rt">
+            <instance>
+                <constructor ref="Runtime" />
+            </instance>
+        </Runtime>
+
+        <!-- Runtime sequence block: with rt.sequence(...) as (a_in, c_out): -->
+        <SequenceBlock>
+            <context>
+                <call>
+                    <method ref="rt" name="sequence">
+                        <arg type_ref="vector_ty" />
+                        <arg type_ref="vector_ty" />
+                    </method>
+                </call>
+            </context>
+            <bindings>
+                <bind name="a_in" type_ref="vector_ty" />
+                <bind name="c_out" type_ref="vector_ty" />
+            </bindings>
+
+            <body>
+                <!-- rt.fill(of_in.prod(), a_in) -->
+                <Operation name="fill">
+                    <target>
+                        <call>
+                            <method ref="rt" name="fill" />
+                        </call>
+                    </target>
+                    <args>
+                        <arg>
+                            <call>
+                                <method ref="of_in" name="prod" />
+                            </call>
+                        </arg>
+                        <arg>
+                            <var ref="a_in" />
+                        </arg>
+                    </args>
+                </Operation>
+
+                <!-- rt.drain(of_out.cons(), c_out, wait=True) -->
+                <Operation name="drain">
+                    <target>
+                        <call>
+                            <method ref="rt" name="drain" />
+                        </call>
+                    </target>
+                    <args>
+                        <arg>
+                            <call>
+                                <method ref="of_out" name="cons" />
+                            </call>
+                        </arg>
+                        <arg>
+                            <var ref="c_out" />
+                        </arg>
+                        <kwarg name="wait" value="True" />
+                    </args>
+                </Operation>
+            </body>
+        </SequenceBlock>
+
+        <!-- Program construction -->
+        <Program name="my_program">
+            <constructor>
+                <call>
+                    <constructor ref="Program">
+                        <arg>
+                            <call>
+                                <function ref="iron.get_current_device" />
+                            </call>
+                        </arg>
+                        <arg>
+                            <var ref="rt" />
+                        </arg>
+                    </constructor>
+                </call>
+            </constructor>
+        </Program>
+
+        <!-- Placer -->
+        <Placer name="placer">
+            <instance>
+                <constructor ref="SequentialPlacer" />
+            </instance>
+        </Placer>
+
+        <!-- Program resolution -->
+        <ResolveProgram>
+            <target>
+                <method ref="my_program" name="resolve_program">
+                    <arg>
+                        <var ref="placer" />
+                    </arg>
+                </method>
+            </target>
+            <returns>
+                <symbol ref="compiled_program" />
+            </returns>
+        </ResolveProgram>
+
+    </DataFlow>
+
+    <!-- =================================== -->
+    <!-- JIT FUNCTION DEFINITION             -->
+    <!-- =================================== -->
+    <Function name="passthrough_dmas_jit" decorator="iron.jit">
+        <parameters>
+            <param name="input_tensor" type_ref="vector_ty" />
+            <param name="output_tensor" type_ref="vector_ty" />
+        </parameters>
+        <attributes>
+            <kwarg name="is_placed" value="False" />
+        </attributes>
+        <body>
+            <!-- N = input_tensor.numel() -->
+            <Assign>
+                <target>N</target>
+                <source>
+                    <call>
+                        <method ref="input_tensor" name="numel" />
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- line_size = 1024 -->
+            <Assign>
+                <target>line_size</target>
+                <source>
+                    <const>1024</const>
+                </source>
+            </Assign>
+
+            <!-- assert N % line_size == 0 -->
+            <Assert>
+                <condition>
+                    <comparison op="==">
+                        <left>
+                            <binary_op op="%">
+                                <left><var>N</var></left>
+                                <right><var>line_size</var></right>
+                            </binary_op>
+                        </left>
+                        <right><const>0</const></right>
+                    </comparison>
+                </condition>
+                <message>"N must be multiple of line_size"</message>
+            </Assert>
+
+            <!-- Type definitions and DataFlow usage - single reference -->
+            <UseDataFlow>
+                <UseType name="vector_ty" />
+                <UseType name="line_ty" />
+                <UseSymbol ref="of_in" />
+                <UseSymbol ref="of_out" />
+                <UseSymbol ref="rt" />
+                <UseSymbol ref="my_program" />
+                <UseSymbol ref="placer" />
+            </UseDataFlow>
+
+            <!-- Return resolved program -->
+            <Return>
+                <var ref="compiled_program" />
+            </Return>
+        </body>
+    </Function>
+
+    <!-- =================================== -->
+    <!-- MAIN FUNCTION                       -->
+    <!-- =================================== -->
+    <Function name="main">
+        <body>
+            <!-- Default values -->
+            <Comment># Default values</Comment>
+            <Assign>
+                <target>N</target>
+                <source><const>4096</const></source>
+            </Assign>
+            <Assign>
+                <target>line_size</target>
+                <source><const>1024</const></source>
+            </Assign>
+
+            <!-- Parse arguments -->
+            <Comment># Parse arguments</Comment>
+            <If condition="len(sys.argv) > 1">
+                <then>
+                    <Assign>
+                        <target>N</target>
+                        <source>
+                            <call>
+                                <function name="int">
+                                    <arg>
+                                        <index>
+                                            <base><var>sys.argv</var></base>
+                                            <index_value><const>1</const></index_value>
+                                        </index>
+                                    </arg>
+                                </function>
+                            </call>
+                        </source>
+                    </Assign>
+                    <Assert>
+                        <condition>
+                            <comparison op="==">
+                                <left>
+                                    <binary_op op="%">
+                                        <left><var>N</var></left>
+                                        <right><var>line_size</var></right>
+                                    </binary_op>
+                                </left>
+                                <right><const>0</const></right>
+                            </comparison>
+                        </condition>
+                        <message>"N must be multiple of line_size"</message>
+                    </Assert>
+                </then>
+            </If>
+
+            <If condition="len(sys.argv) > 2">
+                <then>
+                    <Assign>
+                        <target>device_name</target>
+                        <source>
+                            <index>
+                                <base><var>sys.argv</var></base>
+                                <index_value><const>2</const></index_value>
+                            </index>
+                        </source>
+                    </Assign>
+
+                    <Switch test="device_name">
+                        <case value="npu">
+                            <call>
+                                <function ref="iron.set_current_device">
+                                    <arg><constructor ref="NPU1Col1" /></arg>
+                                </function>
+                            </call>
+                        </case>
+                        <case value="npu2">
+                            <call>
+                                <function ref="iron.set_current_device">
+                                    <arg><constructor ref="NPU2Col1" /></arg>
+                                </function>
+                            </call>
+                        </case>
+                        <case value="xcvc1902">
+                            <call>
+                                <function ref="iron.set_current_device">
+                                    <arg><constructor ref="XCVC1902" /></arg>
+                                </function>
+                            </call>
+                        </case>
+                        <default>
+                            <Raise>
+                                <ValueError>
+                                    <format>"[ERROR] Device name {device_name} is unknown"</format>
+                                    <var>device_name</var>
+                                </ValueError>
+                            </Raise>
+                        </default>
+                    </Switch>
+                </then>
+                <else>
+                    <!-- Default device -->
+                    <call>
+                        <function ref="iron.set_current_device">
+                            <arg><constructor ref="NPU1Col1" /></arg>
+                        </function>
+                    </call>
+                </else>
+            </If>
+
+            <!-- Create input and output tensors on the device -->
+            <Comment># Create input and output tensors on the device</Comment>
+            <Assign>
+                <target>input_tensor</target>
+                <source>
+                    <call>
+                        <function ref="iron.arange">
+                            <arg><var>N</var></arg>
+                            <kwarg name="dtype"><const>np.int32</const></kwarg>
+                            <kwarg name="device"><const>"npu"</const></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>output_tensor</target>
+                <source>
+                    <call>
+                        <function ref="iron.zeros">
+                            <arg><var>N</var></arg>
+                            <kwarg name="dtype"><const>np.int32</const></kwarg>
+                            <kwarg name="device"><const>"npu"</const></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- JIT compile and execute -->
+            <Comment># JIT-compile and execute</Comment>
+            <Call>
+                <function ref="passthrough_dmas_jit">
+                    <arg><var>input_tensor</var></arg>
+                    <arg><var>output_tensor</var></arg>
+                </function>
+            </Call>
+
+            <!-- Bring output back to host for verification -->
+            <Comment># Bring output back to host for verification</Comment>
+            <Assign>
+                <target>output_host</target>
+                <source>
+                    <call>
+                        <method ref="output_tensor" name="numpy" />
+                    </call>
+                </source>
+            </Assign>
+            <Assign>
+                <target>input_host</target>
+                <source>
+                    <call>
+                        <method ref="input_tensor" name="numpy" />
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- Verify: output should equal input (passthrough) -->
+            <Comment># Verify: output should equal input (passthrough)</Comment>
+            <Assign>
+                <target>errors</target>
+                <source>
+                    <call>
+                        <function name="np.count_nonzero">
+                            <arg>
+                                <binary_op op="!=">
+                                    <left><var>input_host</var></left>
+                                    <right><var>output_host</var></right>
+                                </binary_op>
+                            </arg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- Print results -->
+            <Comment># Print results</Comment>
+            <Print>
+                <fstring>{'Index':>6} {'Input':>8} {'Output':>8}</fstring>
+            </Print>
+            <Print>
+                <expression>"-" * 24</expression>
+            </Print>
+
+            <!-- Print first 4096 elements -->
+            <For var="i" range="range(min(N, 4096))">
+                <Print>
+                    <fstring>{i:6}: {input_host[i]:8} {output_host[i]:8}</fstring>
+                    <vars>
+                        <var>i</var>
+                        <var>input_host</var>
+                        <var>output_host</var>
+                    </vars>
+                </Print>
+            </For>
+
+            <!-- Final result -->
+            <If condition="errors == 0">
+                <then>
+                    <Print>
+                        <fstring>\nPASS! All {N} elements match.\n</fstring>
+                        <vars><var>N</var></vars>
+                    </Print>
+                    <Call>
+                        <function name="sys.exit">
+                            <arg><const>0</const></arg>
+                        </function>
+                    </Call>
+                </then>
+                <else>
+                    <Print>
+                        <fstring>\nFAIL! {errors} mismatches out of {N} elements.\n</fstring>
+                        <vars>
+                            <var>errors</var>
+                            <var>N</var>
+                        </vars>
+                    </Print>
+                    <Call>
+                        <function name="sys.exit">
+                            <arg><const>1</const></arg>
+                        </function>
+                    </Call>
+                </else>
+            </If>
+
+        </body>
+    </Function>
+
+    <!-- =================================== -->
+    <!-- ENTRY POINT                         -->
+    <!-- =================================== -->
+    <EntryPoint>
+        <If condition="__name__ == '__main__'">
+            <Call>
+                <function ref="main" />
+            </Call>
+        </If>
+    </EntryPoint>
+
+</Module>
+
+

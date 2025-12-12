@@ -1,0 +1,1910 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Module name="add_activatejit">
+
+    <!-- =================================== -->
+    <!-- SYMBOLS / DECLARATIONS              -->
+    <!-- =================================== -->
+    <Symbols>
+
+        <!-- Constants -->
+        <Const name="data_size" type="int">128</Const>
+
+        <!-- Imported modules -->
+        <Import name="numpy" alias="np"/>
+        <Import name="ml_dtypes" alias="ml_dtypes"/>
+        <Import name="aie.iron" alias="iron">
+            <Submodule name="Program"/>
+            <Submodule name="Runtime"/>
+            <Submodule name="Worker"/>
+            <Submodule name="ObjectFifo"/>
+            <Submodule name="SequentialPlacer"/>
+            <Submodule name="AnyComputeTile"/>
+            <Submodule name="Tile"/>
+            <Submodule name="ExternalFunction"/>
+            <Submodule name="jit"/>
+            <Submodule name="dataflow"/>
+            <Function name="get_current_device"/>
+            <Function name="arange"/>
+            <Function name="zeros"/>
+        </Import>
+        <Import name="aie.helpers.taplib">
+            <Submodule name="TensorAccessPattern"/>
+        </Import>
+
+        <!-- Tensor type abstractions -->
+        <TypeAbstraction name="data_a_ty">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><method ref="inputA" name="numel"/></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="data_b_ty">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><method ref="inputB" name="numel"/></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="data_d_ty">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><method ref="outputD" name="numel"/></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_a">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_b">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_d">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_a_worker">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_b_worker">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+        <TypeAbstraction name="chunk_d_worker">
+            <ndarray>
+                <shape>
+                    <tuple>
+                        <expr><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op></expr>
+                    </tuple>
+                </shape>
+                <dtype>
+                    <numpy_dtype>bfloat16</numpy_dtype>
+                </dtype>
+            </ndarray>
+        </TypeAbstraction>
+
+    </Symbols>
+
+    <!-- =================================== -->
+    <!-- DATAFLOW GRAPH                      -->
+    <!-- =================================== -->
+    <DataFlow>
+
+        <!-- L3 to L2 ObjectFifos -->
+        <ObjectFifo name="SHIM_L3_L2_A1A2_col0">
+            <obj_type><type_ref>chunk_a</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_A1A2_col0"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_B1B2_col0">
+            <obj_type><type_ref>chunk_b</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_B1B2_col0"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_A3A4_col1">
+            <obj_type><type_ref>chunk_a</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_A3A4_col1"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_B3B4_col1">
+            <obj_type><type_ref>chunk_b</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_B3B4_col1"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_A5A6_col2">
+            <obj_type><type_ref>chunk_a</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_A5A6_col2"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_B5B6_col2">
+            <obj_type><type_ref>chunk_b</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_B5B6_col2"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_A7A8_col3">
+            <obj_type><type_ref>chunk_a</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_A7A8_col3"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L3_L2_B7B8_col3">
+            <obj_type><type_ref>chunk_b</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L3_L2_B7B8_col3"/>
+            </attributes>
+        </ObjectFifo>
+
+        <!-- L2 to L1 Split ObjectFifos -->
+        <ObjectFifo name="MEM_L2_L1_A1A2_col0">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_A1A2_col0"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_A1_col0</string>
+                                    <string>MEM_L2_L1_A2_col0</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_B1B2_col0">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_B1B2_col0"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_B1_col0</string>
+                                    <string>MEM_L2_L1_B2_col0</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_A3A4_col1">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_A3A4_col1"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_A3_col1</string>
+                                    <string>MEM_L2_L1_A4_col1</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_B3B4_col1">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_B3B4_col1"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_B3_col1</string>
+                                    <string>MEM_L2_L1_B4_col1</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_A5A6_col2">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_A5A6_col2"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_A5_col2</string>
+                                    <string>MEM_L2_L1_A6_col2</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_B5B6_col2">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_B5B6_col2"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_B5_col2</string>
+                                    <string>MEM_L2_L1_B6_col2</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_A7A8_col3">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_A7A8_col3"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                    <type_ref>chunk_a_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_A7_col3</string>
+                                    <string>MEM_L2_L1_A8_col3</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L2_L1_B7B8_col3">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L3_L2_B7B8_col3"/></base><call><method name="cons"/></call>
+                    <call>
+                        <method name="split">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                    <type_ref>chunk_b_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L2_L1_B7_col3</string>
+                                    <string>MEM_L2_L1_B8_col3</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <!-- L1 to L1 ObjectFifos -->
+        <ObjectFifo name="L1_L1_elwiseadd_relu_1">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_1"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_2">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_2"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_3">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_3"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_4">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_4"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_5">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_5"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_6">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_6"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_7">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_7"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="L1_L1_elwiseadd_relu_8">
+            <obj_type><type_ref>chunk_d_worker</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="L1_L1_elwiseadd_relu_8"/>
+            </attributes>
+        </ObjectFifo>
+
+        <!-- L2 to L3 ObjectFifos -->
+        <ObjectFifo name="SHIM_L2_L3_D1D2_col0">
+            <obj_type><type_ref>chunk_d</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L2_L3_D1D2_col0"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L2_L3_D3D4_col1">
+            <obj_type><type_ref>chunk_d</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L2_L3_D3D4_col1"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L2_L3_D5D6_col2">
+            <obj_type><type_ref>chunk_d</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+                <kwarg name="name" value="SHIM_L2_L3_D5D6_col2"/>
+            </attributes>
+        </ObjectFifo>
+
+        <ObjectFifo name="SHIM_L2_L3_D7D8_col3">
+            <obj_type><type_ref>chunk_d</type_ref></obj_type>
+            <attributes>
+                <kwarg name="depth" value="2"/>
+               965                <kwarg name="name" value="SHIM_L2_L3_D7D8_col3"/>
+            </attributes>
+        </ObjectFifo>
+
+        <!-- L1 to L2 Join ObjectFifos -->
+        <ObjectFifo name="MEM_L1_L2_D1D2_col0">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L2_L3_D1D2_col0"/></base><call><method name="prod"/></call>
+                    <call>
+                        <method name="join">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L1_L2_D1_col0</string>
+                                    <string>MEM_L1_L2_D2_col0</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L1_L2_D3D4_col1">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L2_L3_D3D4_col1"/></base><call><method name="prod"/></call>
+                    <call>
+                        <method name="join">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L1_L2_D3_col1</string>
+                                    <string>MEM_L1_L2_D4_col1</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L1_L2_D5D6_col2">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L2_L3_D5D6_col2"/></base><call><method name="prod"/></call>
+                    <call>
+                        <method name="join">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L1_L2_D5_col2</string>
+                                    <string>MEM_L1_L2_D6_col2</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <ObjectFifo name="MEM_L1_L2_D7D8_col3">
+            <source>
+                <method_chain>
+                    <base><var ref="SHIM_L2_L3_D7D8_col3"/></base><call><method name="prod"/></call>
+                    <call>
+                        <method name="join">
+                            <kwarg name="obj_types">
+                                <list>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                    <type_ref>chunk_d_worker</type_ref>
+                                </list>
+                            </kwarg>
+                            <kwarg name="names">
+                                <list>
+                                    <string>MEM_L1_L2_D7_col3</string>
+                                    <string>MEM_L1_L2_D8_col3</string>
+                                </list>
+                            </kwarg>
+                            <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>1</const></arg></constructor></kwarg>
+                            <kwarg name="offsets">
+                                <list>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>0</const></binary_op>
+                                    <binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op><const>1</const></binary_op>
+                                </list>
+                            </kwarg>
+                        </method>
+                    </call>
+                </method_chain>
+            </source>
+        </ObjectFifo>
+
+        <!-- External Functions -->
+        <ExternalFunction name="element_wise_add">
+            <attributes>
+                <kwarg name="name" value="eltwise_add_bf16_scalar"/>
+                <kwarg name="source_file" value="../../../aie_kernels/aie2/add.cc"/>
+                <kwarg name="arg_types">
+                    <list>
+                        <type_ref>chunk_a_worker</type_ref>
+                        <type_ref>chunk_b_worker</type_ref>
+                        <type_ref>chunk_d_worker</type_ref>
+                    </list>
+                </kwarg>
+                <kwarg name="include_dirs">
+                    <list>
+                        <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
+                    </list>
+                </kwarg>
+            </attributes>
+        </ExternalFunction>
+
+        <ExternalFunction name="relu_activation">
+            <attributes>
+                <kwarg name="name" value="bf16_relu"/>
+                <kwarg name="source_file" value="../../../aie_kernels/aie2/relu.cc"/>
+                <kwarg name="arg_types">
+                    <list>
+                        <type_ref>chunk_d_worker</type_ref>
+                        <type_ref>chunk_d_worker</type_ref>
+                    </list>
+                </kwarg>
+                <kwarg name="include_dirs">
+                    <list>
+                        <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
+                    </list>
+                </kwarg>
+            </attributes>
+        </ExternalFunction>
+
+        <!-- Core Functions -->
+        <CoreFunction name="eltwise_add">
+            <parameters>
+                <param name="element_wise_add"/>
+                <param name="inputA"/>
+                <param name="inputB"/>
+                <param name="outputC"/>
+            </parameters>
+            <body>
+                <Acquire name="elementA"><call><method ref="inputA" name="acquire"><arg><const>1</const></arg></method></call></Acquire>
+                <Acquire name="elementB"><call><method ref="inputB" name="acquire"><arg><const>1</const></arg></method></call></Acquire>
+                <Acquire name="elementC"><call><method ref="outputC" name="acquire"><arg><const>1</const></arg></method></call></Acquire>
+                <Call>
+                    <function ref="element_wise_add">
+                        <arg><var ref="elementA"/></arg>
+                        <arg><var ref="elementB"/></arg>
+                        <arg><var ref="elementC"/></arg>
+                    </function>
+                </Call>
+                <Release><call><method ref="inputA" name="release"><arg><const>1</const></arg></method></call></Release>
+                <Release><call><method ref="inputB" name="release"><arg><const>1</const></arg></method></call></Release>
+                <Release><call><method ref="outputC" name="release"><arg><const>1</const></arg></method></call></Release>
+            </body>
+        </CoreFunction>
+
+        <CoreFunction name="relu">
+            <parameters>
+                <param name="relu_activation"/>
+                <param name="inputC"/>
+                <param name="outputD"/>
+            </parameters>
+            <body>
+                <Acquire name="elementC"><call><method ref="inputC" name="acquire"><arg><const>1</const></arg></method></call></Acquire>
+                <Acquire name="elementD"><call><method ref="outputD" name="acquire"><arg><const>1</const></arg></method></call></Acquire>
+                <Call>
+                    <function ref="relu_activation">
+                        <arg><var ref="elementC"/></arg>
+                        <arg><var ref="elementD"/></arg>
+                    </function>
+                </Call>
+                <Release><call><method ref="inputC" name="release"><arg><const>1</const></arg></method></call></Release>
+                <Release><call><method ref="outputD" name="release"><arg><const>1</const></arg></method></call></Release>
+            </body>
+        </CoreFunction>
+
+        <!-- Workers -->
+        <Worker name="A1_B1_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A1A2_col0"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B1B2_col0"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_1"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>0</const></arg><arg><const>5</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A2_B2_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A1A2_col0"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B1B2_col0"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_2"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>0</const></arg><arg><const>3</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A3_B3_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A3A4_col1"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B3B4_col1"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_3"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>1</const></arg><arg><const>5</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A4_B4_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A3A4_col1"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B3B4_col1"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_4"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>1</const></arg><arg><const>3</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A5_B5_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A5A6_col2"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B5B6_col2"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_5"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>2</const></arg><arg><const>5</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A6_B6_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A5A6_col2"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B5B6_col2"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_6"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>2</const></arg><arg><const>3</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A7_B7_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A7A8_col3"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B7B8_col3"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_7"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>3</const></arg><arg><const>5</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="A8_B8_worker">
+            <core_fn ref="eltwise_add"/>
+            <fn_args>
+                <arg><var ref="element_wise_add"/></arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_A7A8_col3"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L2_L1_B7B8_col3"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_8"/></base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>3</const></arg><arg><const>3</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C1_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_1"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D1D2_col0"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>0</const></arg><arg><const>4</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C2_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_2"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D1D2_col0"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>0</const></arg><arg><const>2</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C3_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_3"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D3D4_col1"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>1</const></arg><arg><const>4</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C4_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_4"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D3D4_col1"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>1</const></arg><arg><const>2</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C5_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_5"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D5D6_col2"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>2</const></arg><arg><const>4</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C6_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_6"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D5D6_col2"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>2</const></arg><arg><const>2</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C7_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_7"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D7D8_col3"/></base>
+                                <index_value><const>0</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>3</const></arg><arg><const>4</const></arg></constructor></placement>
+        </Worker>
+
+        <Worker name="C8_worker">
+            <core_fn ref="relu"/>
+            <fn_args>
+                <arg><var ref="relu_activation"/></arg>
+                <arg>
+                    <method_chain>
+                        <base><var ref="L1_L1_elwiseadd_relu_8"/></base>
+                        <call><method name="cons"/></call>
+                    </method_chain>
+                </arg>
+                <arg>
+                    <method_chain>
+                        <base>
+                            <index>
+                                <base><var ref="MEM_L1_L2_D7D8_col3"/></base>
+                                <index_value><const>1</const></index_value>
+                            </index>
+                        </base>
+                        <call><method name="prod"/></call>
+                    </method_chain>
+                </arg>
+            </fn_args>
+            <placement><constructor ref="Tile"><arg><const>3</const></arg><arg><const>2</const></arg></constructor></placement>
+        </Worker>
+
+        <!-- Runtime -->
+        <Runtime name="rt">
+            <instance>
+                <constructor ref="Runtime"/>
+            </instance>
+        </Runtime>
+
+        <!-- Workers List -->
+        <List name="Workers">
+            <items>
+                <var ref="A1_B1_worker"/>
+                <var ref="A2_B2_worker"/>
+                <var ref="A3_B3_worker"/>
+                <var ref="A4_B4_worker"/>
+                <var ref="A5_B5_worker"/>
+                <var ref="A6_B6_worker"/>
+                <var ref="A7_B7_worker"/>
+                <var ref="A8_B8_worker"/>
+                <var ref="C1_worker"/>
+                <var ref="C2_worker"/>
+                <var ref="C3_worker"/>
+                <var ref="C4_worker"/>
+                <var ref="C5_worker"/>
+                <var ref="C6_worker"/>
+                <var ref="C7_worker"/>
+                <var ref="C8_worker"/>
+            </items>
+        </List>
+
+        <!-- Runtime Sequence Block -->
+        <SequenceBlock>
+            <context>
+                <call>
+                    <method ref="rt" name="sequence">
+                        <arg type_ref="chunk_a"/>
+                        <arg type_ref="chunk_b"/>
+                        <arg type_ref="chunk_d"/>
+                    </method>
+                </call>
+            </context>
+            <bindings>
+                <bind name="A" type_ref="chunk_a"/>
+                <bind name="B" type_ref="chunk_b"/>
+                <bind name="D" type_ref="chunk_d"/>
+            </bindings>
+            <body>
+                <Operation name="start">
+                    <target><method ref="rt" name="start"/></target>
+                    <args>
+                        <arg><var ref="Workers"/></arg>
+                    </args>
+                </Operation>
+
+                <!-- Fill A -->
+                <Operation name="fill_A_col0">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_A1A2_col0"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="A"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputA" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><const>0</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_A_col1">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_A3A4_col1"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="A"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputA" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><const>1</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_A_col2">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_A5A6_col2"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="A"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputA" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><const>2</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_A_col3">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_A7A8_col3"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="A"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputA" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><const>3</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputA" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputA" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <!-- Fill B -->
+                <Operation name="fill_B_col0">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_B1B2_col0"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="B"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputB" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><const>0</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_B_col1">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_B3B4_col1"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="B"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputB" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><const>1</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_B_col2">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_B5B6_col2"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="B"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputB" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><const>2</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="fill_B_col3">
+                    <target><method ref="rt" name="fill"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="in_fifo"><var ref="SHIM_L3_L2_B7B8_col3"/>.<method name="prod"/></kwarg>
+                        <kwarg name="source"><var ref="B"/></kwarg>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="inputB" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><const>3</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="inputB" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="inputB" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <!-- Drain D -->
+                <Operation name="drain_D_col0">
+                    <target><method ref="rt" name="drain"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>0</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="out_fifo"><var ref="SHIM_L2_L3_D1D2_col0"/>.<method name="cons"/></kwarg>
+                        <kwarg name="dest"><var ref="D"/></kwarg>
+                        <kwarg name="wait" value="True"/>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="outputD" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><const>0</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="drain_D_col1">
+                    <target><method ref="rt" name="drain"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>1</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="out_fifo"><var ref="SHIM_L2_L3_D3D4_col1"/>.<method name="cons"/></kwarg>
+                        <kwarg name="dest"><var ref="D"/></kwarg>
+                        <kwarg name="wait" value="True"/>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="outputD" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><const>1</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="drain_D_col2">
+                    <target><method ref="rt" name="drain"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>2</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="out_fifo"><var ref="SHIM_L2_L3_D5D6_col2"/>.<method name="cons"/></kwarg>
+                        <kwarg name="dest"><var ref="D"/></kwarg>
+                        <kwarg name="wait" value="True"/>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="outputD" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><const>2</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+                <Operation name="drain_D_col3">
+                    <target><method ref="rt" name="drain"/></target>
+                    <args>
+                        <kwarg name="placement"><constructor ref="Tile"><arg><const>3</const></arg><arg><const>0</const></arg></constructor></kwarg>
+                        <kwarg name="out_fifo"><var ref="SHIM_L2_L3_D7D8_col3"/>.<method name="cons"/></kwarg>
+                        <kwarg name="dest"><var ref="D"/></kwarg>
+                        <kwarg name="wait" value="True"/>
+                        <kwarg name="tap">
+                            <constructor ref="TensorAccessPattern">
+                                <kwarg name="tensor_dims"><list><method ref="outputD" name="numel"/></list></kwarg>
+                                <kwarg name="offset"><binary_op op="*"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><const>3</const></binary_op></kwarg>
+                                <kwarg name="sizes">
+                                    <list>
+                                        <binary_op op="//"><binary_op op="//"><method ref="outputD" name="numel"/><const>4</const></binary_op><binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op></binary_op>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                    </list>
+                                </kwarg>
+                                <kwarg name="strides">
+                                    <list>
+                                        <binary_op op="//"><method ref="outputD" name="numel"/><const>8</const></binary_op>
+                                        <const>1</const>
+                                    </list>
+                                </kwarg>
+                            </constructor>
+                        </kwarg>
+                    </args>
+                </Operation>
+
+            </body>
+        </SequenceBlock>
+
+        <!-- Program -->
+        <Program name="my_program">
+            <constructor>
+                <call>
+                    <constructor ref="Program">
+                        <arg><call><function ref="iron.get_current_device"/></call></arg>
+                        <arg><var ref="rt"/></arg>
+                    </constructor>
+                </call>
+            </constructor>
+        </Program>
+
+        <!-- Resolve Program -->
+        <ResolveProgram>
+            <target>
+                <method ref="my_program" name="resolve_program">
+                    <arg><constructor ref="SequentialPlacer"/></arg>
+                </method>
+            </target>
+            <returns><symbol ref="my_program_resolved"/></returns>
+        </ResolveProgram>
+
+    </DataFlow>
+
+    <!-- =================================== -->
+    <!-- JIT FUNCTION DEFINITION             -->
+    <!-- =================================== -->
+    <Function name="base_aaa" decorator="iron.jit">
+        <parameters>
+            <param name="inputA" type_ref="data_a_ty"/>
+            <param name="inputB" type_ref="data_b_ty"/>
+            <param name="outputD" type_ref="data_d_ty"/>
+        </parameters>
+        <attributes>
+            <kwarg name="is_placed" value="False"/>
+        </attributes>
+        <body>
+            <!-- Type definitions -->
+            <UseDataFlow>
+                <UseType name="data_a_ty"/>
+                <UseType name="data_b_ty"/>
+                <UseType name="data_d_ty"/>
+                <UseType name="chunk_a"/>
+                <UseType name="chunk_b"/>
+                <UseType name="chunk_d"/>
+                <UseType name="chunk_a_worker"/>
+                <UseType name="chunk_b_worker"/>
+                <UseType name="chunk_d_worker"/>
+                <!-- All ObjectFifos, Workers, Runtime, Program -->
+            </UseDataFlow>
+
+            <Return>
+                <var ref="my_program_resolved"/>
+            </Return>
+        </body>
+    </Function>
+
+    <!-- =================================== -->
+    <!-- MAIN FUNCTION                       -->
+    <!-- =================================== -->
+    <Function name="main">
+        <body>
+            <Assign>
+                <target>datatype</target>
+                <source><var ref="bfloat16"/></source>
+            </Assign>
+
+            <Assign>
+                <target>data_size</target>
+                <source><const>128</const></source>
+            </Assign>
+
+            <Assign>
+                <target>inputA</target>
+                <source>
+                    <call>
+                        <function ref="iron.arange">
+                            <arg><var>data_size</var></arg>
+                            <kwarg name="dtype"><var>datatype</var></kwarg>
+                            <kwarg name="device"><string>"npu"</string></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>inputB</target>
+                <source>
+                    <call>
+                        <function ref="iron.arange">
+                            <arg><var>data_size</var></arg>
+                            <kwarg name="dtype"><var>datatype</var></kwarg>
+                            <kwarg name="device"><string>"npu"</string></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>outputD</target>
+                <source>
+                    <call>
+                        <function ref="iron.zeros">
+                            <arg><var>data_size</var></arg>
+                            <kwarg name="dtype"><var>datatype</var></kwarg>
+                            <kwarg name="device"><string>"npu"</string></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- Execute JIT -->
+            <Call>
+                <function ref="base_aaa">
+                    <arg><var>inputA</var></arg>
+                    <arg><var>inputB</var></arg>
+                    <arg><var>outputD</var></arg>
+                </function>
+            </Call>
+
+            <!-- Print output -->
+            <Print>
+                <var>outputD</var>
+            </Print>
+
+            <!-- Validation -->
+            <Assign>
+                <target>inputA_data</target>
+                <source>
+                    <call>
+                        <function name="np.arange">
+                            <arg><var>data_size</var></arg>
+                            <kwarg name="dtype"><const>np.float32</const></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>inputB_data</target>
+                <source>
+                    <call>
+                        <function name="np.arange">
+                            <arg><var>data_size</var></arg>
+                            <kwarg name="dtype"><const>np.float32</const></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>expected</target>
+                <source>
+                    <call>
+                        <function name="np.maximum">
+                            <arg><const>0</const></arg>
+                            <arg><binary_op op="+"><var>inputA_data</var><var>inputB_data</var></binary_op></arg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <Assign>
+                <target>actual</target>
+                <source>
+                    <call>
+                        <function name="np.asarray">
+                            <arg><var>outputD</var></arg>
+                            <kwarg name="dtype"><const>np.float32</const></kwarg>
+                        </function>
+                    </call>
+                </source>
+            </Assign>
+
+            <!-- Print comparison -->
+            <Print>
+                <string>'Element-by-element comparison:'</string>
+            </Print>
+
+            <For var="i" range="range(data_size)">
+                <Print>
+                    <fstring>f'Expected = ReLU({{inputA_data[i]:.1f}} + {{inputB_data[i]:.1f}}) = {{expected[i]:.1f}} : Received = {{actual[i]:.1f}}'</fstring>
+                </Print>
+            </For>
+
+            <Assign>
+                <target>tolerance</target>
+                <source><const>1e-3</const></source>
+            </Assign>
+
+            <Assign>
+                <target>mismatches</target>
+                <source>
+                    <index>
+                        <base>
+                            <call>
+                                <function name="np.where">
+                                    <arg>
+                                        <unary_op op="~">
+                                            <call>
+                                                <function name="np.isclose">
+                                                    <arg><var>actual</var></arg>
+                                                    <arg><var>expected</var></arg>
+                                                    <kwarg name="rtol"><var>tolerance</var></kwarg>
+                                                </function>
+                                            </call>
+                                        </unary_op>
+                                    </arg>
+                                </function>
+                            </call>
+                        </base>
+                        <index_value><const>0</const></index_value>
+                    </index>
+                </source>
+            </Assign>
+
+            <If condition="len(mismatches) == 0">
+                <then>
+                    <Print>
+                        <fstring>'Validation passed: Output matches expected for all 128 elements'</fstring>
+                    </Print>
+                </then>
+                <else>
+                    <Print>
+                        <fstring>f'Validation failed: {{len(mismatches)}} mismatches found'</fstring>
+                    </Print>
+                    <For var="idx" range="mismatches[:5]">
+                        <Print>
+                            <fstring>f'Index {{idx}}: actual={{actual[idx]:.1f}}, expected={{expected[idx]:.1f}}'</fstring>
+                        </Print>
+                    </For>
+                    <If condition="len(mismatches) &gt; 5">
+                        <then>
+                            <Print>
+                                <fstring>f'... and {{len(mismatches) - 5}} more mismatches'</fstring>
+                            </Print>
+                        </then>
+                    </If>
+                </else>
+            </If>
+
+        </body>
+    </Function>
+
+    <!-- =================================== -->
+    <!-- ENTRY POINT                         -->
+    <!-- =================================== -->
+    <EntryPoint>
+        <If condition="__name__ == '__main__'">
+            <Call>
+                <function ref="main"/>
+            </Call>
+        </If>
+    </EntryPoint>
+
+</Module>

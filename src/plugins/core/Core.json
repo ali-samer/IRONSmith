@@ -1,0 +1,9 @@
+{
+  "Id" : "core",
+  "DisplayName" : "Core",
+  "Name" : "Core",
+  "Version" : "1.0.0",
+  "Description" : "Core plugin for the AIECAD application.",
+  "Category" : "Core",
+  "Dependencies" : [ ]
+}

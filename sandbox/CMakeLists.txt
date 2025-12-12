@@ -1,0 +1,5 @@
+add_executable(ironsmith_sandbox main.cpp)
+
+target_compile_features(ironsmith_sandbox PRIVATE cxx_std_23)
+
+set_target_properties(ironsmith_sandbox PROPERTIES OUTPUT_NAME IRONSmithSandbox)

@@ -1,0 +1,67 @@
+<?xml version="1.0" ?>
+<Module name="passthroughjit">
+    <Symbols>
+        <TypeAbstraction name="vector_ty">
+            <ndarray>
+                <shape>N</shape>
+                <dtype>int32</dtype>
+            </ndarray>
+        </TypeAbstraction>
+        <TypeAbstraction name="line_ty">
+            <ndarray>
+                <shape>N // 4</shape>
+                <dtype>int32</dtype>
+            </ndarray>
+        </TypeAbstraction>
+    </Symbols>
+    <DataFlow>
+        <ObjectFifo name="of_in">
+            <type>line_ty</type>
+            <depth>2</depth>
+        </ObjectFifo>
+        <ObjectFifoForward name="of_out" source="of_in"/>
+        <Runtime name="runtime">
+            <Sequence inputs="vector_ty, vector_ty" as="inputA, outputC">
+                <Fill target="of_in" source="inputA" use_tap="false">
+                    <placement>Tile(0, 0)</placement>
+                </Fill>
+                <Drain source="of_out" target="outputC" use_tap="false">
+                    <placement>Tile(0, 0)</placement>
+                    <wait>true</wait>
+                </Drain>
+            </Sequence>
+        </Runtime>
+        <Program name="program">
+            <device>current_device</device>
+            <runtime>runtime</runtime>
+            <placer>SequentialPlacer</placer>
+        </Program>
+    </DataFlow>
+    <Function name="jit_function" decorator="iron.jit" entry="passthroughjit_jit">
+        <parameters>
+            <param name="inputA" type="vector_ty"/>
+            <param name="outputC" type="vector_ty"/>
+        </parameters>
+        <body>
+            <UseDataFlow/>
+            <Return>program</Return>
+        </body>
+    </Function>
+    <Function name="main_function" entry="main">
+        <body>
+            <Assign name="N" value="4096"/>
+            <Tensor name="inputA">
+                <init>iron.arange(N, dtype=np.int32, device=&quot;npu&quot;)</init>
+            </Tensor>
+            <Tensor name="outputC">
+                <init>iron.zeros(N, dtype=np.int32, device=&quot;npu&quot;)</init>
+            </Tensor>
+            <Call function="jit_function" args="inputA, outputC"/>
+        </body>
+    </Function>
+    <EntryPoint>
+        <If condition="__name__ == '__main__'">
+            <Call function="main_function"/>
+        </If>
+    </EntryPoint>
+</Module>
