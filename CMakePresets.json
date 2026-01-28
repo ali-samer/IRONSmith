@@ -1,0 +1,70 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+
+        "BUILD_WITH_TESTS": "OFF",
+        "BUILD_WITH_PCH": "ON",
+        "BUILD_WITH_SANITIZE": "OFF",
+        "SANITIZE_FLAGS": ""
+      }
+    },
+    {
+      "name": "dev-debug",
+      "displayName": "IRONSmith Dev (Debug)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_WITH_TESTS": "ON"
+      }
+    },
+    {
+      "name": "dev-release",
+      "displayName": "IRONSmith Dev (Release)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "dev-asan",
+      "displayName": "IRONSmith Dev (ASan/UBSan, Debug)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_WITH_TESTS": "ON",
+        "BUILD_WITH_SANITIZE": "ON",
+        "SANITIZE_FLAGS": "-fsanitize=address,undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "build-dev-debug", "configurePreset": "dev-debug" },
+    { "name": "build-dev-release", "configurePreset": "dev-release" },
+    { "name": "build-dev-asan", "configurePreset": "dev-asan" }
+  ],
+  "testPresets": [
+    {
+      "name": "test-dev-debug",
+      "configurePreset": "dev-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-dev-asan",
+      "configurePreset": "dev-asan",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

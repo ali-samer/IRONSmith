@@ -1,0 +1,23 @@
+cmake-build-debug/
+out/
+src.bak/
+build/
+cmake-build-*/
+
+# Python venv
+.venv/
+ironvenv/
+ironenv/
+
+# IDE editor settings
+.vscode/
+.idea/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Workflow files
+.pre-commit-config.yaml
+!.gitignore
+!.github/

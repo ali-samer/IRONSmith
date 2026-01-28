@@ -1,88 +1,96 @@
 cmake_minimum_required(VERSION 3.27)
 
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# --------------------------------------------------------------------
-# FeatureSummary module is used to display enabled/disabled plugins of
-# the IRONSMITH tool as final summary in cmake output
-# --------------------------------------------------------------------
-include(FeatureSummary)
+include(IRONSmithBrandingProfile)
 
-# --------------------------------------------------------------------
-# IRONSMITH CMake modules
-# --------------------------------------------------------------------
-include(IRONSMITHBrandingProfile)
-include(IRONSMITHAPI)
+project(IRONSmith
+        VERSION   ${IRONSMITH_VERSION}
+        LANGUAGES CXX
+)
 
-if (NOT DEFINED IRONSMITH_ABSTRACT_SUMMARY)
-    message(STATUS "IRONSmith Version: ${IRONSMITH_VERSION_DISPLAY}")
-    set(IRONSMITH_ABSTRACT_SUMMARY TRUE CACHE INTERNAL "IRONSmith configuration abstract message")
-endif ()
-
-project(IRONSMITH VERSION ${IRONSMITH_VERSION} LANGUAGES CXX)
-set(TOP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
-# --------------------------------------------------------------------
-# Global Settings
-# --------------------------------------------------------------------
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# --------------------------------------------------------------------
-# Qt's Meta-object, Resource, and UI Compilers
-# --------------------------------------------------------------------
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# --------------------------------------------------------------------
-# Project options
-# --------------------------------------------------------------------
-option(IRONSMITH_BUILD_TESTS "Build IRONSmith tests" ON)
-option(IRONSMITH_BUILD_SANDBOX "Build the sandbox application" ON)
-option(IRONSMITH_STATIC_BUILD "(advanced) Build IRONSmith libraries as static. It's discouraged to \"
-                            build IRONSmith libraries as static since the ABI is not guaranteed to be stable \"
-                            in early development." OFF)
+function(env_with_default _env_name _out_var _default)
+    if (DEFINED ENV{${_env_name}})
+        set(${_out_var} "$ENV{${_env_name}}" PARENT_SCOPE)
+    else()
+        set(${_out_var} "${_default}" PARENT_SCOPE)
+    endif()
+endfunction()
 
-option(IRONSMITH_BUILD_PLUGINS_BY_DEFAULT "(advanced) Build plugins by default" ON)
-option(IRONSMITH_BUILD_LIBRARIES_BY_DEFAULT "(advanced) Build libraries by default" ON)
+env_with_default("BUILD_WITH_TESTS"    _BUILD_WITH_TESTS_DEFAULT    OFF)
+env_with_default("BUILD_WITH_PCH"      _BUILD_WITH_PCH_DEFAULT      ON)
+env_with_default("BUILD_WITH_SANITIZE" _BUILD_WITH_SANITIZE_DEFAULT OFF)
 
-mark_as_advanced(IRONSMITH_STATIC_BUILD IRONSMITH_BUILD_PLUGINS_BY_DEFAULT IRONSMITH_BUILD_LIBRARIES_BY_DEFAULT)
+option(BUILD_WITH_TESTS     "Build with tests"                             ${_BUILD_WITH_TESTS_DEFAULT})
+option(BUILD_WITH_PCH       "Build with precompiled headers"              ${_BUILD_WITH_PCH_DEFAULT})
+option(BUILD_WITH_SANITIZE  "Build with sanitizer enabled (Debug builds)"  ${_BUILD_WITH_SANITIZE_DEFAULT})
 
-# --------------------------------------------------------------------
-# Find Qt (use system-installed Qt; Conan is not used for Qt)
-# --------------------------------------------------------------------
+set(SANITIZE_FLAGS "" CACHE STRING "Additional sanitizer flags (e.g., -fsanitize=address,undefined)")
+
+if (BUILD_WITH_TESTS)
+    set(_QT_TEST_COMPONENT Test)
+endif()
+
 find_package(Qt6 REQUIRED
-        COMPONENTS Widgets Core Gui OpenGL
+        COMPONENTS
+        Core
+        Gui
+        Widgets
+        Network
+        Xml
+        Concurrent
+        ${_QT_TEST_COMPONENT}
+)
+set(QT6_REQUIRED_COMPONENTS Qt6::Core Qt6::Widgets Qt6::Gui)
+
+find_package(Qt6 OPTIONAL_COMPONENTS
+        Qml
+        Quick
+        QuickWidgets
+        Sql
+        Svg
+        PrintSupport
+        LinguistTools
+        Help
+        SerialPort
+        Designer
+        DesignerComponents
+        QUIET
 )
 
-set(QT_REQUIRED_LIBS
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        Qt6::OpenGL
-)
+include(IRONSmithAPI)
 
-# --------------------------------------------------------------------
-# Subdirectories
-# --------------------------------------------------------------------
-add_subdirectory(src)
-if(IRONSMITH_BUILD_SANDBOX)
-    add_subdirectory(sandbox)
+if (BUILD_WITH_SANITIZE)
+    if (SANITIZE_FLAGS STREQUAL "")
+        message(FATAL_ERROR
+                "BUILD_WITH_SANITIZE=ON but SANITIZE_FLAGS is empty. "
+                "Example: -DSANITIZE_FLAGS=-fsanitize=address,undefined"
+        )
+    endif()
+
+    add_library(iron_sanitize_flags INTERFACE)
+    target_compile_options(iron_sanitize_flags INTERFACE
+            $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:${SANITIZE_FLAGS}>
+    )
+    target_link_options(iron_sanitize_flags INTERFACE
+            $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:${SANITIZE_FLAGS}>
+    )
 endif()
 
-if(IRONSMITH_BUILD_TESTS)
+if (BUILD_WITH_TESTS)
     enable_testing()
-    include(IRONSMITH_Tests)
+    set(TOP_DIR "${PROJECT_SOURCE_DIR}")
+    include(IRONSmithTests)
 endif()
 
-# --------------------------------------------------------------------
-# Packaging (CPack)
-# --------------------------------------------------------------------
-include(cmake/packaging/PackageConfig.cmake)
+add_subdirectory(src)

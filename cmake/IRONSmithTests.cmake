@@ -29,17 +29,13 @@ target_include_directories(ironsmith_test_support
         ${GTEST_INCLUDE_DIRS}
 )
 
+#get_property(IRONSMITH_LIBRARIES GLOBAL PROPERTY IRONSMITH_LIBRARIES)
+#get_property(IRONSMITH_PLUGINS GLOBAL PROPERTY IRONSMITH_PLUGINS)
+
 target_link_libraries(ironsmith_test_support
-        PUBLIC
-        ${IRONSMITH_DEPENDENCIES}
-        ${IRONSMITH_LIBRARIES}
-        ${IRONSMITH_PLUGINS}
+    PUBLIC
         ${LIBGMOCK_LIBRARIES}
+        ${QT6_REQUIRED_LIBS}
 )
 
 include(IRONSmithFunctions)
-
-ironsmith_define_tests(
-        DIRECTORY tests/common/
-            TEST Dummy SOURCES Dummy.cpp
-)

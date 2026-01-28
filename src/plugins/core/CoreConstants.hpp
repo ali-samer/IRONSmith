@@ -1,0 +1,43 @@
+#pragma once
+
+#include <QtGlobal>
+
+namespace Core {
+namespace Constants {
+
+// NOTE: These must be treated as stable IDs. They will end up in settings/layout persistence and action bindings.
+
+inline constexpr char CORE_ID[] = "IRONSmith.Core";
+inline constexpr char CORE_VERSION[] = "1.0.0";
+
+inline constexpr char MAIN_WINDOW_OBJECT_NAME[] = "IRONSmithMainWindow";
+inline constexpr int DEFAULT_MAIN_WINDOW_WIDTH = 1100;
+inline constexpr int DEFAULT_MAIN_WINDOW_HEIGHT = 700;
+
+// Frame regions (MainWindow central widget)
+inline constexpr char FRAME_WIDGET[] = "IRONSmith.Frame";
+inline constexpr char FRAME_MENU[] = "IRONSmith.Menu";
+inline constexpr char FRAME_RIBBON[] = "IRONSmith.Frame.Ribbon";
+inline constexpr char FRAME_PLAYGROUND[] = "IRONSmith.Frame.Playground";
+
+// Ribbon tabs/pages
+inline constexpr char RIBBON_TAB_HOME[] = "IRONSmith.Ribbon.Home";
+inline constexpr char RIBBON_TAB_VIEW[] = "IRONSmith.Ribbon.View";
+inline constexpr char RIBBON_TAB_OUTPUT[] = "IRONSmith.Ribbon.Output";
+
+inline constexpr char RIBBON_TAB_HOME_PROJECT_GROUP[] = "IRONSmith.Ribbon.Home.ProjectGroup";
+
+// Playground regions
+inline constexpr char PLAYGROUND_WIDGET[] = "IRONSmith.Playground";
+inline constexpr char PLAYGROUND_HEADER[] = "IRONSmith.Playground.HeaderBar";
+inline constexpr char PLAYGROUND_STATUS[] = "IRONSmith.Playground.StatusBar";
+inline constexpr char PLAYGROUND_CENTER[] = "IRONSmith.Playground.CenterHost";
+
+// Sidebars (rails + overlay panels)
+inline constexpr char SIDEBAR_LEFT_RAIL[] = "IRONSmith.Sidebar.Left.Rail";
+inline constexpr char SIDEBAR_RIGHT_RAIL[] = "IRONSmith.Sidebar.Right.Rail";
+inline constexpr char SIDEBAR_LEFT_PANEL[] = "IRONSmith.Sidebar.Left.Panel";
+inline constexpr char SIDEBAR_RIGHT_PANEL[] = "IRONSmith.Sidebar.Right.Panel";
+
+} // namespace Core
+} // namespace Constants

@@ -1,0 +1,46 @@
+#pragma once
+
+#include <QtCore/QHash>
+#include <QtCore/QPointer>
+#include <QtWidgets/QWidget>
+
+class QStackedWidget;
+
+namespace Core {
+
+class CommandRibbon;
+class CommandRibbonPage;
+class CommandRibbonGroup;
+class RibbonNode;
+
+class CommandRibbonWidget final : public QWidget
+{
+	Q_OBJECT
+
+public:
+	explicit CommandRibbonWidget(QWidget* parent = nullptr);
+
+	void setModel(CommandRibbon* model);
+	CommandRibbon* model() const { return m_model; }
+
+private slots:
+	void rebuildAll();
+	void syncActivePage();
+
+private:
+	QWidget* buildPageWidget(CommandRibbonPage* page);
+	QWidget* buildGroupWidget(CommandRibbonGroup* group);
+
+	QWidget* buildNodeWidget(const RibbonNode& node, QWidget* parent);
+	QWidget* buildLeafCommandWidget(const RibbonNode& node, QWidget* parent);
+	QWidget* buildLeafWidgetFactoryWidget(const RibbonNode& node, QWidget* parent);
+	QWidget* buildSeparatorWidget(Qt::Orientation parentLayoutOrientation, QWidget* parent);
+
+private:
+	QPointer<CommandRibbon> m_model;
+	QStackedWidget* m_stack = nullptr;
+
+	QHash<QString, int> m_pageIndex;
+};
+
+} // namespace Core

@@ -1,29 +1,45 @@
-cmake_minimum_required(VERSION 3.27)
-
-project(ironsmith_core_plugin LANGUAGES CXX)
-
-# This assumes IRONSMITH_PLUGIN_INSTALL_DIR is defined at the top level,
-# e.g. "lib/ironsmith/plugins".
-set(IRONSMITH_PLUGIN_RUNTIME_DIR "${CMAKE_BINARY_DIR}/${IRONSMITH_PLUGIN_INSTALL_DIR}")
-
 ironsmith_add_plugin(CorePlugin
-        PLUGIN_NAME Core
-        PRIVATE_DEPENDS
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        IRONSmith::ExtensionSystem
-        IRONSmith::NodeEditor
+        PLUGIN_NAME core
+        PLUGIN_CLASS IRONSmith::Core::CorePlugin
+
         SOURCES
-        core.cpp
-        core.hpp
-        Core.json
+        #-== Core Plugin Definition ==-#
+            CorePlugin.hpp
+            CorePlugin.cpp
+            ICore.hpp
+            CoreImpl.cpp
+            CoreImpl.hpp
+            CoreConstants.hpp
+            CoreGlobal.hpp
+
+        #-== Globar Menu Bar ==-#
+            GlobalMenuBar.hpp
+            GlobalMenuBar.cpp
+
+        #-== Command Ribbon ==-#
+            CommandRibbon.hpp
+            CommandRibbon.cpp
+
+        #-== Status Bar ==-#
+            StatusBarField.hpp
+            StatusBarField.cpp
+
+        #-== Side Bar ==-#
+            SidebarModel.hpp
+            SidebarModel.cpp
+            SidebarRegistryImpl.hpp
+            SidebarRegistryImpl.cpp
+
+        PUBLIC_DEPENDS
+            ${QT6_REQUIRED_COMPONENTS}
+            ExtensionSystem
+            Utils
 )
 
-# Ensure the JSON metadata is present in the runtime plugin directory
-# where PluginManager::setPluginPaths points.
-configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core.json
-        ${IRONSMITH_PLUGIN_RUNTIME_DIR}/Core.json
-        COPYONLY
-)
+add_subdirectory(ui)
+add_subdirectory(widgets)
+add_subdirectory(api)
+
+if (BUILD_WITH_TESTS)
+    add_subdirectory(tests)
+endif ()

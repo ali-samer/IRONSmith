@@ -1,0 +1,373 @@
+/* Container */
+QWidget#MenuHost {
+/*    background: #1e2022;*/
+    background: #191919;
+    border-bottom: 1px solid #27313B;
+}
+
+/* Tab buttons */
+QWidget#MenuHost QToolButton {
+    background: transparent;
+    color: #B8C4D2;
+
+    border: 1px solid transparent;
+    border-bottom: none;
+
+    padding: 7px 14px 5px 14px;
+    margin: 5px 0px 0px 0px;
+
+    font-family: "Segoe UI", "SF Pro Text", "Roboto", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Hover */
+QWidget#MenuHost QToolButton:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #E3ECF7;
+}
+
+/* Selected tab (dark blue, not brighter than the strip) */
+QWidget#MenuHost QToolButton:checked {
+    background: #214283;
+    border-color: #2E4760;
+    color: #FFFFFF;
+}
+
+/* Selected + hover */
+QWidget#MenuHost QToolButton:checked:hover {
+    background: #1A3147;
+    border-color: #355372;
+}
+
+/* Keyboard focus */
+QWidget#MenuHost QToolButton:focus {
+    border-color: #3A7BFF;
+}
+
+/* Disabled */
+QWidget#MenuHost QToolButton:disabled {
+    color: rgba(184, 196, 210, 0.35);
+}
+
+/* Ribbon container */
+QWidget#RibbonHost {
+    background: #1e2022;
+    border-top: 1px solid #36404A;     /* separates from menu strip */
+    border-bottom: 1px solid #36404A;  /* separates from playground */
+}
+
+/* Ribbon page container */
+QWidget#RibbonPage {
+    background: transparent;
+}
+
+/* Groups: no box, just separators between groups */
+QFrame#RibbonGroup {
+    background: transparent;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Group title strip at bottom */
+QLabel#RibbonGroupTitle {
+    color: #AEB6C0;
+    font-size: 11px;
+
+    background: rgba(0, 0, 0, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+    padding: 2px 8px;
+    min-height: 18px;
+}
+
+/* Ribbon command tiles: icon region + caption strip */
+QWidget#RibbonCommandTile {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+}
+
+QWidget#RibbonCommandTile[ribbonHover="true"] {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+QWidget#RibbonCommandTile[ribbonPressed="true"] {
+    background: rgba(0, 0, 0, 0.22);
+}
+
+QWidget#RibbonCommandTile[ribbonChecked="true"] {
+    background: rgba(70, 140, 255, 0.14);
+    border-color: rgba(70, 140, 255, 0.28);
+}
+
+QLabel#RibbonCommandIcon {
+    background: transparent;
+}
+
+/* Command caption: plain text, no strip */
+QLabel#RibbonCommandCaption {
+    color: #E6EAF0;
+    background: transparent;
+    border: none;
+    padding: 0px 8px 6px 8px;   /* just spacing, no “strip” */
+}
+
+QWidget#RibbonCommandTile:disabled QLabel#RibbonCommandCaption {
+    color: rgba(230, 234, 240, 0.35);
+/*    color: white*/
+    background: transparent;
+    border: none;
+}
+
+QWidget#PlaygroundRoot {
+    background: #0F1214;
+}
+
+QWidget#PlaygroundTopBar, QWidget#PlaygroundTopBar * ,
+QWidget#PlaygroundBottomBar, QWidget#PlaygroundBottomBar * ,
+QWidget#CenterHost, QWidget#CenterHost * {
+    font-family: Menlo, "SF Mono", Monaco, Consolas, monospace;
+    font-size: 12px;
+}
+
+/* Center host (main stage background) */
+QWidget#CenterHost {
+/*    background: #0A0E15;*/
+    background: #121316;
+}
+
+/* Base host remains the “canvas” background */
+QWidget#BaseHost {
+    background: transparent;
+}
+
+/* Overlay host must stay transparent */
+QWidget#OverlayHost {
+    background: transparent;
+}
+
+/* Sidebars keep their own look (no Menlo forced here) */
+QWidget#LeftSidebarHost,
+QWidget#RightSidebarHost {
+    background: #26282A;
+}
+
+/* Top bar */
+QWidget#PlaygroundTopBar {
+/*    background: #0C1118;*/
+/*    background: #090e16;*/
+    background: #121316;
+/*    border-bottom: 1px solid #2A3440;*/
+}
+
+/* Bottom bar (status/info bar) */
+QWidget#PlaygroundBottomBar {
+/*    background: #0C1118;*/
+/*    background: #090e16;*/
+    background: #121316;
+/*    border-top: 1px solid #2A3440;*/
+}
+
+/* The reusable bar widget itself */
+QWidget#InfoBar {
+    background: transparent;
+}
+
+QWidget#StatusBarField {
+    background: transparent;
+}
+
+/* LABEL part (e.g., MODE:) */
+QLabel#StatusBarFieldLabel {
+    color: rgba(230, 234, 240, 0.55);
+    font-weight: 600;
+    background: transparent;
+}
+
+/* VALUE part (e.g., VIEW) */
+QLabel#StatusBarFieldValue {
+    color: rgba(230, 234, 240, 0.90);
+    font-weight: 500;
+    background: transparent;
+}
+
+QWidget#LeftSidebarHost,
+QWidget#RightSidebarHost {
+    background: #15181A;
+}
+
+QWidget#SidebarInstallHost {
+    background: transparent;
+}
+
+QWidget#SidebarResizeGrip {
+    background: transparent;
+}
+
+QWidget#LeftSidebarHost {
+    background: #15181A;
+    border-top-right-radius: 40px;
+    border-bottom-right-radius: 40px;
+    border-right: 1px solid #30363D;   /* separator line follows curve */
+}
+
+QWidget#RightSidebarHost {
+    background: #15181A;
+    border-top-left-radius: 40px;
+    border-bottom-left-radius: 40px;
+    border-left: 1px solid #30363D;    /* separator line follows curve */
+}
+
+QWidget#SidebarResizeGrip {
+    background: transparent;
+    border: none;
+}
+
+/* Rail widget itself */
+QWidget#ToolRail {
+    background: transparent;
+}
+
+/* Rail tool buttons */
+QToolButton#RailToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px;
+    margin: 0px;              /* centers the 32x32 tile inside the rail */
+}
+
+QToolButton#RailToolButton:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+QToolButton#RailToolButton:checked {
+    background: rgba(88, 166, 255, 0.18);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+}
+QToolButton#RailToolButton {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+QToolButton#RailToolButton {
+    color: #C3CAD2;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+QToolButton#RailToolButton:checked {
+    color: #E4E9EF;
+}
+
+QWidget#LeftSidebarHost {
+    background: #15181A;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+QWidget#RightSidebarHost {
+    background: #15181A;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+QWidget#SidebarInstallHost,
+QWidget#ToolRail,
+QWidget#ToolRailTopHost,
+QWidget#ToolRailBottomHost {
+    background: transparent;
+}
+
+QWidget#ToolRailTopHost,
+QWidget#ToolRailBottomHost {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+QWidget#ToolRailRegionSeparator {
+    background: #30363D;
+    margin-left: 8px;
+    margin-right: 8px;
+}
+
+QWidget#ToolRailFamilySeparator {
+    background: #30363D;
+}
+
+QSplitter#SidebarFamilySplitter {
+    background: transparent;
+}
+
+QSplitter#SidebarFamilySplitter::handle {
+    background: #30363D;
+}
+
+QSplitter#SidebarFamilySplitter::handle:vertical {
+    height: 6px;
+}
+
+QSplitter#SidebarFamilySplitter::handle:horizontal {
+    width: 6px;
+}
+
+QWidget#LeftSidebarHost[dockExpanded="true"] {
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+QWidget#RightSidebarHost[dockExpanded="true"] {
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+}
+
+QWidget#LeftSidebarOverlayHost,
+QWidget#RightSidebarOverlayHost {
+    background: transparent;
+}
+
+QWidget#SidebarOverlayContentRoot,
+QWidget#SidebarFamilyExclusiveHost,
+QWidget#SidebarFamilyAdditiveHost {
+    background: transparent;
+}
+
+QWidget#LeftSidebarPanelSlot,
+QWidget#RightSidebarPanelSlot,
+QWidget#SidebarPanelInstallHost {
+    background: transparent;
+}
+
+QWidget#SidebarOverlayResizeGrip {
+    background: transparent;
+    border: none;
+}
+
+/* Family panel owns the outer chrome (radius + border). */
+QWidget#LeftSidebarOverlayHost QFrame#SidebarFamilyPanel {
+    background: #15181A;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    border-right: 1px solid #30363D;
+}
+
+QWidget#RightSidebarOverlayHost QFrame#SidebarFamilyPanel {
+    background: #15181A;
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-left: 1px solid #30363D;
+}
+
+QFrame#SidebarFamilyDivider {
+    background: #30363D;
+}
+
+/* Individual panel chrome should not compete with the family panel silhouette. */
+QWidget#LeftSidebarOverlayHost QFrame#SidebarPanelChrome,
+QWidget#RightSidebarOverlayHost QFrame#SidebarPanelChrome {
+    background: transparent;
+    border: none;
+    border-radius: 0px;
+}

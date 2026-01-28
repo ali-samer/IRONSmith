@@ -1,0 +1,39 @@
+<RCC>
+    <qresource prefix="/ui">
+
+        <!-- Stylesheet -->
+        <file>Default.qss</file>
+
+        <!-- Icons 22x22 -->
+        <file>icons/22x22/document-new.png</file>
+        <file>icons/22x22/document-open-folder.png</file>
+        <file>icons/22x22/document-open-recent.png</file>
+        <file>icons/22x22/document-save.png</file>
+        <file>icons/22x22/document-save-as.png</file>
+
+        <!-- Icons 32x32 -->
+        <file>icons/32x32/document-new.png</file>
+        <file>icons/32x32/document-open-folder.png</file>
+        <file>icons/32x32/document-open-recent.png</file>
+        <file>icons/32x32/document-save.png</file>
+        <file>icons/32x32/document-save-as.png</file>
+
+        <!-- Icons 40x40 -->
+        <file>icons/40/new_file.png</file>
+
+        <!-- Icons 48x48 -->
+        <file>icons/48x48/new-file.png</file>
+        <file>icons/48x48/folder-new.png</file>
+
+        <!-- Icons 64x64 -->
+        <file>icons/64x64/insert-link.png</file>
+        <file>icons/64x64/file-new.png</file>
+        <file>icons/64x64/file-save.png</file>
+        <file>icons/64x64/file-save-as.png</file>
+        <file>icons/64x64/folder-new.png</file>
+
+        <!-- Icons 128x128-->
+        <file>icons/128x128/folder-yellow.png</file>
+
+    </qresource>
+</RCC>
