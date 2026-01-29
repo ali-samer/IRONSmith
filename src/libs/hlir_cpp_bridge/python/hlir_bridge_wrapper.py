@@ -402,29 +402,29 @@ class BuilderWrapper:
     def get_all_ids(self, comp_type: str) -> str:
         """Get all component IDs of a type."""
         try:
-            result = self.builder.get_all_ids(comp_type)
-            if result.success:
-                return json.dumps({"success": True, "ids": result.component or []})
-            else:
-                return error_response(
-                    error_code_to_string(result.error_code),
-                    result.error_message or "Unknown error"
-                )
+            # get_all_ids returns a dict {id: component}, not a BuilderResult
+            id_dict = self.builder.get_all_ids(comp_type)
+            ids = list(id_dict.keys())
+            return json.dumps({"success": True, "ids": ids})
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
     def update_fifo_depth(self, comp_id: str, new_depth: int) -> str:
-        """Update FIFO depth."""
+        """Update FIFO depth by looking up the component and modifying it directly."""
         try:
-            result = self.builder.update_fifo(comp_id, new_depth)
+            result = self.builder.lookup_by_id(comp_id)
             if result.success:
-                return success_response()
+                component = result.component
+                if hasattr(component, 'depth'):
+                    component.depth = new_depth
+                    return success_response()
+                else:
+                    return error_response("INVALID_PARAMETER", "Component does not have a depth attribute")
             else:
                 return error_response(
                     error_code_to_string(result.error_code),
-                    result.error_message or "Update failed",
-                    result.id or "",
-                    result.dependencies or []
+                    result.error_message or "Component not found",
+                    comp_id
                 )
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))

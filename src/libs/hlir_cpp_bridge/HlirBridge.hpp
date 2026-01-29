@@ -34,40 +34,47 @@ public:
     /// @param value Symbol value (as string)
     /// @param typeHint Type hint (e.g., "int", "str")
     /// @param isConstant Whether this is a constant
+    /// @param providedId Optional provided ID for the component
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addSymbol(
         const std::string& name,
         const std::string& value,
         const std::string& typeHint = "",
-        bool isConstant = false);
+        bool isConstant = false,
+        const ComponentId& providedId = ComponentId());
 
     /// Add a constant (convenience wrapper around addSymbol)
     /// @param name Constant name
     /// @param value Constant value (as string)
     /// @param typeHint Type hint
+    /// @param providedId Optional provided ID for the component
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addConstant(
         const std::string& name,
         const std::string& value,
-        const std::string& typeHint = "");
+        const std::string& typeHint = "",
+        const ComponentId& providedId = ComponentId());
 
     /// Add a tensor type
     /// @param name Type name
     /// @param shape Shape (can include symbolic expressions like "N // 4")
     /// @param dtype Data type (e.g., "bfloat16", "int32")
     /// @param layout Layout hint (optional)
+    /// @param providedId Optional provided ID for the component
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addTensorType(
         const std::string& name,
         const std::vector<std::string>& shape,
         const std::string& dtype,
-        const std::string& layout = "");
+        const std::string& layout = "",
+        const ComponentId& providedId = ComponentId());
 
     /// Add a tile (physical hardware location)
     /// @param name Tile name
     /// @param kind Tile kind (shim, mem, compute)
     /// @param x X coordinate
     /// @param y Y coordinate
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addTile(
@@ -75,6 +82,7 @@ public:
         TileKind kind,
         int x,
         int y,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add a FIFO (object FIFO for data movement)
@@ -84,6 +92,7 @@ public:
     /// @param depth FIFO depth
     /// @param producerId Producer tile ID (optional)
     /// @param consumerIds Consumer tile IDs
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addFifo(
@@ -92,6 +101,7 @@ public:
         int depth,
         const std::optional<ComponentId>& producerId = std::nullopt,
         const std::vector<ComponentId>& consumerIds = {},
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add a FIFO with simple type string (convenience overload)
@@ -100,6 +110,7 @@ public:
     /// @param depth FIFO depth
     /// @param producerId Producer tile ID (optional)
     /// @param consumerIds Consumer tile IDs
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addFifoSimpleType(
@@ -108,6 +119,7 @@ public:
         int depth,
         const std::optional<ComponentId>& producerId = std::nullopt,
         const std::vector<ComponentId>& consumerIds = {},
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add a FIFO split operation
@@ -118,6 +130,7 @@ public:
     /// @param outputIds Output FIFO IDs
     /// @param offsets Split offsets
     /// @param placementId Placement tile ID
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addFifoSplit(
@@ -128,6 +141,7 @@ public:
         const std::vector<ComponentId>& outputIds,
         const std::vector<int>& offsets,
         const ComponentId& placementId,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add a FIFO join operation
@@ -138,6 +152,7 @@ public:
     /// @param inputIds Input FIFO IDs
     /// @param offsets Join offsets
     /// @param placementId Placement tile ID
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addFifoJoin(
@@ -148,16 +163,19 @@ public:
         const std::vector<ComponentId>& inputIds,
         const std::vector<int>& offsets,
         const ComponentId& placementId,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add a FIFO forward operation
     /// @param name Operation name
     /// @param sourceId Source FIFO ID
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addFifoForward(
         const std::string& name,
         const ComponentId& sourceId,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Add an external kernel declaration
@@ -166,6 +184,7 @@ public:
     /// @param sourceFile Source file path
     /// @param argTypeIds Argument type IDs (tensor types or other types)
     /// @param includeDirs Include directories
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addExternalKernel(
@@ -174,6 +193,7 @@ public:
         const std::string& sourceFile,
         const std::vector<ComponentId>& argTypeIds,
         const std::vector<std::string>& includeDirs = {},
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Acquire info for core functions
@@ -201,6 +221,7 @@ public:
     /// @param acquires Acquire operations
     /// @param kernelCall Kernel call specification
     /// @param releases Release operations
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addCoreFunction(
@@ -209,6 +230,7 @@ public:
         const std::vector<AcquireSpec>& acquires,
         const KernelCallSpec& kernelCall,
         const std::vector<ReleaseSpec>& releases,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     /// Function argument (for worker binding)
@@ -237,6 +259,7 @@ public:
     /// @param coreFnId Core function ID
     /// @param fnArgs Function arguments (kernel and FIFO bindings)
     /// @param placementId Placement tile ID
+    /// @param providedId Optional provided ID for the component
     /// @param metadata Additional metadata
     /// @return ComponentId on success, errors on failure
     HlirResult<ComponentId> addWorker(
@@ -244,6 +267,7 @@ public:
         const ComponentId& coreFnId,
         const std::vector<FunctionArg>& fnArgs,
         const ComponentId& placementId,
+        const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
     // ========================================================================
