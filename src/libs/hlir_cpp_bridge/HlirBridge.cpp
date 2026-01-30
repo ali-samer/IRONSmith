@@ -14,12 +14,31 @@ namespace hlir {
 HlirBridge::HlirBridge(const std::string& programName)
     : m_programName(programName)
 {
+    // Set Python home to find standard library
+    // Try common Python installation paths
+    const char* pythonHome = std::getenv("PYTHONHOME");
+    if (!pythonHome) {
+        // Try user's local Python installation
+        const char* localAppData = std::getenv("LOCALAPPDATA");
+        if (localAppData) {
+            static std::wstring pythonHomePath = std::wstring(localAppData, localAppData + strlen(localAppData)) + L"\\Programs\\Python\\Python313";
+            Py_SetPythonHome(pythonHomePath.c_str());
+        }
+    } else {
+        // Convert PYTHONHOME to wide string
+        size_t len = strlen(pythonHome);
+        static std::wstring pythonHomePath(pythonHome, pythonHome + len);
+        Py_SetPythonHome(pythonHomePath.c_str());
+    }
+
     Py_Initialize();
 
     // Add Python module paths
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("sys.path.insert(0, 'src/libs/hlir_cpp_bridge/python')");
     PyRun_SimpleString("sys.path.insert(0, 'hlir_cpp_bridge/python')");
+    PyRun_SimpleString("sys.path.insert(0, 'src/aiecad_compiler')");
+    PyRun_SimpleString("sys.path.insert(0, 'aiecad_compiler')");
 
     // Import wrapper module
     PyObject* moduleName = PyUnicode_FromString("hlir_bridge_wrapper");
@@ -291,11 +310,14 @@ HlirResult<ComponentId> HlirBridge::addSymbol(
     const std::string& name,
     const std::string& value,
     const std::string& typeHint,
-    bool isConstant)
+    bool isConstant,
+    const ComponentId& providedId)
 {
-    PyObject* args = Py_BuildValue("(sssO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(sssOs)",
         name.c_str(), value.c_str(), typeHint.c_str(),
-        isConstant ? Py_True : Py_False);
+        isConstant ? Py_True : Py_False, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_symbol", args);
     Py_DECREF(args);
@@ -312,20 +334,24 @@ HlirResult<ComponentId> HlirBridge::addSymbol(
 HlirResult<ComponentId> HlirBridge::addConstant(
     const std::string& name,
     const std::string& value,
-    const std::string& typeHint)
+    const std::string& typeHint,
+    const ComponentId& providedId)
 {
-    return addSymbol(name, value, typeHint, true);
+    return addSymbol(name, value, typeHint, true, providedId);
 }
 
 HlirResult<ComponentId> HlirBridge::addTensorType(
     const std::string& name,
     const std::vector<std::string>& shape,
     const std::string& dtype,
-    const std::string& layout)
+    const std::string& layout,
+    const ComponentId& providedId)
 {
     PyObject* shapeList = buildPythonList(shape);
-    PyObject* args = Py_BuildValue("(sOss)",
-        name.c_str(), shapeList, dtype.c_str(), layout.c_str());
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(sOsss)",
+        name.c_str(), shapeList, dtype.c_str(), layout.c_str(), providedIdStr);
 
     auto pyRes = callBuilderMethod("add_tensor_type", args);
     Py_DECREF(args);
@@ -344,11 +370,14 @@ HlirResult<ComponentId> HlirBridge::addTile(
     TileKind kind,
     int x,
     int y,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* metadataDict = buildMetadataDict(metadata);
-    PyObject* args = Py_BuildValue("(ssiiO)",
-        name.c_str(), tileKindToString(kind), x, y, metadataDict);
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(ssiiOs)",
+        name.c_str(), tileKindToString(kind), x, y, metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_tile", args);
     Py_DECREF(args);
@@ -368,6 +397,7 @@ HlirResult<ComponentId> HlirBridge::addFifo(
     int depth,
     const std::optional<ComponentId>& producerId,
     const std::vector<ComponentId>& consumerIds,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* consumersList = buildComponentIdList(consumerIds);
@@ -375,10 +405,11 @@ HlirResult<ComponentId> HlirBridge::addFifo(
 
     const char* objTypeStr = objTypeId.empty() ? "" : objTypeId.value.c_str();
     const char* producerStr = (producerId && !producerId->empty()) ? producerId->value.c_str() : "";
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
 
-    PyObject* args = Py_BuildValue("(ssisOO)",
+    PyObject* args = Py_BuildValue("(ssisOOs)",
         name.c_str(), objTypeStr, depth,
-        producerStr, consumersList, metadataDict);
+        producerStr, consumersList, metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo", args);
     Py_DECREF(args);
@@ -398,16 +429,18 @@ HlirResult<ComponentId> HlirBridge::addFifoSimpleType(
     int depth,
     const std::optional<ComponentId>& producerId,
     const std::vector<ComponentId>& consumerIds,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* consumersList = buildComponentIdList(consumerIds);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
     const char* producerStr = (producerId && !producerId->empty()) ? producerId->value.c_str() : "";
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
 
-    PyObject* args = Py_BuildValue("(ssisOO)",
+    PyObject* args = Py_BuildValue("(ssisOOs)",
         name.c_str(), objTypeStr.c_str(), depth,
-        producerStr, consumersList, metadataDict);
+        producerStr, consumersList, metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_simple_type", args);
     Py_DECREF(args);
@@ -429,16 +462,19 @@ HlirResult<ComponentId> HlirBridge::addFifoSplit(
     const std::vector<ComponentId>& outputIds,
     const std::vector<int>& offsets,
     const ComponentId& placementId,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* outputIdsList = buildComponentIdList(outputIds);
     PyObject* offsetsList = buildPythonList(offsets);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
-    PyObject* args = Py_BuildValue("(ssisOOsO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(ssisOOsOs)",
         name.c_str(), sourceId.value.c_str(), numOutputs,
         outputTypeId.value.c_str(), outputIdsList, offsetsList,
-        placementId.value.c_str(), metadataDict);
+        placementId.value.c_str(), metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_split", args);
     Py_DECREF(args);
@@ -460,16 +496,19 @@ HlirResult<ComponentId> HlirBridge::addFifoJoin(
     const std::vector<ComponentId>& inputIds,
     const std::vector<int>& offsets,
     const ComponentId& placementId,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* inputIdsList = buildComponentIdList(inputIds);
     PyObject* offsetsList = buildPythonList(offsets);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
-    PyObject* args = Py_BuildValue("(ssisOOsO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(ssisOOsOs)",
         name.c_str(), destId.value.c_str(), numInputs,
         inputTypeId.value.c_str(), inputIdsList, offsetsList,
-        placementId.value.c_str(), metadataDict);
+        placementId.value.c_str(), metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_join", args);
     Py_DECREF(args);
@@ -486,12 +525,15 @@ HlirResult<ComponentId> HlirBridge::addFifoJoin(
 HlirResult<ComponentId> HlirBridge::addFifoForward(
     const std::string& name,
     const ComponentId& sourceId,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* metadataDict = buildMetadataDict(metadata);
 
-    PyObject* args = Py_BuildValue("(ssO)",
-        name.c_str(), sourceId.value.c_str(), metadataDict);
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(ssOs)",
+        name.c_str(), sourceId.value.c_str(), metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_forward", args);
     Py_DECREF(args);
@@ -511,15 +553,18 @@ HlirResult<ComponentId> HlirBridge::addExternalKernel(
     const std::string& sourceFile,
     const std::vector<ComponentId>& argTypeIds,
     const std::vector<std::string>& includeDirs,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* argTypesList = buildComponentIdList(argTypeIds);
     PyObject* includeDirsList = buildPythonList(includeDirs);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
-    PyObject* args = Py_BuildValue("(sssOOO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(sssOOOs)",
         name.c_str(), kernelName.c_str(), sourceFile.c_str(),
-        argTypesList, includeDirsList, metadataDict);
+        argTypesList, includeDirsList, metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_external_kernel", args);
     Py_DECREF(args);
@@ -539,6 +584,7 @@ HlirResult<ComponentId> HlirBridge::addCoreFunction(
     const std::vector<AcquireSpec>& acquires,
     const KernelCallSpec& kernelCall,
     const std::vector<ReleaseSpec>& releases,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* paramsList = buildPythonList(parameters);
@@ -569,9 +615,11 @@ HlirResult<ComponentId> HlirBridge::addCoreFunction(
 
     PyObject* metadataDict = buildMetadataDict(metadata);
 
-    PyObject* args = Py_BuildValue("(sOOOOO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(sOOOOOs)",
         name.c_str(), paramsList, acquiresList, kernelCallTuple,
-        releasesList, metadataDict);
+        releasesList, metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_core_function", args);
     Py_DECREF(args);
@@ -591,6 +639,7 @@ HlirResult<ComponentId> HlirBridge::addWorker(
     const ComponentId& coreFnId,
     const std::vector<FunctionArg>& fnArgs,
     const ComponentId& placementId,
+    const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
     PyObject* metadataDict = buildMetadataDict(metadata);
@@ -613,10 +662,12 @@ HlirResult<ComponentId> HlirBridge::addWorker(
 
     std::string fnArgsJsonStr = fnArgsJson.dump();
 
-    PyObject* args = Py_BuildValue("(ssssO)",
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    PyObject* args = Py_BuildValue("(ssssOs)",
         name.c_str(), coreFnId.value.c_str(),
         fnArgsJsonStr.c_str(), placementId.value.c_str(),
-        metadataDict);
+        metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_worker", args);
     Py_DECREF(args);
@@ -742,7 +793,7 @@ HlirResult<ComponentId> HlirBridge::createRuntime(const std::string& name) {
 HlirResult<void> HlirBridge::runtimeAddInputType(const ComponentId& typeId) {
     PyObject* args = Py_BuildValue("(s)", typeId.value.c_str());
 
-    auto pyRes = callRuntimeMethod("runtime_add_input_type", args);
+    auto pyRes = callBuilderMethod("runtime_add_input_type", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());
@@ -757,7 +808,7 @@ HlirResult<void> HlirBridge::runtimeAddInputType(const ComponentId& typeId) {
 HlirResult<void> HlirBridge::runtimeAddOutputType(const ComponentId& typeId) {
     PyObject* args = Py_BuildValue("(s)", typeId.value.c_str());
 
-    auto pyRes = callRuntimeMethod("runtime_add_output_type", args);
+    auto pyRes = callBuilderMethod("runtime_add_output_type", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());
@@ -772,7 +823,7 @@ HlirResult<void> HlirBridge::runtimeAddOutputType(const ComponentId& typeId) {
 HlirResult<void> HlirBridge::runtimeAddParam(const std::string& paramName) {
     PyObject* args = Py_BuildValue("(s)", paramName.c_str());
 
-    auto pyRes = callRuntimeMethod("runtime_add_param", args);
+    auto pyRes = callBuilderMethod("runtime_add_param", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());
@@ -794,7 +845,7 @@ HlirResult<void> HlirBridge::runtimeAddFill(
         name.c_str(), fifoId.value.c_str(),
         inputName.c_str(), tileId.value.c_str());
 
-    auto pyRes = callRuntimeMethod("runtime_add_fill", args);
+    auto pyRes = callBuilderMethod("runtime_add_fill", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());
@@ -816,7 +867,7 @@ HlirResult<void> HlirBridge::runtimeAddDrain(
         name.c_str(), fifoId.value.c_str(),
         outputName.c_str(), tileId.value.c_str());
 
-    auto pyRes = callRuntimeMethod("runtime_add_drain", args);
+    auto pyRes = callBuilderMethod("runtime_add_drain", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());
@@ -831,7 +882,7 @@ HlirResult<void> HlirBridge::runtimeAddDrain(
 HlirResult<void> HlirBridge::runtimeBuild() {
     PyObject* args = PyTuple_New(0);
 
-    auto pyRes = callRuntimeMethod("runtime_build", args);
+    auto pyRes = callBuilderMethod("runtime_build", args);
     Py_DECREF(args);
 
     if (!pyRes) return std::unexpected(pyRes.error());

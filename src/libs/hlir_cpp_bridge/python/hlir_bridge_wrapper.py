@@ -135,6 +135,8 @@ class BuilderWrapper:
 
             # Look up type (can be TensorType or None for simple types)
             obj_type = self._lookup_component(obj_type_id) if obj_type_id else None
+            # Pass type name (string) instead of object for proper serialization
+            obj_type_name = obj_type.name if obj_type and hasattr(obj_type, 'name') else obj_type
 
             # Look up producer tile
             producer = self._lookup_component(producer_id) if producer_id else None
@@ -142,7 +144,7 @@ class BuilderWrapper:
             # Look up consumer tiles
             consumers = [self._lookup_component(cid) for cid in consumer_ids if cid]
 
-            result = self.builder.add_fifo(name, obj_type, depth, producer, consumers, provided_id=provided_id, **metadata)
+            result = self.builder.add_fifo(name, obj_type_name, depth, producer, consumers, provided_id=provided_id, **metadata)
             if result.success:
                 return success_response(result.id)
             else:
@@ -458,7 +460,9 @@ class BuilderWrapper:
         """Add input type to runtime by ID."""
         try:
             type_obj = self._lookup_component(type_id)
-            self.runtime.add_input_type(type_obj)
+            # Pass type name (string) instead of object for proper serialization
+            type_name = type_obj.name if hasattr(type_obj, 'name') else str(type_obj)
+            self.runtime.add_input_type(type_name)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
@@ -467,7 +471,9 @@ class BuilderWrapper:
         """Add output type to runtime by ID."""
         try:
             type_obj = self._lookup_component(type_id)
-            self.runtime.add_output_type(type_obj)
+            # Pass type name (string) instead of object for proper serialization
+            type_name = type_obj.name if hasattr(type_obj, 'name') else str(type_obj)
+            self.runtime.add_output_type(type_name)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
@@ -475,7 +481,11 @@ class BuilderWrapper:
     def runtime_add_param(self, param_name: str) -> str:
         """Add parameter to runtime."""
         try:
-            self.runtime.add_params([param_name])
+            # Accumulate parameters instead of replacing them
+            # self.runtime is a RuntimeBuilder, self.runtime.runtime is the RuntimeSequence
+            if not self.runtime.runtime.param_names:
+                self.runtime.runtime.param_names = []
+            self.runtime.runtime.param_names.append(param_name)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))

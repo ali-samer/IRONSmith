@@ -8,6 +8,8 @@ target_link_libraries(ironsmith
         ExtensionSystem
         Utils
         CorePlugin
+        HlirCppBridge
+        CodeGenBridge
 )
 
 set_target_properties(ironsmith PROPERTIES

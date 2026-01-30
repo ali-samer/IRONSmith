@@ -683,12 +683,7 @@ class GUIXMLSerializer:
             if symbol.is_constant and not isinstance(symbol.value, TensorType):
                 constants_to_assign[name] = symbol.value
 
-        # Add datatype variable if we found a dtype
-        if dtype_value:
-            assign_elem = SubElement(body_elem, 'Assign')
-            assign_elem.set('name', 'datatype')
-            assign_elem.set('value', dtype_value)
-            assign_elem.tail = '\n'
+        # Don't create a datatype variable - we'll use np.dtype directly in the init expressions
 
         # Add constant assignments
         for const_name, const_value in constants_to_assign.items():
@@ -711,7 +706,8 @@ class GUIXMLSerializer:
                 init_elem = SubElement(tensor_elem, 'init')
                 # Use extracted size and dtype, or defaults
                 size_arg = size_expr if size_expr else 'data_size'
-                dtype_arg = 'datatype' if dtype_value else 'bfloat16'
+                # Use np.dtype directly instead of a variable
+                dtype_arg = f'np.{dtype_value}' if dtype_value else 'bfloat16'
 
                 # Determine if input or output
                 if i < len(program.runtime.input_types):

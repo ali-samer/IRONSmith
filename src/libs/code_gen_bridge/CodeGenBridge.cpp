@@ -36,41 +36,16 @@ CodeGenResult<CodeGenOutput> CodeGenBridge::runCodeGen(
     }
 
     // Build arguments for main.py
+    // main.py accepts: <xml_file> [--run]
     std::vector<std::string> args;
 
-    // Add XML file path
+    // Add XML file path (required positional argument)
     args.push_back(xmlFilePath.string());
 
-    // Add output directory
-    args.push_back("--output");
-    args.push_back(options.outputDir);
-
-    // Add backend
-    if (!options.backend.empty() && options.backend != "default") {
-        args.push_back("--backend");
-        args.push_back(options.backend);
-    }
-
-    // Add verbose flag
-    if (options.verbose) {
-        args.push_back("--verbose");
-    }
-
-    // Add clean flag
-    if (options.cleanOutput) {
-        args.push_back("--clean");
-    }
-
-    // Add additional arguments
-    for (const auto& [key, value] : options.additionalArgs) {
-        args.push_back("--" + key);
-        if (!value.empty()) {
-            args.push_back(value);
-        }
-    }
+    // Note: main.py generates output files in the same directory as the input XML
 
     // Find main.py in the project
-    std::filesystem::path mainPyPath = "src/aiecad_compiler/codegen/main.py";
+    std::filesystem::path mainPyPath = "src/aiecad_compiler/main.py";
 
     if (!std::filesystem::exists(mainPyPath)) {
         return std::unexpected(std::vector<CodeGenDiagnostic>{
@@ -106,7 +81,7 @@ bool CodeGenBridge::isAvailable() const {
     }
 
     // Check if main.py exists
-    std::filesystem::path mainPyPath = "src/aiecad_compiler/codegen/main.py";
+    std::filesystem::path mainPyPath = "src/aiecad_compiler/main.py";
     return std::filesystem::exists(mainPyPath);
 }
 
@@ -210,16 +185,15 @@ CodeGenResult<CodeGenOutput> CodeGenBridge::runPythonScript(
         });
     }
 
-    // Parse output directory from args or use default
-    std::filesystem::path outputDir = "generated";
-    for (size_t i = 0; i < args.size(); ++i) {
-        if (args[i] == "--output" && i + 1 < args.size()) {
-            outputDir = args[i + 1];
-            break;
-        }
+    // main.py generates files in the same directory as the input XML
+    // Extract XML path from first argument
+    std::filesystem::path xmlPath = args.empty() ? "" : args[0];
+    std::filesystem::path outputDir = xmlPath.parent_path();
+    if (outputDir.empty()) {
+        outputDir = ".";
     }
 
-    // Collect generated files
+    // Collect generated files (*.graphml and generated_*.py)
     auto generatedFiles = collectGeneratedFiles(outputDir);
 
     CodeGenOutput output;
@@ -268,9 +242,20 @@ std::vector<std::filesystem::path> CodeGenBridge::collectGeneratedFiles(
     }
 
     try {
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(outputDir)) {
+        // Only collect specific generated files, not all files in directory
+        // main.py generates:
+        // - <name>.graphml
+        // - generated_<name>.py
+        // - <name>_complete.xml (if GUI XML was used)
+        for (const auto& entry : std::filesystem::directory_iterator(outputDir)) {
             if (entry.is_regular_file()) {
-                files.push_back(entry.path());
+                auto filename = entry.path().filename().string();
+                // Only include files that match the generated pattern
+                if (filename.ends_with(".graphml") ||
+                    filename.starts_with("generated_") ||
+                    filename.ends_with("_complete.xml")) {
+                    files.push_back(entry.path());
+                }
             }
         }
     } catch (const std::filesystem::filesystem_error&) {
