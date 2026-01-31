@@ -5,10 +5,13 @@
 #include <QtCore/QStringList>
 #include <QtCore/QVector>
 #include <QtCore/QHash>
+#include <QtCore/QSet>
 
 #include <filesystem>
 
 #include "PluginSpec.hpp"
+
+class QPluginLoader;
 
 namespace ExtensionSystem {
 
@@ -25,6 +28,9 @@ public:
 	static PluginSpec* specById(const QString& id);
 
 	static void registerPlugin(PluginSpec spec);
+
+	static bool registerPlugins(const std::vector<std::filesystem::path>& pluginFiles);
+	static bool registerPlugins(const QStringList& pluginFiles);
 
 	static bool loadPlugins(const QStringList& arguments = {});
 
@@ -52,6 +58,7 @@ private:
 
 	bool validateGraph(QStringList& errors) const;
 	bool computeLoadOrder(QVector<QString>& order, QStringList& errors) const;
+	void clearRegistrationState();
 
 	bool findCycle(QStringList& cycleOut) const;
 
@@ -63,6 +70,9 @@ private:
 	QHash<QString, PluginSpec> m_specs;
 	QVector<QString> m_loadOrder;
 	QStringList m_lastErrors;
+
+	QHash<QString, ::QPluginLoader*> m_loadersById;
+	QSet<IPlugin*> m_loaderOwnedPlugins;
 
 	QVector<QObject*> m_objects;
 	QVector<IPlugin*> m_plugins;

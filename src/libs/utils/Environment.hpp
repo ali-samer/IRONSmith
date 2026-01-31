@@ -22,13 +22,12 @@ enum class EnvironmentScope : unsigned char {
 };
 
 struct EnvironmentConfig final {
-    QString organizationName;   // e.g. "IRONSmith"
-    QString applicationName;    // e.g. "IRONSmith"
+    QString organizationName;
+    QString applicationName;
 
-    QString workspaceRootDir;   // e.g. "/path/to/project"
+    QString workspaceRootDir;
     QString globalConfigRootOverride;
 
-    // Size limits (enforced both on read and write).
     std::size_t maxStateDocumentBytes = 4u * 1024u * 1024u;   // 4 MiB
 };
 
@@ -118,7 +117,7 @@ public:
         QString ensureErr;
         if (!m_policy.ensureScopeStorage(scope, m_paths, &ensureErr)) {
             result.status = DocumentLoadResult::Status::Corrupt;
-            result.error = ensureErr.isEmpty() ? QStringLiteral("Failed to ensure storage.") : ensureErr;
+            result.error = ensureErr.isEmpty() ? QStringLiteral("Failed to ensure storage") : ensureErr;
             return result;
         }
 
@@ -150,12 +149,12 @@ public:
                                                       : (!err.isEmpty() ? err
                                                                         : QStringLiteral("Backup state document is invalid."));
                 return result;
-            } else {
-                if (!err.isEmpty()) {
-                    result.status = DocumentLoadResult::Status::Corrupt;
-                    result.error = err;
-                    return result;
-                }
+            }
+
+            if (!err.isEmpty()) {
+                result.status = DocumentLoadResult::Status::Corrupt;
+                result.error = err;
+                return result;
             }
         }
 

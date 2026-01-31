@@ -93,59 +93,6 @@ Utils::Result CorePlugin::initialize(const QStringList& arguments,
 	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.saveas", actSaveAs, RibbonControlType::Button,         {});
 	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.recent", actRecent, RibbonControlType::DropDownButton, {});
 
-	// TEMP: Dummy sidebar panels for validating rail grouping, family routing, and region slot behavior.
-	if (auto* sidebar = ui->sidebarRegistry()) {
-		auto registerDummy = [sidebar](const QString& id,
-		                              SidebarSide side,
-		                              SidebarFamily family,
-		                              SidebarRegion region,
-		                              const QString& title) {
-			SidebarToolSpec spec;
-			spec.id = id;
-			spec.side = side;
-			spec.family = family;
-			spec.region = region;
-			spec.title = title;
-			spec.toolTip = title;
-			spec.iconResource = ":/ui/icons/128x128/folder-yellow.png";
-
-			sidebar->registerTool(spec, [title, id](QWidget* parent) -> QWidget* {
-				auto* panel = new QFrame(parent);
-				panel->setObjectName(QString("DummySidebarPanel_%1").arg(id).replace('.', '_'));
-				panel->setAttribute(Qt::WA_StyledBackground, true);
-
-				auto* layout = new QVBoxLayout(panel);
-				layout->setContentsMargins(12, 12, 12, 12);
-				layout->setSpacing(8);
-
-				auto* label = new QLabel(title, panel);
-				label->setObjectName(QString("DummySidebarPanelTitle_%1").arg(id).replace('.', '_'));
-				layout->addWidget(label, 0);
-				layout->addStretch(1);
-				return panel;
-			});
-		};
-
-		registerDummy("core.dummy.v.el1", SidebarSide::Left,  SidebarFamily::Vertical,   SidebarRegion::Exclusive, "EL1");
-		registerDummy("core.dummy.v.el2", SidebarSide::Left,  SidebarFamily::Vertical,   SidebarRegion::Exclusive, "EL2");
-		registerDummy("core.dummy.v.al1", SidebarSide::Left,  SidebarFamily::Vertical,   SidebarRegion::Additive,  "AL1");
-		registerDummy("core.dummy.v.al2", SidebarSide::Left,  SidebarFamily::Vertical,   SidebarRegion::Additive,  "AL2");
-		registerDummy("core.dummy.v.er1", SidebarSide::Right, SidebarFamily::Vertical,   SidebarRegion::Exclusive, "ER1");
-		registerDummy("core.dummy.v.er2", SidebarSide::Right, SidebarFamily::Vertical,   SidebarRegion::Exclusive, "ER2");
-		registerDummy("core.dummy.v.ar1", SidebarSide::Right, SidebarFamily::Vertical,   SidebarRegion::Additive,  "AR1");
-		registerDummy("core.dummy.v.ar2", SidebarSide::Right, SidebarFamily::Vertical,   SidebarRegion::Additive,  "AR2");
-
-		registerDummy("core.dummy.h.hel1", SidebarSide::Left,  SidebarFamily::Horizontal, SidebarRegion::Exclusive, "HEL1");
-		registerDummy("core.dummy.h.hel2", SidebarSide::Left,  SidebarFamily::Horizontal, SidebarRegion::Exclusive, "HEL2");
-		registerDummy("core.dummy.h.hal1", SidebarSide::Left,  SidebarFamily::Horizontal, SidebarRegion::Additive,  "HAL1");
-		registerDummy("core.dummy.h.hal2", SidebarSide::Left,  SidebarFamily::Horizontal, SidebarRegion::Additive,  "HAL2");
-		registerDummy("core.dummy.h.her1", SidebarSide::Right, SidebarFamily::Horizontal, SidebarRegion::Exclusive, "HER1");
-		registerDummy("core.dummy.h.her2", SidebarSide::Right, SidebarFamily::Horizontal, SidebarRegion::Exclusive, "HER2");
-		registerDummy("core.dummy.h.har1", SidebarSide::Right, SidebarFamily::Horizontal, SidebarRegion::Additive,  "HAR1");
-		registerDummy("core.dummy.h.har2", SidebarSide::Right, SidebarFamily::Horizontal, SidebarRegion::Additive,  "HAR2");
-	}
-
-
 	return Utils::Result::success();
 }
 

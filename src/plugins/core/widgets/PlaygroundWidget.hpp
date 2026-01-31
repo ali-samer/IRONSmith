@@ -41,10 +41,13 @@ private:
 	QWidget* m_leftSidebarPanelInstallHost = nullptr;
 	QWidget* m_rightSidebarPanelInstallHost = nullptr;
 
+	// Center "content rect" is a stacked container:
+	//  - base: the primary editor surface (canvas)
+	//  - overlay: tool panels that render on top without resizing the base
+	QWidget* m_centerContainer = nullptr;
 	QWidget* m_baseHost = nullptr;
-	QWidget* m_chromeOverlay = nullptr;
-
-	QStackedLayout* m_rootStack = nullptr;
+	QWidget* m_centerOverlay = nullptr;
+	QStackedLayout* m_centerStack = nullptr;
 };
 
 } // namespace Core

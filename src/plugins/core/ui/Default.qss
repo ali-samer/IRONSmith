@@ -16,7 +16,7 @@ QWidget#MenuHost QToolButton {
     padding: 7px 14px 5px 14px;
     margin: 5px 0px 0px 0px;
 
-    font-family: "Segoe UI", "SF Pro Text", "Roboto", sans-serif;
+    font-family: "Menlo", "Segoe UI", "SF Pro Text", "Roboto", sans-serif;
     font-size: 12px;
     font-weight: 500;
 }
