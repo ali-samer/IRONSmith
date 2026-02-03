@@ -1,8 +1,6 @@
 ironsmith_add_library(Utils
         SOURCES
             Result.hpp
-			Macros.hpp
-			ScopeGuard.hpp
 
         #-== Environment ==-#
             Environment.hpp

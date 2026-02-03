@@ -11,7 +11,6 @@ class CoreImpl;
 class CorePlugin final : public ExtensionSystem::IPlugin
 {
 	Q_OBJECT
-	Q_PLUGIN_METADATA(IID "org.ironsmith.plugin" FILE "Core.json")
 
 public:
 	explicit CorePlugin(QObject* parent = nullptr);
