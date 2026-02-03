@@ -651,7 +651,20 @@ HlirResult<ComponentId> HlirBridge::addWorker(
         if (arg.type == FunctionArg::Type::KERNEL) {
             argJson["type"] = "kernel";
             argJson["id"] = arg.componentId.value;
+        } else if (arg.type == FunctionArg::Type::SPLIT) {
+            // Split operation output - reference by name with index
+            argJson["type"] = "split";
+            argJson["id"] = arg.componentId.value;
+            argJson["direction"] = arg.fifoDirection;
+            argJson["index"] = arg.fifoIndex;
+        } else if (arg.type == FunctionArg::Type::JOIN) {
+            // Join operation input - reference by name with index
+            argJson["type"] = "join";
+            argJson["id"] = arg.componentId.value;
+            argJson["direction"] = arg.fifoDirection;
+            argJson["index"] = arg.fifoIndex;
         } else {
+            // Regular FIFO
             argJson["type"] = "fifo";
             argJson["id"] = arg.componentId.value;
             argJson["direction"] = arg.fifoDirection;
@@ -835,15 +848,34 @@ HlirResult<void> HlirBridge::runtimeAddParam(const std::string& paramName) {
     return parseJsonResult<void>(jsonRes.value());
 }
 
+HlirResult<void> HlirBridge::runtimeAddWorker(const ComponentId& workerId) {
+    PyObject* args = Py_BuildValue("(s)", workerId.value.c_str());
+
+    auto pyRes = callBuilderMethod("runtime_add_worker", args);
+    Py_DECREF(args);
+
+    if (!pyRes) return std::unexpected(pyRes.error());
+
+    auto jsonRes = extractJsonString(pyRes.value());
+    Py_DECREF(pyRes.value());
+
+    if (!jsonRes) return std::unexpected(jsonRes.error());
+    return parseJsonResult<void>(jsonRes.value());
+}
+
 HlirResult<void> HlirBridge::runtimeAddFill(
     const std::string& name,
     const ComponentId& fifoId,
     const std::string& inputName,
-    const ComponentId& tileId)
+    const ComponentId& tileId,
+    int column,
+    bool useTap)
 {
-    PyObject* args = Py_BuildValue("(ssss)",
+    // Build args with column and useTap parameters
+    PyObject* args = Py_BuildValue("(ssssiO)",
         name.c_str(), fifoId.value.c_str(),
-        inputName.c_str(), tileId.value.c_str());
+        inputName.c_str(), tileId.value.c_str(),
+        column, useTap ? Py_True : Py_False);
 
     auto pyRes = callBuilderMethod("runtime_add_fill", args);
     Py_DECREF(args);
@@ -861,11 +893,15 @@ HlirResult<void> HlirBridge::runtimeAddDrain(
     const std::string& name,
     const ComponentId& fifoId,
     const std::string& outputName,
-    const ComponentId& tileId)
+    const ComponentId& tileId,
+    int column,
+    bool useTap)
 {
-    PyObject* args = Py_BuildValue("(ssss)",
+    // Build args with column and useTap parameters
+    PyObject* args = Py_BuildValue("(ssssiO)",
         name.c_str(), fifoId.value.c_str(),
-        outputName.c_str(), tileId.value.c_str());
+        outputName.c_str(), tileId.value.c_str(),
+        column, useTap ? Py_True : Py_False);
 
     auto pyRes = callBuilderMethod("runtime_add_drain", args);
     Py_DECREF(args);

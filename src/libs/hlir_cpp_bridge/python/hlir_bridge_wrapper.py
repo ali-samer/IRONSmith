@@ -350,12 +350,30 @@ class BuilderWrapper:
 
                 if arg_type == "kernel":
                     fn_args.append(arg_component)
-                elif arg_type == "fifo":
+                elif arg_type == "split":
+                    # Split operation output - reference by NAME (string), not object
+                    # This allows proper serialization as <arg ref="split_name" index="N"/>
+                    direction = arg_data.get("direction", "cons")
+                    index = arg_data.get("index", 0)
+                    # arg_component is a Symbol wrapping SplitOperation, get the name
+                    split_name = arg_component.name if hasattr(arg_component, 'name') else str(arg_component)
+                    fn_args.append((split_name, direction, index))
+                elif arg_type == "join":
+                    # Join operation input - reference by NAME (string), not object
+                    # This allows proper serialization as <arg ref="join_name" index="N"/>
                     direction = arg_data.get("direction", "prod")
                     index = arg_data.get("index", 0)
+                    # arg_component is a Symbol wrapping JoinOperation, get the name
+                    join_name = arg_component.name if hasattr(arg_component, 'name') else str(arg_component)
+                    fn_args.append((join_name, direction, index))
+                elif arg_type == "fifo":
+                    direction = arg_data.get("direction", "prod")
+                    index = arg_data.get("index")
                     if direction == "prod":
-                        fn_args.append((arg_component, "prod"))
+                        # Producer tuples use 3-tuple format: (fifo, "prod", None)
+                        fn_args.append((arg_component, "prod", None))
                     else:
+                        # Consumer tuples use 3-tuple format: (fifo, "cons", index)
                         fn_args.append((arg_component, "cons", index))
 
             result = self.builder.add_worker(name, core_fn, fn_args, placement, provided_id=provided_id, **metadata)
@@ -490,22 +508,45 @@ class BuilderWrapper:
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
-    def runtime_add_fill(self, name: str, fifo_id: str, input_name: str, tile_id: str) -> str:
-        """Add fill operation to runtime with ID-based references."""
+    def runtime_add_worker(self, worker_id: str) -> str:
+        """Add worker to runtime for StartWorkers list."""
         try:
-            fifo = self._lookup_component(fifo_id)
-            tile = self._lookup_component(tile_id)
-            self.runtime.add_fill(name, fifo, input_name, tile)
+            worker = self._lookup_component(worker_id)
+            self.runtime.add_worker(worker)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
-    def runtime_add_drain(self, name: str, fifo_id: str, output_name: str, tile_id: str) -> str:
+    def runtime_add_fill(self, name: str, fifo_id: str, input_name: str, tile_id: str,
+                         column: int = -1, use_tap: bool = False) -> str:
+        """Add fill operation to runtime with ID-based references."""
+        try:
+            fifo = self._lookup_component(fifo_id)
+            tile = self._lookup_component(tile_id)
+            # Build metadata with column and use_tap
+            metadata = {}
+            if column >= 0:
+                metadata['column'] = column
+            if use_tap:
+                metadata['use_tap'] = True
+            self.runtime.add_fill(name, fifo, input_name, tile, **metadata)
+            return success_response()
+        except Exception as e:
+            return error_response("PYTHON_EXCEPTION", str(e))
+
+    def runtime_add_drain(self, name: str, fifo_id: str, output_name: str, tile_id: str,
+                          column: int = -1, use_tap: bool = False) -> str:
         """Add drain operation to runtime with ID-based references."""
         try:
             fifo = self._lookup_component(fifo_id)
             tile = self._lookup_component(tile_id)
-            self.runtime.add_drain(name, fifo, output_name, tile)
+            # Build metadata with column and use_tap
+            metadata = {}
+            if column >= 0:
+                metadata['column'] = column
+            if use_tap:
+                metadata['use_tap'] = True
+            self.runtime.add_drain(name, fifo, output_name, tile, **metadata)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))

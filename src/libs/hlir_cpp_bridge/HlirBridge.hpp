@@ -235,11 +235,11 @@ public:
 
     /// Function argument (for worker binding)
     struct FunctionArg {
-        enum class Type { KERNEL, FIFO };
+        enum class Type { KERNEL, FIFO, SPLIT, JOIN };
         Type type;
         ComponentId componentId;
         std::string fifoDirection;  // "prod" or "cons" for FIFOs
-        int fifoIndex = 0;  // Index for consumer FIFOs
+        int fifoIndex = 0;  // Index for consumer FIFOs or split/join output/input index
 
         static FunctionArg kernel(const ComponentId& id) {
             return FunctionArg{Type::KERNEL, id, "", 0};
@@ -251,6 +251,20 @@ public:
 
         static FunctionArg fifoConsumer(const ComponentId& id, int index = 0) {
             return FunctionArg{Type::FIFO, id, "cons", index};
+        }
+
+        /// Reference a split operation output as consumer
+        /// @param splitOpId Split operation component ID
+        /// @param outputIndex Index of the split output (0, 1, ...)
+        static FunctionArg splitConsumer(const ComponentId& splitOpId, int outputIndex) {
+            return FunctionArg{Type::SPLIT, splitOpId, "cons", outputIndex};
+        }
+
+        /// Reference a join operation input as producer
+        /// @param joinOpId Join operation component ID
+        /// @param inputIndex Index of the join input (0, 1, ...)
+        static FunctionArg joinProducer(const ComponentId& joinOpId, int inputIndex) {
+            return FunctionArg{Type::JOIN, joinOpId, "prod", inputIndex};
         }
     };
 
@@ -331,29 +345,42 @@ public:
     /// @return Success or errors
     HlirResult<void> runtimeAddParam(const std::string& paramName);
 
+    /// Add worker to runtime for StartWorkers
+    /// @param workerId Worker ID
+    /// @return Success or errors
+    HlirResult<void> runtimeAddWorker(const ComponentId& workerId);
+
     /// Add fill operation to runtime
     /// @param name Fill operation name
     /// @param fifoId FIFO ID
     /// @param inputName Input parameter name
     /// @param tileId Tile ID
+    /// @param column Column index (optional, -1 to omit)
+    /// @param useTap Whether to use tensor access pattern
     /// @return Success or errors
     HlirResult<void> runtimeAddFill(
         const std::string& name,
         const ComponentId& fifoId,
         const std::string& inputName,
-        const ComponentId& tileId);
+        const ComponentId& tileId,
+        int column = -1,
+        bool useTap = false);
 
     /// Add drain operation to runtime
     /// @param name Drain operation name
     /// @param fifoId FIFO ID
     /// @param outputName Output parameter name
     /// @param tileId Tile ID
+    /// @param column Column index (optional, -1 to omit)
+    /// @param useTap Whether to use tensor access pattern
     /// @return Success or errors
     HlirResult<void> runtimeAddDrain(
         const std::string& name,
         const ComponentId& fifoId,
         const std::string& outputName,
-        const ComponentId& tileId);
+        const ComponentId& tileId,
+        int column = -1,
+        bool useTap = false);
 
     /// Build runtime sequence
     /// @return Success or errors

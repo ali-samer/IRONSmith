@@ -1,5 +1,11 @@
 add_executable(ironsmith
         main.cpp
+        ${CMAKE_SOURCE_DIR}/tests/hlir_bridge/BridgeTests.hpp
+        ${CMAKE_SOURCE_DIR}/tests/hlir_bridge/BridgeTests.cpp
+)
+
+target_include_directories(ironsmith PRIVATE
+        ${CMAKE_SOURCE_DIR}/tests/hlir_bridge
 )
 
 target_link_libraries(ironsmith

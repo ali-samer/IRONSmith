@@ -9,6 +9,8 @@
 #include "extensionsystem/PluginSpec.hpp"
 
 #include "core/CorePlugin.hpp"
+// Bridge tests are in tests/hlir_bridge/
+#include "BridgeTests.hpp"
 
 using namespace ExtensionSystem;
 
@@ -37,6 +39,13 @@ int main(int argc, char** argv)
 	QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuBar);
 
 	QApplication app(argc, argv);
+
+	// Check for bridge test command-line argument
+	QStringList args = app.arguments();
+	if (args.contains("--test-bridges") || args.contains("-t")) {
+		bool testsPassed = BridgeTests::runBridgeTests();
+		return testsPassed ? EXIT_SUCCESS : EXIT_FAILURE;
+	}
 
 	registerSystemPlugins();
 
