@@ -2,8 +2,56 @@
 
 #include <QtCore/QDebug>
 #include <QtCore/QSet>
+#include <QtCore/QPluginLoader>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonObject>
+#include <QtCore/QJsonValue>
+#include <QtCore/QFileInfo>
+#include <QtCore/QLibrary>
 
 namespace ExtensionSystem {
+
+namespace {
+
+QString fsPathToQString(const std::filesystem::path& p)
+{
+#if defined(__cpp_char8_t)
+	const std::u8string u8 = p.u8string();
+	return QString::fromUtf8(reinterpret_cast<const char*>(u8.data()), static_cast<int>(u8.size()));
+#else
+	const std::string u8 = p.u8string();
+	return QString::fromUtf8(u8.data(), static_cast<int>(u8.size()));
+#endif
+}
+
+QStringList parseDependencies(const QJsonValue& depsVal)
+{
+	QStringList deps;
+	if (!depsVal.isArray())
+		return deps;
+
+	const QJsonArray arr = depsVal.toArray();
+	for (const QJsonValue& v : arr) {
+		if (v.isString()) {
+			const QString s = v.toString().trimmed();
+			if (!s.isEmpty())
+				deps.push_back(s);
+			continue;
+		}
+		if (v.isObject()) {
+			const QJsonObject o = v.toObject();
+			const QString name = o.value(QStringLiteral("Name")).toString().trimmed();
+			if (!name.isEmpty())
+				deps.push_back(name);
+		}
+	}
+
+	deps.removeDuplicates();
+	deps.sort(Qt::CaseSensitive);
+	return deps;
+}
+
+} // namespace
 
 PluginManager& PluginManager::instance()
 {
@@ -18,9 +66,20 @@ PluginManager::PluginManager(QObject* parent)
 
 PluginManager::~PluginManager()
 {
-    for (IPlugin* p : m_plugins)
-        delete p;
+	for (IPlugin* p : m_plugins) {
+		if (!m_loaderOwnedPlugins.contains(p))
+			delete p;
+	}
     m_plugins.clear();
+
+	for (auto it = m_loadersById.begin(); it != m_loadersById.end(); ++it) {
+		if (QPluginLoader* loader = it.value()) {
+			loader->unload();
+			delete loader;
+		}
+	}
+	m_loadersById.clear();
+	m_loaderOwnedPlugins.clear();
     m_objects.clear();
 }
 
@@ -96,6 +155,113 @@ void PluginManager::registerPlugin(PluginSpec spec)
     }
 
     self.m_specs.insert(id, std::move(spec));
+}
+
+	void PluginManager::clearRegistrationState()
+	{
+		m_lastErrors.clear();
+		m_specs.clear();
+		m_loadOrder.clear();
+
+		for (auto it = m_loadersById.begin(); it != m_loadersById.end(); ++it) {
+			if (::QPluginLoader* loader = it.value()) {
+				loader->unload();
+				delete loader;
+			}
+		}
+		m_loadersById.clear();
+		m_loaderOwnedPlugins.clear();
+		m_plugins.clear();
+		m_objects.clear();
+	}
+
+bool PluginManager::registerPlugins(const QStringList& pluginFiles)
+{
+	auto& self = instance();
+		self.clearRegistrationState();
+
+	bool ok = true;
+	for (const QString& file : pluginFiles) {
+		const QFileInfo fi(file);
+		if (!fi.exists() || !fi.isFile()) {
+			self.m_lastErrors.push_back(QString("Plugin file does not exist: %1").arg(file));
+			ok = false;
+			continue;
+		}
+		if (!QLibrary::isLibrary(fi.absoluteFilePath())) {
+			self.m_lastErrors.push_back(QString("Not a loadable library: %1").arg(fi.absoluteFilePath()));
+			ok = false;
+			continue;
+		}
+
+		auto* loader = new QPluginLoader(fi.absoluteFilePath());
+		const QJsonObject root = loader->metaData();
+		if (root.isEmpty()) {
+			self.m_lastErrors.push_back(QString("Failed to read plugin metadata from %1: %2")
+								.arg(fi.absoluteFilePath(), loader->errorString()));
+			delete loader;
+			ok = false;
+			continue;
+		}
+
+		const QString iid = root.value(QStringLiteral("IID")).toString();
+		if (iid != QStringLiteral("org.ironsmith.plugin")) {
+			self.m_lastErrors.push_back(QString("Plugin %1 has unexpected IID '%2'.")
+								.arg(fi.absoluteFilePath(), iid));
+			delete loader;
+			ok = false;
+			continue;
+		}
+
+		const QJsonObject meta = root.value(QStringLiteral("MetaData")).toObject();
+		if (meta.isEmpty()) {
+			self.m_lastErrors.push_back(QString("Plugin %1 has no MetaData object.").arg(fi.absoluteFilePath()));
+			delete loader;
+			ok = false;
+			continue;
+		}
+
+		const QString id = meta.value(QStringLiteral("Name")).toString().trimmed();
+		if (!isValidId(id)) {
+			self.m_lastErrors.push_back(QString("Plugin %1 has invalid Name '%2'.").arg(fi.absoluteFilePath(), id));
+			delete loader;
+			ok = false;
+			continue;
+		}
+
+		if (self.m_specs.contains(id)) {
+			self.m_lastErrors.push_back(QString("Duplicate plugin id '%1' from %2.").arg(id, fi.absoluteFilePath()));
+			delete loader;
+			ok = false;
+			continue;
+		}
+
+		const QStringList deps = parseDependencies(meta.value(QStringLiteral("Dependencies")));
+
+		self.m_loadersById.insert(id, loader);
+
+		PluginSpec spec(id, deps,
+			[loader, id]() -> IPlugin* {
+				QObject* obj = loader->instance();
+				if (!obj)
+					return nullptr;
+				return qobject_cast<IPlugin*>(obj);
+			}
+		);
+
+		registerPlugin(std::move(spec));
+	}
+
+	return ok && self.m_lastErrors.isEmpty();
+}
+
+bool PluginManager::registerPlugins(const std::vector<std::filesystem::path>& pluginFiles)
+{
+	QStringList files;
+	files.reserve(static_cast<int>(pluginFiles.size()));
+	for (const auto& p : pluginFiles)
+		files.push_back(fsPathToQString(p));
+	return registerPlugins(files);
 }
 
 bool PluginManager::validateGraph(QStringList& errors) const
@@ -278,6 +444,7 @@ bool PluginManager::loadPlugins(const QStringList& arguments)
     auto& self = instance();
     self.m_lastErrors.clear();
     self.m_plugins.clear();
+	self.m_loaderOwnedPlugins.clear();
 
     QVector<QString> order;
     QStringList errors;
@@ -292,12 +459,21 @@ bool PluginManager::loadPlugins(const QStringList& arguments)
 
         IPlugin* plugin = spec.instantiate();
         if (!plugin) {
+			if (self.m_loadersById.contains(id)) {
+				if (QPluginLoader* loader = self.m_loadersById.value(id)) {
+					const QString es = loader->errorString();
+					if (!es.isEmpty())
+						self.m_lastErrors.push_back(QString("Plugin '%1' loader error: %2").arg(id, es));
+				}
+			}
             self.m_lastErrors.push_back(QString("Failed to instantiate plugin '%1':\n%2")
                                         .arg(id, spec.errorString()));
             return false;
         }
+		if (self.m_loadersById.contains(id))
+			self.m_loaderOwnedPlugins.insert(plugin);
 
-        self.m_plugins.push_back(plugin);
+		self.m_plugins.push_back(plugin);
 
         const auto r = plugin->initialize(arguments, self);
         if (!r.ok) {

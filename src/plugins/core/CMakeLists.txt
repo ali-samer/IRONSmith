@@ -1,11 +1,12 @@
 ironsmith_add_plugin(CorePlugin
-        PLUGIN_NAME core
-        PLUGIN_CLASS IRONSmith::Core::CorePlugin
+        PLUGIN_NAME Core
+        PLUGIN_CLASS Core::CorePlugin
 
         SOURCES
         #-== Core Plugin Definition ==-#
             CorePlugin.hpp
             CorePlugin.cpp
+            Core.json
             ICore.hpp
             CoreImpl.cpp
             CoreImpl.hpp

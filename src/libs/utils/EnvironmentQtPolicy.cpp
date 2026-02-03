@@ -170,7 +170,6 @@ bool QtEnvironmentPersistencePolicy::writeStateBytesAtomic(EnvironmentScope scop
     const QString primary = stateFilePath(scope, paths, name, /*backup=*/false);
     const QString backup  = stateFilePath(scope, paths, name, /*backup=*/true);
 
-    // ensure state/ directory exists
     {
         const QFileInfo fi(primary);
         QDir dir(fi.absolutePath());

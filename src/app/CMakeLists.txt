@@ -17,7 +17,11 @@ target_link_libraries(ironsmith
         HlirCppBridge
         CodeGenBridge
 )
-
+add_dependencies(ironsmith
+        DesignModelPlugin
+        CommandPlugin
+        CanvasPlugin
+)
 set_target_properties(ironsmith PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${IRONSMITH_BUILD_BINDIR}"
         CXX_EXTENSIONS OFF

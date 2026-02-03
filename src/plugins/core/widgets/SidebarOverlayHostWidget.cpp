@@ -106,6 +106,13 @@ void SidebarOverlayHostWidget::clearLayout(QVBoxLayout* lay)
 {
     while (lay->count() > 0) {
         QLayoutItem* it = lay->takeAt(0);
+        if (!it)
+            continue;
+
+        if (QWidget* w = it->widget()) {
+            w->hide();
+        }
+
         delete it;
     }
 }
@@ -218,13 +225,22 @@ void SidebarOverlayHostWidget::updateRailExpandedProperty(bool expanded)
 
 void SidebarOverlayHostWidget::applyVisibleState(bool visible)
 {
-    if (m_hasPanels == visible)
-        return;
-
-    m_hasPanels = visible;
-
     const int effectivePanelWidth = (m_panelWidth > 0) ? m_panelWidth : kSidebarOverlayPanelWidth;
     const int targetW = visible ? effectivePanelWidth : 0;
+
+    if (m_hasPanels == visible && overlayWidth() == targetW) {
+        if (!visible && targetW == 0) {
+            if (overlayWidth() != 0)
+                setOverlayWidth(0);
+            setVisible(false);
+            if (m_resizeGrip)
+                m_resizeGrip->setVisible(false);
+            updateRailExpandedProperty(false);
+        }
+        return;
+    }
+
+    m_hasPanels = visible;
 
     if (visible) {
         setVisible(true);
@@ -241,7 +257,8 @@ void SidebarOverlayHostWidget::applyVisibleState(bool visible)
         anim->setEasingCurve(QEasingCurve::OutCubic);
 
         connect(anim, &QPropertyAnimation::finished, this, [this]() {
-            if (overlayWidth() == 0) {
+            if (overlayWidth() <= 1) {
+                setOverlayWidth(0);
                 setVisible(false);
                 if (m_resizeGrip)
                     m_resizeGrip->setVisible(false);
@@ -264,8 +281,8 @@ void SidebarOverlayHostWidget::syncFromModel()
     const QStringList addIds = desiredAdditiveIds();
 
     QSet<QString> keep;
-    if (!exId.isEmpty()) keep.insert(exId);
-    for (const auto& id : addIds) keep.insert(id);
+    bool addedExclusive = false;
+    bool addedAdditive = false;
 
     auto* exLayout = qobject_cast<QVBoxLayout*>(m_familyPanel->exclusiveInstallHost()->layout());
     auto* addLayout = qobject_cast<QVBoxLayout*>(m_familyPanel->additiveInstallHost()->layout());
@@ -276,14 +293,30 @@ void SidebarOverlayHostWidget::syncFromModel()
 
     if (!exId.isEmpty()) {
         const PanelInstance ex = ensurePanel(exId);
-        if (ex.chrome)
+        if (ex.chrome) {
+            ex.chrome->show();
             exLayout->addWidget(ex.chrome, 0);
+            keep.insert(exId);
+            addedExclusive = true;
+        } else {
+            // Tool is marked active, but no panel factory exists (or panel creation failed).
+            // Avoid showing an empty chrome/splitter artifact.
+            m_model->requestHideTool(exId, nullptr);
+        }
     }
 
     for (const QString& id : addIds) {
         const PanelInstance inst = ensurePanel(id);
-        if (inst.chrome)
+        if (inst.chrome) {
+            inst.chrome->show();
             addLayout->addWidget(inst.chrome, 0);
+            keep.insert(id);
+            addedAdditive = true;
+        } else {
+            // Same reasoning as above: don't leave a phantom dock/handle when the tool
+            // has no renderable panel.
+            m_model->requestHideTool(id, nullptr);
+        }
     }
 
     for (auto it = m_panels.begin(); it != m_panels.end(); ) {
@@ -300,8 +333,8 @@ void SidebarOverlayHostWidget::syncFromModel()
         }
     }
 
-    const bool hasExclusive = !exId.isEmpty();
-    const bool hasAdditive = !addIds.isEmpty();
+    const bool hasExclusive = addedExclusive;
+    const bool hasAdditive = addedAdditive;
 
     m_familyPanel->setHasExclusive(hasExclusive);
     m_familyPanel->setHasAdditive(hasAdditive);

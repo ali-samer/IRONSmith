@@ -5,7 +5,9 @@
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QWheelEvent>
 #include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QApplication>
 #include <QtWidgets/QStackedLayout>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
@@ -193,6 +195,99 @@ private:
     SidebarResizeGrip* m_grip = nullptr;
 };
 
+// The chrome overlay uses a StackAll layout to draw tool panels/top/bottom bars on top
+// of the center "base" content. That overlay must NOT consume pointer/wheel events in
+// the center region, otherwise the canvas never sees input.
+//
+// We keep the chrome layout (so the base does not resize) but forward input that occurs
+// in the center spacer region down into the base host.
+class CenterPassthroughWidget final : public QWidget
+{
+public:
+    explicit CenterPassthroughWidget(QWidget* baseHost, QWidget* parent = nullptr)
+        : QWidget(parent)
+        , m_baseHost(baseHost)
+    {
+        setObjectName("PlaygroundCenterSpacer");
+        setAttribute(Qt::WA_StyledBackground, false);
+        setMouseTracking(true);
+    }
+
+protected:
+    bool event(QEvent* e) override
+    {
+        switch (e->type()) {
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick:
+        case QEvent::Wheel:
+            forwardToBase(e);
+            return true;
+        default:
+            break;
+        }
+        return QWidget::event(e);
+    }
+
+private:
+    void forwardToBase(QEvent* e)
+    {
+        if (!m_baseHost)
+            return;
+
+        // Map the event position in this widget to global, then into baseHost coordinates.
+        auto mapToBase = [&](const QPointF& local) -> std::pair<QPointF, QPointF> {
+            const QPoint globalPt = mapToGlobal(local.toPoint());
+            const QPointF baseLocal = QPointF(m_baseHost->mapFromGlobal(globalPt));
+            return {baseLocal, QPointF(globalPt)};
+        };
+
+        QWidget* target = nullptr;
+
+        if (auto* me = dynamic_cast<QMouseEvent*>(e)) {
+            const auto [basePos, globalPos] = mapToBase(me->position());
+            target = m_baseHost->childAt(basePos.toPoint());
+            if (!target)
+                target = m_baseHost;
+
+            // Ensure the canvas can receive key events (Space to pan, etc.) after a click.
+            target->setFocus(Qt::MouseFocusReason);
+
+            QMouseEvent forwarded(me->type(),
+                                  target->mapFromGlobal(globalPos.toPoint()),
+                                  globalPos,
+                                  me->button(),
+                                  me->buttons(),
+                                  me->modifiers());
+            QApplication::sendEvent(target, &forwarded);
+            return;
+        }
+
+        if (auto* we = dynamic_cast<QWheelEvent*>(e)) {
+            const auto [basePos, globalPos] = mapToBase(we->position());
+            target = m_baseHost->childAt(basePos.toPoint());
+            if (!target)
+                target = m_baseHost;
+
+            QWheelEvent forwarded(basePos,
+                                  globalPos,
+                                  we->pixelDelta(),
+                                  we->angleDelta(),
+                                  we->buttons(),
+                                  we->modifiers(),
+                                  we->phase(),
+                                  we->inverted(),
+                                  we->source());
+            QApplication::sendEvent(target, &forwarded);
+            return;
+        }
+    }
+
+private:
+    QWidget* m_baseHost = nullptr; // non-owning
+};
+
 void SidebarResizeGrip::mousePressEvent(QMouseEvent* e)
 {
     if (e->button() != Qt::LeftButton || !m_owner || !m_owner->hasInstalledRail()) {
@@ -243,38 +338,27 @@ PlaygroundWidget::PlaygroundWidget(QWidget* parent)
     setObjectName("PlaygroundRoot");
     setAttribute(Qt::WA_StyledBackground, true);
 
-    m_rootStack = new QStackedLayout(this);
-    m_rootStack->setContentsMargins(0, 0, 0, 0);
-    m_rootStack->setStackingMode(QStackedLayout::StackAll);
+    // Layout model:
+    //   [Top bar]
+    //   [Left rail] [ Center stack (base + overlay panels) ] [Right rail]
+    //   [Bottom bar]
+    //
+    // The canvas (base) is constrained to the center content rect.
+    // Tool panels are rendered as an overlay *within that same rect* so opening
+    // them does not resize the canvas and they cannot steal input outside the center.
+    auto* root = new QVBoxLayout(this);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
 
-    m_baseHost = new QWidget(this);
-    m_baseHost->setObjectName("BaseHost");
-    m_baseHost->setAttribute(Qt::WA_StyledBackground, true);
-    m_rootStack->addWidget(m_baseHost);
-
-    m_chromeOverlay = new QWidget(this);
-    m_chromeOverlay->setObjectName("PlaygroundChromeOverlay");
-    m_chromeOverlay->setAttribute(Qt::WA_StyledBackground, false);
-
-    m_chromeOverlay->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    m_rootStack->addWidget(m_chromeOverlay);
-    m_rootStack->setCurrentWidget(m_chromeOverlay);
-
-    auto* chromeRoot = new QVBoxLayout(m_chromeOverlay);
-    chromeRoot->setContentsMargins(0, 0, 0, 0);
-    chromeRoot->setSpacing(0);
-
-    m_topBar = new InfoBarWidget(m_chromeOverlay);
+    m_topBar = new InfoBarWidget(this);
     m_topBar->setObjectName("PlaygroundTopBar");
     m_topBar->setFixedHeight(Ui::UiStyle::TopBarHeight);
     m_topBar->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    chromeRoot->addWidget(m_topBar, 0);
+    root->addWidget(m_topBar, 0);
 
-    auto* middle = new QWidget(m_chromeOverlay);
+    auto* middle = new QWidget(this);
     middle->setObjectName("PlaygroundMiddle");
     middle->setAttribute(Qt::WA_StyledBackground, false);
-
-    middle->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
     auto* midLayout = new QHBoxLayout(middle);
     midLayout->setContentsMargins(0, 0, 0, 0);
@@ -291,21 +375,48 @@ PlaygroundWidget::PlaygroundWidget(QWidget* parent)
     m_leftSidebarInstallHost = left->installHost();
     midLayout->addWidget(left, 0);
 
-    auto* leftPanelSlot = new SidebarPanelSlot("LeftSidebarPanelSlot", middle);
+    // Center content rect: base editor surface + overlay panels in a StackAll layout.
+    m_centerContainer = new QWidget(middle);
+    m_centerContainer->setObjectName("PlaygroundCenterContainer");
+    m_centerContainer->setAttribute(Qt::WA_StyledBackground, false);
+    m_centerContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    m_centerStack = new QStackedLayout(m_centerContainer);
+    m_centerStack->setContentsMargins(0, 0, 0, 0);
+    m_centerStack->setStackingMode(QStackedLayout::StackAll);
+
+    m_baseHost = new QWidget(m_centerContainer);
+    m_baseHost->setObjectName("BaseHost");
+    m_baseHost->setAttribute(Qt::WA_StyledBackground, true);
+    m_centerStack->addWidget(m_baseHost);
+
+    m_centerOverlay = new QWidget(m_centerContainer);
+    m_centerOverlay->setObjectName("PlaygroundCenterOverlay");
+    m_centerOverlay->setAttribute(Qt::WA_StyledBackground, false);
+    m_centerStack->addWidget(m_centerOverlay);
+    m_centerStack->setCurrentWidget(m_centerOverlay);
+
+    auto* overlayLayout = new QHBoxLayout(m_centerOverlay);
+    overlayLayout->setContentsMargins(0, 0, 0, 0);
+    overlayLayout->setSpacing(0);
+
+    auto* leftPanelSlot = new SidebarPanelSlot("LeftSidebarPanelSlot", m_centerOverlay);
     leftPanelSlot->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_leftSidebarPanelInstallHost = leftPanelSlot->installHost();
-    midLayout->addWidget(leftPanelSlot, 0);
+    overlayLayout->addWidget(leftPanelSlot, 0);
 
-    auto* centerSpacer = new QWidget(middle);
-    centerSpacer->setObjectName("PlaygroundCenterSpacer");
-    centerSpacer->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    // Spacer that covers the remaining center area on the overlay layer and forwards
+    // input to the base editor surface.
+    auto* centerSpacer = new CenterPassthroughWidget(m_baseHost, m_centerOverlay);
     centerSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    midLayout->addWidget(centerSpacer, 1);
+    overlayLayout->addWidget(centerSpacer, 1);
 
-    auto* rightPanelSlot = new SidebarPanelSlot("RightSidebarPanelSlot", middle);
+    auto* rightPanelSlot = new SidebarPanelSlot("RightSidebarPanelSlot", m_centerOverlay);
     rightPanelSlot->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     m_rightSidebarPanelInstallHost = rightPanelSlot->installHost();
-    midLayout->addWidget(rightPanelSlot, 0);
+    overlayLayout->addWidget(rightPanelSlot, 0);
+
+    midLayout->addWidget(m_centerContainer, 1);
 
     auto* right = new ResizableSidebarContainer(ResizableSidebarContainer::Side::Right,
                                                 kRailDefault, kRailMin, kRailMax, middle);
@@ -314,13 +425,13 @@ PlaygroundWidget::PlaygroundWidget(QWidget* parent)
     m_rightSidebarInstallHost = right->installHost();
     midLayout->addWidget(right, 0);
 
-    chromeRoot->addWidget(middle, 1);
+    root->addWidget(middle, 1);
 
-    m_bottomBar = new InfoBarWidget(m_chromeOverlay);
+    m_bottomBar = new InfoBarWidget(this);
     m_bottomBar->setObjectName("PlaygroundBottomBar");
     m_bottomBar->setFixedHeight(Ui::UiStyle::BottomBarHeight);
     m_bottomBar->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    chromeRoot->addWidget(m_bottomBar, 0);
+    root->addWidget(m_bottomBar, 0);
 
     // TODO: remove code below when ready to display global state
     // Testing purposes
@@ -355,6 +466,6 @@ QWidget* PlaygroundWidget::leftSidebarPanelHost() const { return m_leftSidebarPa
 QWidget* PlaygroundWidget::rightSidebarPanelHost() const { return m_rightSidebarPanelInstallHost; }
 
 QWidget* PlaygroundWidget::centerBaseHost() const { return m_baseHost; }
-QWidget* PlaygroundWidget::overlayHost() const { return m_chromeOverlay; }
+QWidget* PlaygroundWidget::overlayHost() const { return m_centerOverlay; }
 
 } // namespace Core
