@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<Module name="passthrough_hlir_example">
+<Module name="passthrough_test">
     <Symbols>
         <Const name="N" type="int">4096</Const>
         <TypeAbstraction name="vector_ty">
@@ -38,7 +38,7 @@
             <placer>SequentialPlacer</placer>
         </Program>
     </DataFlow>
-    <Function name="jit_function" decorator="iron.jit" entry="passthrough_hlir_example_jit">
+    <Function name="jit_function" decorator="iron.jit" entry="passthrough_test_jit">
         <parameters>
             <param name="inputA" type="vector_ty"/>
             <param name="outputC" type="vector_ty"/>
@@ -52,10 +52,10 @@
         <body>
             <Assign name="N" value="4096"/>
             <Tensor name="inputA">
-                <init>iron.arange(N, dtype=np.int32, device=&quot;npu&quot;)</init>
+                <init>iron.arange(N, dtype=np.int32, device="npu")</init>
             </Tensor>
             <Tensor name="outputC">
-                <init>iron.zeros(N, dtype=np.int32, device=&quot;npu&quot;)</init>
+                <init>iron.zeros(N, dtype=np.int32, device="npu")</init>
             </Tensor>
             <Call function="jit_function" args="inputA, outputC"/>
         </body>

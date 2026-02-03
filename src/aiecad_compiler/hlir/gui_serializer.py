@@ -44,6 +44,53 @@ class GUIXMLSerializer:
         """
         self.pretty_print = pretty_print
 
+    def _get_type_name(self, type_ref: Any) -> str:
+        """
+        Extract the type name from various type representations.
+
+        Handles Symbol objects, TensorType objects, and strings.
+
+        Args:
+            type_ref: Type reference (Symbol, TensorType, str, etc.)
+
+        Returns:
+            String name of the type
+        """
+        if isinstance(type_ref, str):
+            return type_ref
+        elif isinstance(type_ref, Symbol):
+            # Symbol wraps a type - return the symbol's name
+            return type_ref.name
+        elif isinstance(type_ref, TensorType):
+            # TensorType directly - this shouldn't happen normally
+            # as types are usually wrapped in Symbols
+            return str(type_ref)
+        elif hasattr(type_ref, 'name'):
+            return type_ref.name
+        else:
+            return str(type_ref)
+
+    def _get_kernel_name(self, kernel_ref: Any) -> str:
+        """
+        Extract the kernel name from various kernel representations.
+
+        Handles ExternalKernel objects and strings.
+
+        Args:
+            kernel_ref: Kernel reference (ExternalKernel, str, etc.)
+
+        Returns:
+            String name of the kernel
+        """
+        if isinstance(kernel_ref, str):
+            return kernel_ref
+        elif isinstance(kernel_ref, ExternalKernel):
+            return kernel_ref.name
+        elif hasattr(kernel_ref, 'name'):
+            return kernel_ref.name
+        else:
+            return str(kernel_ref)
+
     def serialize(self, program: Program) -> str:
         """
         Serialize a Program to GUI XML string.
@@ -229,7 +276,7 @@ class GUIXMLSerializer:
 
         for arg_type in kernel.arg_types:
             type_elem = SubElement(arg_types_elem, 'type')
-            type_elem.text = str(arg_type)
+            type_elem.text = self._get_type_name(arg_type)
             type_elem.tail = '\n'
 
     def _add_gui_core_function(self, parent: Element, func: CoreFunction):
@@ -356,7 +403,7 @@ class GUIXMLSerializer:
 
         # Output type
         type_elem = SubElement(split_elem, 'output_type')
-        type_elem.text = str(split_op.output_type)
+        type_elem.text = self._get_type_name(split_op.output_type)
         type_elem.tail = '\n'
 
         # Placement
@@ -389,7 +436,7 @@ class GUIXMLSerializer:
 
         # Input type
         type_elem = SubElement(join_elem, 'input_type')
-        type_elem.text = str(join_op.input_type)
+        type_elem.text = self._get_type_name(join_op.input_type)
         type_elem.tail = '\n'
 
         # Placement
@@ -433,11 +480,14 @@ class GUIXMLSerializer:
                 mode_str = 'consumer' if arg.mode.value == 'cons' else 'producer'
                 arg_elem.set('mode', mode_str)
             elif isinstance(arg, str):
-                # It's a reference (e.g., to external kernel)
+                # It's a reference (e.g., to external kernel name)
                 arg_elem.set('ref', arg)
+            elif isinstance(arg, ExternalKernel):
+                # It's an external kernel object - extract name
+                arg_elem.set('ref', arg.name)
             else:
-                # Other types
-                arg_elem.set('ref', str(arg))
+                # Other types - try to get name attribute
+                arg_elem.set('ref', self._get_kernel_name(arg))
             arg_elem.tail = '\n'
 
         # Placement
@@ -683,12 +733,7 @@ class GUIXMLSerializer:
             if symbol.is_constant and not isinstance(symbol.value, TensorType):
                 constants_to_assign[name] = symbol.value
 
-        # Add datatype variable if we found a dtype
-        if dtype_value:
-            assign_elem = SubElement(body_elem, 'Assign')
-            assign_elem.set('name', 'datatype')
-            assign_elem.set('value', dtype_value)
-            assign_elem.tail = '\n'
+        # Don't create a datatype variable - we'll use np.dtype directly in the init expressions
 
         # Add constant assignments
         for const_name, const_value in constants_to_assign.items():
@@ -711,7 +756,8 @@ class GUIXMLSerializer:
                 init_elem = SubElement(tensor_elem, 'init')
                 # Use extracted size and dtype, or defaults
                 size_arg = size_expr if size_expr else 'data_size'
-                dtype_arg = 'datatype' if dtype_value else 'bfloat16'
+                # Use np.dtype directly instead of a variable
+                dtype_arg = f'np.{dtype_value}' if dtype_value else 'bfloat16'
 
                 # Determine if input or output
                 if i < len(program.runtime.input_types):
