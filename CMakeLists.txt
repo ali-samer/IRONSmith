@@ -49,7 +49,6 @@ find_package(Qt6 REQUIRED
         Network
         Xml
         Concurrent
-        Test
         ${_QT_TEST_COMPONENT}
 )
 set(QT6_REQUIRED_COMPONENTS Qt6::Core Qt6::Widgets Qt6::Gui)

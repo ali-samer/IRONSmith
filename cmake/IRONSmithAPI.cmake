@@ -178,7 +178,6 @@ function(ironsmith_add_plugin target_name)
 
     cmake_parse_arguments(_args "${_opt_args}" "${_single_args}" "${_multi_args}" ${ARGN})
 
-    message(STATUS "Registering plugin: ${_args_PLUGIN_NAME}")
     if (_args_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "ironsmith_add_plugin had unparsed arguments: ${_args_UNPARSED_ARGUMENTS}")
     endif ()
