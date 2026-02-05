@@ -1,0 +1,182 @@
+#include "canvas/CanvasStyle.hpp"
+
+#include "canvas/CanvasConstants.hpp"
+
+#include <QtGui/QPainter>
+#include <QtGui/QFont>
+#include <QtGui/QPolygonF>
+#include <cmath>
+
+namespace Canvas {
+
+static double clamped(const double v, const double lo, const double hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+void CanvasStyle::drawBlockFrame(QPainter& p, const QRectF& boundsScene, double zoom)
+{
+    drawBlockFrame(p, boundsScene, zoom,
+                   QColor(Constants::kBlockOutlineColor),
+                   QColor(Constants::kBlockFillColor),
+                   Constants::kBlockCornerRadius);
+}
+
+void CanvasStyle::drawBlockFrame(QPainter& p,
+                                 const QRectF& boundsScene,
+                                 double zoom,
+                                 const QColor& outline,
+                                 const QColor& fill,
+                                 double radius)
+{
+    const double base = 1.0 / clamped(zoom, 0.25, 8.0);
+    const double penW = clamped(base, 0.25, 2.0);
+
+    QPen pen{outline};
+    pen.setWidthF(penW);
+    pen.setJoinStyle(Qt::MiterJoin);
+    p.setPen(pen);
+    p.setBrush(fill);
+
+    p.drawRoundedRect(boundsScene, radius, radius);
+}
+
+void CanvasStyle::drawBlockSelection(QPainter& p, const QRectF& boundsScene, double zoom)
+{
+    const double base = 2.0 / clamped(zoom, 0.25, 8.0);
+    const double penW = clamped(base, 0.5, 3.0);
+
+    QPen pen{QColor(Constants::kBlockSelectionColor)};
+    pen.setWidthF(penW);
+    pen.setJoinStyle(Qt::MiterJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    const double inset = -2.0 / clamped(zoom, 0.25, 8.0);
+    const QRectF r = boundsScene.adjusted(inset, inset, -inset, -inset);
+    const double radius = Constants::kBlockCornerRadius;
+    p.drawRoundedRect(r, radius, radius);
+}
+
+void CanvasStyle::drawBlockLabel(QPainter& p, const QRectF& boundsScene, double zoom, const QString& text)
+{
+    drawBlockLabel(p, boundsScene, zoom, text, QColor(Constants::kBlockTextColor));
+}
+
+void CanvasStyle::drawBlockLabel(QPainter& p,
+                                 const QRectF& boundsScene,
+                                 double zoom,
+                                 const QString& text,
+                                 const QColor& color)
+{
+    Q_UNUSED(zoom);
+
+    QFont f = p.font();
+    f.setPointSizeF(Constants::kBlockLabelPointSize);
+    f.setBold(true);
+    p.setFont(f);
+
+    p.setPen(color);
+
+    const QRectF r = boundsScene.adjusted(6.0, 4.0, -6.0, -4.0);
+    p.drawText(r, Qt::AlignLeft | Qt::AlignTop, text);
+}
+
+void CanvasStyle::drawPort(QPainter& p, const QPointF& anchorScene, PortSide side, PortRole role, double zoom, bool hovered)
+{
+    const double base = 1.0 / clamped(zoom, 0.25, 8.0);
+    const double penW = clamped(base, 0.25, 2.0);
+
+    QColor stroke(hovered ? Constants::kBlockSelectionColor : Constants::kBlockOutlineColor);
+    QColor fill;
+    switch (role) {
+        case PortRole::Producer: fill = QColor(Constants::kBlockSelectionColor); break;
+        case PortRole::Consumer: fill = QColor(Constants::kBlockTextColor); break;
+        case PortRole::Dynamic:  fill = QColor(Constants::kDynamicPortColor); break;
+    }
+    fill.setAlpha(180);
+
+    QPen pen(stroke);
+    pen.setWidthF(penW);
+    pen.setCapStyle(Qt::SquareCap);
+    p.setPen(pen);
+    p.setBrush(fill);
+
+    const double stubLen = hovered ? 14.0 : 10.0;
+    const double half = hovered ? 4.0 : 3.0;
+
+    QPointF dir(0, 0);
+    switch (side) {
+        case PortSide::Left:   dir = QPointF(-1, 0); break;
+        case PortSide::Right:  dir = QPointF( 1, 0); break;
+        case PortSide::Top:    dir = QPointF( 0,-1); break;
+        case PortSide::Bottom: dir = QPointF( 0, 1); break;
+    }
+
+    const QPointF stubEnd = anchorScene + dir * stubLen;
+    p.drawLine(anchorScene, stubEnd);
+
+    const QRectF box(anchorScene.x() - half, anchorScene.y() - half, half * 2.0, half * 2.0);
+    p.drawRect(box);
+}
+
+void CanvasStyle::drawWire(QPainter& p,
+                           const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                           const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                           double zoom, bool selected)
+{
+    drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, {}, zoom, selected);
+}
+
+void CanvasStyle::drawWirePath(QPainter& p,
+                           const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                           const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                           const std::vector<QPointF>& pathScene,
+                           double zoom, bool selected)
+{
+    const double base = 2.0 / clamped(zoom, 0.25, 8.0);
+    const double penW = clamped(base, 0.5, 3.0);
+
+    QColor c(selected ? Constants::kBlockSelectionColor : Constants::kWireColor);
+    QPen pen(c);
+    pen.setWidthF(penW);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    p.drawLine(aAnchor, aBorder);
+    p.drawLine(aBorder, aFabric);
+
+    if (pathScene.size() >= 2) {
+        QPolygonF poly;
+        poly.reserve(static_cast<int>(pathScene.size()));
+        for (const auto& pt : pathScene)
+            poly << pt;
+        p.drawPolyline(poly);
+    } else {
+        p.drawLine(aFabric, bFabric);
+    }
+
+    p.drawLine(bFabric, bBorder);
+    p.drawLine(bBorder, bAnchor);
+
+    const QPointF dir = bAnchor - bBorder;
+    const double len = std::hypot(dir.x(), dir.y());
+    if (len > 1e-6) {
+        const QPointF n(dir.x() / len, dir.y() / len);
+        const QPointF perp(-n.y(), n.x());
+        const double arrowLen = 8.0 / clamped(zoom, 0.25, 8.0);
+        const double arrowHalfW = 4.0 / clamped(zoom, 0.25, 8.0);
+        const QPointF tip = bBorder;
+        const QPointF base = tip - n * arrowLen;
+        const QPointF left = base + perp * arrowHalfW;
+        const QPointF right = base - perp * arrowHalfW;
+        QPolygonF tri;
+        tri << tip << left << right;
+        p.setBrush(c);
+        p.drawPolygon(tri);
+        p.setBrush(Qt::NoBrush);
+    }
+}
+
+} // namespace Canvas

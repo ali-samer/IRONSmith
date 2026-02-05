@@ -1,47 +1,68 @@
-#include "canvas/CanvasPlugin.hpp"
+#include "canvas/CanvasGlobal.hpp"
 
-#include "canvas/CanvasService.hpp"
+#include <extensionsystem/IPlugin.hpp>
+#include <utils/Result.hpp>
 
-#include <extensionsystem/PluginManager.hpp>
+#include <QStringList>
+#include <QLoggingCategory>
 
-namespace Canvas {
+#include "canvas/internal/CanvasHostImpl.hpp"
+#include "extensionsystem/PluginManager.hpp"
 
-CanvasPlugin::CanvasPlugin(QObject* parent)
-    : ExtensionSystem::IPlugin(parent)
-{
+Q_LOGGING_CATEGORY(canvaslog, "ironsmith.canvas")
+
+namespace Canvas::Internal {
+
+class CanvasPlugin final : public ExtensionSystem::IPlugin {
+	Q_OBJECT
+	Q_PLUGIN_METADATA(IID "org.ironsmith.plugin" FILE "Canvas.json")
+
+public:
+	CanvasPlugin() = default;
+
+	Utils::Result initialize(const QStringList &arguments, ExtensionSystem::PluginManager &manager) override;
+
+	void extensionsInitialized(ExtensionSystem::PluginManager& manager) override;
+	ShutdownFlag aboutToShutdown() override;
+
+private:
+	QPointer<CanvasHostImpl> m_host;
+};
+
+
+Utils::Result CanvasPlugin::initialize(const QStringList &arguments, ExtensionSystem::PluginManager &manager) {
+	Q_UNUSED(arguments);
+	Q_UNUSED(manager);
+
+	qCInfo(canvaslog) << "CanvasPlugin: initialize...";
+	m_host = new CanvasHostImpl();
+	if (!m_host) {
+		qCInfo(canvaslog) << "Failed to create CanvasHostImpl";
+		return Utils::Result::failure("Failed to create CanvasHostImpl");
+	}
+
+	ExtensionSystem::PluginManager::addObject(m_host);
+	return Utils::Result::success();
 }
 
-CanvasPlugin::~CanvasPlugin()
-{
-    if (m_service)
-        ExtensionSystem::PluginManager::removeObject(m_service);
+void CanvasPlugin::extensionsInitialized(ExtensionSystem::PluginManager &manager) {
+	qCInfo(canvaslog) << "CanvasPlugin: extensionsInitialized";
+	if (!m_host) {
+		qCWarning(canvaslog) << "CanvasPlugin: CanvasHost is null";
+		return;
+	}
+
+	m_host->wireIntoApplication(manager);
 }
 
-Utils::Result CanvasPlugin::initialize(const QStringList& arguments,
-                                       ExtensionSystem::PluginManager& manager)
-{
-    Q_UNUSED(arguments);
-    Q_UNUSED(manager);
-
-    m_service = new CanvasService(this);
-    ExtensionSystem::PluginManager::addObject(m_service);
-    return Utils::Result::success();
+ExtensionSystem::IPlugin::ShutdownFlag CanvasPlugin::aboutToShutdown() {
+	if (m_host) {
+		ExtensionSystem::PluginManager::removeObject(m_host);
+		m_host = nullptr;
+	}
+	return ShutdownFlag::SynchronousShutdown;
 }
 
-void CanvasPlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
-{
-    Q_UNUSED(manager);
-    if (m_service)
-        m_service->wireIntoApplication();
-}
+} // Canvas::Internal
 
-ExtensionSystem::IPlugin::ShutdownFlag CanvasPlugin::aboutToShutdown()
-{
-    if (m_service) {
-        ExtensionSystem::PluginManager::removeObject(m_service);
-        m_service = nullptr;
-    }
-    return ShutdownFlag::SynchronousShutdown;
-}
-
-} // namespace Canvas
+#include "CanvasPlugin.moc"

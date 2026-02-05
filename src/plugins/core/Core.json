@@ -5,8 +5,5 @@
   "Vendor": "IRONSmith",
   "Category": "Core",
   "Description": "Application shell, UI host, ribbon/menu model, and sidebar infrastructure.",
-  "Dependencies": [
-    { "Name": "DesignModel", "Version": "0.1.0" },
-    { "Name": "Command", "Version": "0.1.0" }
-  ]
+  "Dependencies": []
 }

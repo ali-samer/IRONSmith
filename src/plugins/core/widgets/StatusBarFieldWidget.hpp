@@ -3,6 +3,7 @@
 #include <QtWidgets/QWidget>
 
 class QLabel;
+class QHBoxLayout;
 
 namespace Core {
 
@@ -23,8 +24,10 @@ private slots:
 
 private:
 	StatusBarField* m_field = nullptr;
+	QHBoxLayout* m_row = nullptr;
 	QLabel* m_label = nullptr;
 	QLabel* m_value = nullptr;
+	QLabel* m_modeBadge = nullptr;
 };
 
 } // namespace Core

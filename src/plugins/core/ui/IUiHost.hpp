@@ -11,6 +11,7 @@ class QWidget;
 
 namespace Core {
 class ISidebarRegistry;
+class InfoBarWidget;
 
 class IUiHost : public QObject
 {
@@ -47,6 +48,7 @@ public:
 
 	virtual void setPlaygroundTopBar(QWidget* w) = 0;
 	virtual void setPlaygroundBottomBar(QWidget* w) = 0;
+	virtual InfoBarWidget* playgroundBottomBar() const = 0;
 
 	virtual void setPlaygroundCenterBase(QWidget* w) = 0;
 	virtual QWidget* playgroundOverlayHost() const = 0;

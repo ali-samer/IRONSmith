@@ -13,7 +13,6 @@
 #include <QtWidgets/QWidget>
 #include <QtWidgets/QSizePolicy>
 
-#include "core/StatusBarField.hpp"
 #include "core/ui/UiStyle.hpp"
 #include "core/widgets/InfoBarWidget.hpp"
 
@@ -433,27 +432,6 @@ PlaygroundWidget::PlaygroundWidget(QWidget* parent)
     m_bottomBar->setAttribute(Qt::WA_TransparentForMouseEvents, false);
     root->addWidget(m_bottomBar, 0);
 
-    // TODO: remove code below when ready to display global state
-    // Testing purposes
-    auto* mode = m_bottomBar->ensureField("mode");
-    mode->setLabel("MODE");
-    mode->setValue("VIEW");
-    mode->setSide(StatusBarField::Side::Left);
-
-    auto* grid = m_bottomBar->ensureField("grid");
-    grid->setLabel("GRID");
-    grid->setValue("4x4");
-    grid->setSide(StatusBarField::Side::Left);
-
-    auto* zoom = m_bottomBar->ensureField("zoom");
-    zoom->setLabel("ZOOM");
-    zoom->setValue("100%");
-    zoom->setSide(StatusBarField::Side::Left);
-
-    auto* pan = m_bottomBar->ensureField("pan");
-    pan->setLabel("PAN");
-    pan->setValue("(0, 0)");
-    pan->setSide(StatusBarField::Side::Left);
 }
 
 InfoBarWidget* PlaygroundWidget::topBar() const { return m_topBar; }

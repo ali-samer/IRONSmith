@@ -1,122 +1,87 @@
 #pragma once
 
-#include "canvas/CanvasRenderOptions.hpp"
-#include "canvas/CanvasSceneModel.hpp"
-#include "canvas/CanvasViewport.hpp"
+#include "canvas/CanvasGlobal.hpp"
+#include "canvas/CanvasRenderContext.hpp"
+#include "canvas/CanvasTypes.hpp"
 
-#include <designmodel/DesignDocument.hpp>
+#include <QtCore/QPointer>
+#include <QtCore/QPointF>
+#include <QtCore/QPoint>
+#include <QtCore/QRectF>
 
 #include <QtWidgets/QWidget>
 
-namespace Command { class CommandDispatcher; }
-namespace Core { class InfoBarWidget; class StatusBarField; }
+class QPainter;
 
 namespace Canvas {
 
-enum class EditorModeKind : quint8 { Selection, Linking };
+class CanvasDocument;
+class CanvasController;
 
-class CanvasView final : public QWidget
+class CANVAS_EXPORT CanvasView final : public QWidget
 {
-    Q_OBJECT
+	Q_OBJECT
+
+	Q_PROPERTY(double zoom READ zoom WRITE setZoom NOTIFY zoomChanged)
+	Q_PROPERTY(QPointF pan READ pan WRITE setPan NOTIFY panChanged)
 
 public:
-    explicit CanvasView(QWidget* parent = nullptr);
-    ~CanvasView() override = default;
+	explicit CanvasView(QWidget* parent = nullptr);
 
-    void setCommandDispatcher(Command::CommandDispatcher* dispatcher) noexcept { m_dispatcher = dispatcher; }
+	void setDocument(CanvasDocument* doc);
+	void setController(CanvasController* controller);
 
-public slots:
-    void setDocument(const DesignModel::DesignDocument& doc);
-    void setRenderOptions(const Canvas::CanvasRenderOptions& opts);
+	double zoom() const { return m_zoom; }
+	void setZoom(double zoom);
+
+	QPointF pan() const { return m_pan; }
+	void setPan(const QPointF& pan);
+
+	QPointF viewToScene(const QPointF& viewPos) const;
+	QPointF sceneToView(const QPointF& scenePos) const;
+
+	ObjectId selectedItem() const noexcept { return m_selected; }
+	void setSelectedItem(ObjectId id);
+
+	void setHoveredPort(ObjectId itemId, PortId portId);
+	void clearHoveredPort();
+
+signals:
+	void zoomChanged(double zoom);
+	void panChanged(QPointF pan);
+	void canvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
+	void canvasMouseMoved(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
+	void canvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
+	void canvasWheel(const QPointF& scenePos, const QPoint& angleDelta, Qt::KeyboardModifiers mods);
+	void canvasKeyPressed(int key, Qt::KeyboardModifiers mods);
 
 protected:
-    void paintEvent(QPaintEvent* e) override;
-    void showEvent(QShowEvent* e) override;
-    void wheelEvent(QWheelEvent* e) override;
-    void mouseMoveEvent(QMouseEvent* e) override;
-    void mousePressEvent(QMouseEvent* e) override;
-    void mouseReleaseEvent(QMouseEvent* e) override;
-    void keyPressEvent(QKeyEvent* e) override;
-    void keyReleaseEvent(QKeyEvent* e) override;
-    void leaveEvent(QEvent* e) override;
+	void paintEvent(QPaintEvent* event) override;
+
+	void mousePressEvent(QMouseEvent* event) override;
+	void mouseMoveEvent(QMouseEvent* event) override;
+	void mouseReleaseEvent(QMouseEvent* event) override;
+	void wheelEvent(QWheelEvent* event) override;
+	void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void rebuildScene();
+	void drawBackgroundLayer(QPainter& p) const;
+	void applyViewTransform(QPainter& p) const;
+	void drawGridFabric(QPainter& p) const;
+	void drawContentLayer(QPainter& p) const;
+	void drawOverlayLayer(QPainter& p) const;
+	QRectF sceneRect() const;
+	CanvasRenderContext buildRenderContext(const QRectF& sceneRect, bool includeHover) const;
 
-    void maybeAttachStatusBar();
-    void syncStatusBar();
-    void syncModePill();
-    void updateHover(const QPointF& p);
-    int hitHotspot(const QPointF& p) const;
-    int hitBlock(const QPointF& p) const;
-    void setMode(EditorModeKind m);
-    void cancelLinkArmed();
+	QPointer<CanvasDocument> m_document;
+	QPointer<CanvasController> m_controller;
 
-    bool beginRouteEdit(const QPointF& mousePosScreen);
-    void updateRouteEdit(const QPointF& mousePosScreen);
-    void commitRouteEdit();
-    void cancelRouteEdit(bool revert);
-    bool isEditingRoute() const noexcept { return m_routeEditActive; }
-    bool hitLinkSegment(const QPointF& p, DesignModel::LinkId* outLinkId, int* outSegIndex) const;
-
-    bool extractFabricPath(const QVector<QPointF>& fullWorld,
-                           QVector<QPointF>* outStubAWorld,
-                           QVector<QPointF>* outFabricWorld,
-                           QVector<QPointF>* outStubBWorld) const;
-
-    void buildFullFromFabric(const QVector<QPointF>& stubAWorld,
-                             const QVector<QPointF>& fabricWorld,
-                             const QVector<QPointF>& stubBWorld,
-                             QVector<QPointF>* outFullWorld) const;
-
-    bool isValidLinkStart(int hotspotIndex) const;
-    bool isValidLinkTarget(int hotspotIndex, DesignModel::PortId from) const;
-    bool applyLink(DesignModel::PortId from, DesignModel::PortId to);
-
-    DesignModel::DesignDocument m_doc;
-    CanvasRenderOptions m_opts;
-    CanvasViewport m_vp;
-    CanvasSceneModel m_scene;
-
-    Command::CommandDispatcher* m_dispatcher{nullptr}; // not owned
-
-    EditorModeKind m_mode{EditorModeKind::Selection};
-    bool m_spaceDown{false};
-    bool m_panning{false};
-    QPointF m_lastMousePos;
-
-    DesignModel::BlockId m_selectedBlock{};
-
-    int m_hoverHotspot{-1};
-    int m_hoverBlock{-1};
-
-    bool m_linkArmed{false};
-    DesignModel::PortId m_linkFromPort{};
-    QPointF m_linkFromPos;
-    QPointF m_mousePos;
-
-    bool m_routeEditActive{false};
-    DesignModel::LinkId m_routeEditLink{};
-    int m_routeEditFabricSegIndex{-1};
-    QVector<QPointF> m_routeEditStubAWorld;
-    QVector<QPointF> m_routeEditStubBWorld;
-
-    QVector<QPointF> m_routeEditBaseFabricWorld;
-    QVector<QPointF> m_routeEditCurrentFabricWorld;
-    QVector<QPointF> m_routeEditInvalidFabricWorld;
-
-    QVector<QPointF> m_routeEditPreviewWorld;
-    QVector<QPointF> m_routeEditInvalidPreviewWorld;
-    bool m_routeEditPreviewValid{true};
-    bool m_routeEditLoggedInvalid{false};
-    double m_routeEditLastSnappedCoord{0.0};
-    bool m_routeEditLastHadLaneDelta{false};
-
-    Core::InfoBarWidget* m_statusBar{nullptr};   // not owned
-    Core::StatusBarField* m_fieldMode{nullptr};  // not owned
-    Core::StatusBarField* m_fieldGrid{nullptr};  // not owned
-    Core::StatusBarField* m_fieldZoom{nullptr};  // not owned
-    Core::StatusBarField* m_fieldPan{nullptr};   // not owned
+	double  m_zoom = 1.0;
+	QPointF m_pan = {0.0, 0.0};
+	ObjectId m_selected{};
+	bool m_hasHoveredPort = false;
+	ObjectId m_hoveredItem{};
+	PortId m_hoveredPort{};
 };
 
 } // namespace Canvas

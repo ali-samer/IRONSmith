@@ -193,6 +193,60 @@ QLabel#StatusBarFieldValue {
     background: transparent;
 }
 
+/* Mode indicator pill */
+QLabel#StatusBarFieldValue[mode] {
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-weight: 700;
+    color: #E6EAF0;
+}
+
+QLabel#StatusBarFieldValue[mode="NORMAL"] {
+    background: #1F2A23;
+    color: #9BD9AE;
+}
+
+QLabel#StatusBarFieldValue[mode="PANNING"] {
+    background: #1C2432;
+    color: #A8C0FF;
+}
+
+QLabel#StatusBarFieldValue[mode="LINKING"] {
+    background: #3A2B12;
+    color: #F0C66A;
+}
+
+QLabel#StatusBarFieldValue[linksub="1"] {
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
+    padding-right: 8px;
+}
+
+QLabel#StatusBarFieldModeBadge {
+    padding: 2px 10px;
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    font-weight: 700;
+    color: #E6EAF0;
+}
+
+QLabel#StatusBarFieldModeBadge[linkmode="SPLIT"] {
+    background: #2EC27E;
+    color: #0E1B18;
+}
+
+QLabel#StatusBarFieldModeBadge[linkmode="JOIN"] {
+    background: #F2C14E;
+    color: #2A2515;
+}
+
+QLabel#StatusBarFieldModeBadge[linkmode="BROADCAST"] {
+    background: #4DA3FF;
+    color: #0F1A2B;
+}
+
 QWidget#LeftSidebarHost,
 QWidget#RightSidebarHost {
     background: #15181A;

@@ -6,4 +6,8 @@ ironsmith_define_tests(
         TEST SidebarModelTest
             SOURCES
                 SidebarModelTests.cpp
+        TEST NewTestGroup
+            SOURCES
+
+
 )

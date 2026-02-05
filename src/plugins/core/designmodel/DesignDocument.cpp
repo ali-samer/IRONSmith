@@ -1,6 +1,6 @@
 #include "designmodel/DesignDocument.hpp"
 
-#include "utils/Macros.hpp"
+#include "../../libs/utils/Macros.hpp"
 
 #include <algorithm>
 
