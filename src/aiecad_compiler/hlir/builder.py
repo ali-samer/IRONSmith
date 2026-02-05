@@ -1357,8 +1357,8 @@ def ProgramBuilderFromXML(xml_file: str) -> ProgramBuilder:
                 if param_names:
                     rt.add_params(param_names)
 
-                # Parse StartWorkers
-                start_workers_elem = seq_elem.find('StartWorkers')
+                # Parse Start/StartWorkers (support both for backwards compatibility)
+                start_workers_elem = seq_elem.find('Start') or seq_elem.find('StartWorkers')
                 if start_workers_elem is not None and start_workers_elem.text:
                     worker_names = [w.strip() for w in start_workers_elem.text.split(',')]
                     for worker_name in worker_names:
