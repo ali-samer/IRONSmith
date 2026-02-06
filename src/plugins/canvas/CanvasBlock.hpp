@@ -6,7 +6,9 @@
 
 #include <utility>
 #include <vector>
+#include <optional>
 
+#include <QtGui/QColor>
 #include <QtCore/QString>
 #include <QtCore/QMarginsF>
 
@@ -29,6 +31,9 @@ public:
     bool isMovable() const { return m_movable; }
     void setMovable(bool v) { m_movable = v; }
 
+    bool isDeletable() const { return m_deletable; }
+    void setDeletable(bool v) { m_deletable = v; }
+
     const QString& label() const { return m_label; }
     void setLabel(QString s) { m_label = std::move(s); }
 
@@ -36,6 +41,8 @@ public:
     PortId addPort(PortSide side, double t, PortRole role = PortRole::Dynamic, QString name = {});
     PortId addPortToward(const QPointF& targetScene, PortRole role = PortRole::Dynamic, QString name = {});
     bool updatePort(PortId id, PortSide side, double t);
+    std::optional<CanvasPort> removePort(PortId id, size_t* indexOut = nullptr);
+    bool insertPort(size_t index, CanvasPort port);
     bool hasPorts() const override { return !m_ports.empty(); }
     const std::vector<CanvasPort>& ports() const override { return m_ports; }
     QPointF portAnchorScene(PortId id) const override;
@@ -69,6 +76,16 @@ public:
     const QMarginsF& contentPadding() const { return m_contentPadding; }
     void setContentPadding(const QMarginsF& padding) { m_contentPadding = padding; }
 
+    void setCustomColors(const QColor& outline, const QColor& fill, const QColor& label);
+    void clearCustomColors();
+    bool hasCustomColors() const { return m_hasCustomColors; }
+    const QColor& outlineColor() const { return m_outlineColor; }
+    const QColor& fillColor() const { return m_fillColor; }
+    const QColor& labelColor() const { return m_labelColor; }
+
+    void setCornerRadius(double radius) { m_cornerRadius = radius; }
+    double cornerRadius() const { return m_cornerRadius; }
+
 private:
     static bool s_globalShowPorts;
 
@@ -83,6 +100,13 @@ private:
 	double m_keepoutMarginScene = -1.0;
     std::unique_ptr<BlockContent> m_content;
     QMarginsF m_contentPadding{8.0, 8.0, 8.0, 8.0};
+    bool m_deletable = true;
+
+    bool m_hasCustomColors = false;
+    QColor m_outlineColor;
+    QColor m_fillColor;
+    QColor m_labelColor;
+    double m_cornerRadius = -1.0;
 };
 
 } // namespace Canvas

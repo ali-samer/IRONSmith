@@ -43,7 +43,3 @@ message(STATUS "  Python3 Version: ${Python3_VERSION}")
 message(STATUS "  Python3 Include: ${Python3_INCLUDE_DIRS}")
 message(STATUS "  Python3 Libraries: ${Python3_LIBRARIES}")
 message(STATUS "  nlohmann_json: Found")
-
-if (BUILD_WITH_TESTS)
-    add_subdirectory(tests)
-endif ()

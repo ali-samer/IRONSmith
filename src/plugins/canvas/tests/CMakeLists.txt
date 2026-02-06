@@ -14,4 +14,5 @@ ironsmith_define_tests(
 				CanvasPortTests.cpp
 				CanvasDeleteCommandTests.cpp
 				CanvasWireCommandTests.cpp
+				CanvasWireStyleTests.cpp
 )

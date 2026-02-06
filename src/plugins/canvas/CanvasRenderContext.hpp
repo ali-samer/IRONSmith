@@ -43,6 +43,14 @@ struct CANVAS_EXPORT CanvasRenderContext final {
     bool portHovered(ObjectId itemId, PortId portId) const {
         return hasHoveredPort && hoveredPortItem == itemId && hoveredPortId == portId;
     }
+
+    bool hasSelectedPort = false;
+    ObjectId selectedPortItem{};
+    PortId selectedPortId{};
+
+    bool portSelected(ObjectId itemId, PortId portId) const {
+        return hasSelectedPort && selectedPortItem == itemId && selectedPortId == portId;
+    }
 };
 
 } // namespace Canvas

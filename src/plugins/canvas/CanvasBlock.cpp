@@ -21,10 +21,14 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
     blk->m_autoPortLayout = m_autoPortLayout;
     blk->m_portSnapStep = m_portSnapStep;
     blk->m_isLinkHub = m_isLinkHub;
+    blk->m_deletable = m_deletable;
     blk->m_contentPadding = m_contentPadding;
     if (m_content)
         blk->m_content = m_content->clone();
     blk->setKeepoutMargin(m_keepoutMarginScene);
+    if (m_hasCustomColors)
+        blk->setCustomColors(m_outlineColor, m_fillColor, m_labelColor);
+    blk->setCornerRadius(m_cornerRadius);
     blk->setId(id());
     return blk;
 }
@@ -106,6 +110,28 @@ bool CanvasBlock::updatePort(PortId id, PortSide side, double t)
     return false;
 }
 
+std::optional<CanvasPort> CanvasBlock::removePort(PortId id, size_t* indexOut)
+{
+    for (size_t i = 0; i < m_ports.size(); ++i) {
+        if (m_ports[i].id == id) {
+            if (indexOut)
+                *indexOut = i;
+            CanvasPort removed = m_ports[i];
+            m_ports.erase(m_ports.begin() + static_cast<std::ptrdiff_t>(i));
+            return removed;
+        }
+    }
+    return std::nullopt;
+}
+
+bool CanvasBlock::insertPort(size_t index, CanvasPort port)
+{
+    if (index > m_ports.size())
+        index = m_ports.size();
+    m_ports.insert(m_ports.begin() + static_cast<std::ptrdiff_t>(index), std::move(port));
+    return true;
+}
+
 QPointF CanvasBlock::portAnchorScene(PortId id) const
 {
     for (const auto& port : m_ports) {
@@ -171,11 +197,21 @@ QPointF CanvasBlock::portAnchorScene(PortId id) const
 
 void CanvasBlock::draw(QPainter& p, const CanvasRenderContext& ctx) const
 {
-    CanvasStyle::drawBlockFrame(p, m_boundsScene, ctx.zoom);
+    const double radius = (m_cornerRadius >= 0.0) ? m_cornerRadius : Constants::kBlockCornerRadius;
+    if (m_hasCustomColors) {
+        CanvasStyle::drawBlockFrame(p, m_boundsScene, ctx.zoom, m_outlineColor, m_fillColor,
+                                    radius);
+    } else {
+        CanvasStyle::drawBlockFrame(p, m_boundsScene, ctx.zoom,
+                                    QColor(Constants::kBlockOutlineColor),
+                                    QColor(Constants::kBlockFillColor),
+                                    radius);
+    }
     if (ctx.selected(id()))
         CanvasStyle::drawBlockSelection(p, m_boundsScene, ctx.zoom);
     if (!m_label.isEmpty())
-        CanvasStyle::drawBlockLabel(p, m_boundsScene, ctx.zoom, m_label);
+        CanvasStyle::drawBlockLabel(p, m_boundsScene, ctx.zoom, m_label,
+                                    m_hasCustomColors ? m_labelColor : QColor(Constants::kBlockTextColor));
     if (m_content) {
         const QRectF contentRect = m_boundsScene.adjusted(m_contentPadding.left(),
                                                           m_contentPadding.top(),
@@ -189,9 +225,26 @@ void CanvasBlock::draw(QPainter& p, const CanvasRenderContext& ctx) const
         for (const auto& port : m_ports) {
             const QPointF a = portAnchorScene(port.id);
             const bool hovered = ctx.portHovered(id(), port.id);
-            CanvasStyle::drawPort(p, a, port.side, port.role, ctx.zoom, hovered);
+            const bool selected = ctx.portSelected(id(), port.id);
+            CanvasStyle::drawPort(p, a, port.side, port.role, ctx.zoom, hovered || selected);
         }
     }
+}
+
+void CanvasBlock::setCustomColors(const QColor& outline, const QColor& fill, const QColor& label)
+{
+    m_outlineColor = outline;
+    m_fillColor = fill;
+    m_labelColor = label;
+    m_hasCustomColors = true;
+}
+
+void CanvasBlock::clearCustomColors()
+{
+    m_hasCustomColors = false;
+    m_outlineColor = QColor();
+    m_fillColor = QColor();
+    m_labelColor = QColor();
 }
 
 QRectF CanvasBlock::keepoutSceneRect() const

@@ -2,6 +2,7 @@
 
 #include "canvas/CanvasItem.hpp"
 
+#include <QtGui/QColor>
 #include <optional>
 
 namespace Canvas {
@@ -30,6 +31,14 @@ public:
     void setEndpointA(Endpoint e) { m_a = std::move(e); }
     void setEndpointB(Endpoint e) { m_b = std::move(e); }
 
+    WireArrowPolicy arrowPolicy() const noexcept { return m_arrowPolicy; }
+    void setArrowPolicy(WireArrowPolicy policy) { m_arrowPolicy = policy; }
+
+    bool hasColorOverride() const noexcept { return m_hasColorOverride; }
+    const QColor& colorOverride() const { return m_colorOverride; }
+    void setColorOverride(const QColor& color);
+    void clearColorOverride();
+
     void draw(QPainter& p, const CanvasRenderContext& ctx) const override;
     QRectF boundsScene() const override;
     std::unique_ptr<CanvasItem> clone() const override;
@@ -54,6 +63,9 @@ private:
     FabricCoord m_overrideStart{};
     FabricCoord m_overrideEnd{};
     mutable bool m_overrideStale = false;
+    WireArrowPolicy m_arrowPolicy = WireArrowPolicy::End;
+    bool m_hasColorOverride = false;
+    QColor m_colorOverride;
 };
 
 } // namespace Canvas

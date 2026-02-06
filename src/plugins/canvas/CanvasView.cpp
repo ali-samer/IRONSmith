@@ -3,6 +3,8 @@
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasController.hpp"
 #include "canvas/CanvasConstants.hpp"
+#include "canvas/CanvasPorts.hpp"
+#include "canvas/CanvasStyle.hpp"
 #include "canvas/Tools.hpp"
 
 #include "canvas/CanvasRenderContext.hpp"
@@ -60,6 +62,27 @@ void CanvasView::setSelectedItem(ObjectId id)
         return;
     m_selected = id;
     update();
+    emit selectedItemChanged(m_selected);
+}
+
+void CanvasView::setSelectedPort(ObjectId itemId, PortId portId)
+{
+    if (m_hasSelectedPort && m_selectedPortItem == itemId && m_selectedPortId == portId)
+        return;
+    m_hasSelectedPort = true;
+    m_selectedPortItem = itemId;
+    m_selectedPortId = portId;
+    update();
+}
+
+void CanvasView::clearSelectedPort()
+{
+    if (!m_hasSelectedPort)
+        return;
+    m_hasSelectedPort = false;
+    m_selectedPortItem = ObjectId{};
+    m_selectedPortId = PortId{};
+    update();
 }
 
 void CanvasView::setHoveredPort(ObjectId itemId, PortId portId)
@@ -70,6 +93,7 @@ void CanvasView::setHoveredPort(ObjectId itemId, PortId portId)
 	m_hoveredItem = itemId;
 	m_hoveredPort = portId;
 	update();
+	emit hoveredPortChanged(m_hoveredItem, m_hoveredPort);
 }
 
 void CanvasView::clearHoveredPort()
@@ -79,6 +103,29 @@ void CanvasView::clearHoveredPort()
 	m_hasHoveredPort = false;
 	m_hoveredItem = ObjectId{};
 	m_hoveredPort = PortId{};
+	update();
+	emit hoveredPortCleared();
+}
+
+void CanvasView::setHoveredEdge(ObjectId itemId, PortSide side, const QPointF& anchorScene)
+{
+	if (m_hasHoveredEdge && m_hoveredEdgeItem == itemId && m_hoveredEdgeSide == side && m_hoveredEdgeAnchor == anchorScene)
+		return;
+	m_hasHoveredEdge = true;
+	m_hoveredEdgeItem = itemId;
+	m_hoveredEdgeSide = side;
+	m_hoveredEdgeAnchor = anchorScene;
+	update();
+}
+
+void CanvasView::clearHoveredEdge()
+{
+	if (!m_hasHoveredEdge)
+		return;
+	m_hasHoveredEdge = false;
+	m_hoveredEdgeItem = ObjectId{};
+	m_hoveredEdgeSide = PortSide::Left;
+	m_hoveredEdgeAnchor = QPointF();
 	update();
 }
 
@@ -162,6 +209,13 @@ void CanvasView::drawOverlayLayer(QPainter &p) const {
 	if (!m_document || !m_controller)
 		return;
 
+	if (m_hasHoveredEdge && (m_controller->mode() == CanvasController::Mode::Linking ||
+	                         m_controller->isEndpointDragActive())) {
+		p.save();
+		CanvasStyle::drawPort(p, m_hoveredEdgeAnchor, m_hoveredEdgeSide, PortRole::Dynamic, m_zoom, true);
+		p.restore();
+	}
+
 	if (m_controller->mode() != CanvasController::Mode::Linking || !m_controller->isLinkingInProgress())
 		return;
 
@@ -218,6 +272,9 @@ CanvasRenderContext CanvasView::buildRenderContext(const QRectF& sceneRect, bool
 		ctx.hoveredPortItem = m_hoveredItem;
 		ctx.hoveredPortId = m_hoveredPort;
 	}
+	ctx.hasSelectedPort = m_hasSelectedPort;
+	ctx.selectedPortItem = m_selectedPortItem;
+	ctx.selectedPortId = m_selectedPortId;
 	return ctx;
 }
 

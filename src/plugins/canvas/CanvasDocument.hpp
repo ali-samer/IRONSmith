@@ -9,6 +9,7 @@
 
 #include "canvas/CanvasFabric.hpp"
 #include "canvas/CanvasCommandManager.hpp"
+#include "canvas/CanvasRenderContext.hpp"
 #include "canvas/CanvasTypes.hpp"
 #include "canvas/CanvasItem.hpp"
 
@@ -73,6 +74,7 @@ public:
 
 	ObjectId nextId();
 	CanvasItem* findItem(ObjectId id) const;
+	void notifyChanged();
 
 signals:
 	void changed();

@@ -23,6 +23,8 @@ ironsmith_add_plugin(CanvasPlugin
             CanvasBlock.cpp
             CanvasBlockContent.hpp
             CanvasBlockContent.cpp
+            CanvasSymbolContent.hpp
+            CanvasSymbolContent.cpp
             CanvasWire.hpp
             CanvasWire.cpp
             CanvasPlugin.cpp
@@ -33,6 +35,14 @@ ironsmith_add_plugin(CanvasPlugin
             CanvasController.hpp
             CanvasController.cpp
             utils/CanvasGeometry.hpp
+            utils/CanvasPortHitTest.hpp
+            utils/CanvasPortHitTest.cpp
+            utils/CanvasLinkHubStyle.hpp
+            utils/CanvasLinkHubStyle.cpp
+            utils/CanvasLinkWireStyle.hpp
+            utils/CanvasLinkWireStyle.cpp
+            utils/CanvasPortUsage.hpp
+            utils/CanvasPortUsage.cpp
 
         #-== Canvas Tools ==-#
             Tools.hpp
@@ -40,10 +50,21 @@ ironsmith_add_plugin(CanvasPlugin
 
         #-== Public APIs ==-#
             api/ICanvasHost.hpp
+            api/CanvasGridTypes.hpp
+            api/ICanvasBlockHandle.hpp
+            api/ICanvasGridHost.hpp
 
         #-== Internal Interface Implementations ==-#
             internal/CanvasHostImpl.hpp
             internal/CanvasHostImpl.cpp
+            internal/CanvasBlockHandleImpl.hpp
+            internal/CanvasBlockHandleImpl.cpp
+            internal/CanvasGridHostImpl.hpp
+            internal/CanvasGridHostImpl.cpp
+            internal/CanvasStyleHostImpl.hpp
+            internal/CanvasStyleHostImpl.cpp
+            api/CanvasStyleTypes.hpp
+            api/ICanvasStyleHost.hpp
             internal/CanvasWireRouting.hpp
             internal/CanvasWireRouting.cpp
 

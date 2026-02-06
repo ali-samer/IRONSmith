@@ -6,6 +6,11 @@
 #include "canvas/Tools.hpp"
 #include "canvas/CanvasCommands.hpp"
 #include "canvas/CanvasWire.hpp"
+#include "canvas/utils/CanvasGeometry.hpp"
+#include "canvas/utils/CanvasPortUsage.hpp"
+#include "canvas/utils/CanvasLinkHubStyle.hpp"
+#include "canvas/utils/CanvasLinkWireStyle.hpp"
+#include "canvas/CanvasSymbolContent.hpp"
 #include "canvas/CanvasRenderContext.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
 
@@ -22,6 +27,45 @@
 
 namespace {
 
+struct WireEndpointHit final {
+    bool isA = true;
+    Canvas::CanvasWire::Endpoint endpoint;
+};
+
+std::optional<WireEndpointHit> pickWireEndpoint(Canvas::CanvasWire* wire,
+                                                const Canvas::CanvasRenderContext& ctx,
+                                                const QPointF& scenePos,
+                                                double tol);
+
+Canvas::CanvasRenderContext buildRenderContext(const Canvas::CanvasDocument* doc,
+                                              const Canvas::CanvasView* view);
+
+struct EndpointCandidate final {
+    Canvas::CanvasWire* wire = nullptr;
+    WireEndpointHit hit;
+};
+
+std::optional<EndpointCandidate> pickEndpointCandidate(Canvas::CanvasDocument* doc,
+                                                       const Canvas::CanvasView* view,
+                                                       const QPointF& scenePos,
+                                                       double tol)
+{
+    if (!doc || !view)
+        return std::nullopt;
+
+    const Canvas::CanvasRenderContext ctx = buildRenderContext(doc, view);
+    for (auto it = doc->items().rbegin(); it != doc->items().rend(); ++it) {
+        if (!*it)
+            continue;
+        auto* wire = dynamic_cast<Canvas::CanvasWire*>(it->get());
+        if (!wire)
+            continue;
+        if (auto hit = pickWireEndpoint(wire, ctx, scenePos, tol))
+            return EndpointCandidate{wire, *hit};
+    }
+    return std::nullopt;
+}
+
 bool isSpecialLinkingMode(Canvas::CanvasController::LinkingMode mode)
 {
     return mode != Canvas::CanvasController::LinkingMode::Normal;
@@ -37,6 +81,48 @@ QString linkingModeLabel(Canvas::CanvasController::LinkingMode mode)
         case Mode::Normal: break;
     }
     return QString();
+}
+
+Canvas::Utils::LinkWireRole startWireRole(Canvas::CanvasController::LinkingMode mode)
+{
+    return mode == Canvas::CanvasController::LinkingMode::Join
+        ? Canvas::Utils::LinkWireRole::Consumer
+        : Canvas::Utils::LinkWireRole::Producer;
+}
+
+Canvas::Utils::LinkWireRole finishWireRole(Canvas::CanvasController::LinkingMode mode)
+{
+    return mode == Canvas::CanvasController::LinkingMode::Join
+        ? Canvas::Utils::LinkWireRole::Producer
+        : Canvas::Utils::LinkWireRole::Consumer;
+}
+
+Canvas::PortRole oppositePortRole(Canvas::Utils::LinkWireRole role)
+{
+    return role == Canvas::Utils::LinkWireRole::Producer ? Canvas::PortRole::Consumer
+                                                        : Canvas::PortRole::Producer;
+}
+
+std::optional<Canvas::WireArrowPolicy> arrowPolicyFromPortRoles(const Canvas::CanvasDocument* doc,
+                                                                const Canvas::PortRef& a,
+                                                                const Canvas::PortRef& b)
+{
+    if (!doc)
+        return std::nullopt;
+
+    Canvas::CanvasPort aMeta;
+    Canvas::CanvasPort bMeta;
+    if (!doc->getPort(a.itemId, a.portId, aMeta) || !doc->getPort(b.itemId, b.portId, bMeta))
+        return std::nullopt;
+
+    const bool aConsumer = aMeta.role == Canvas::PortRole::Consumer;
+    const bool bConsumer = bMeta.role == Canvas::PortRole::Consumer;
+
+    if (aConsumer && !bConsumer)
+        return Canvas::WireArrowPolicy::Start;
+    if (bConsumer && !aConsumer)
+        return Canvas::WireArrowPolicy::End;
+    return std::nullopt;
 }
 
 QPointF wheelPanDeltaView(const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods)
@@ -100,6 +186,149 @@ Canvas::CanvasItem* hitTestCanvas(Canvas::CanvasDocument* doc,
             return item;
     }
     return nullptr;
+}
+
+Canvas::CanvasBlock* hitTestBlock(Canvas::CanvasDocument* doc, const QPointF& scenePos)
+{
+    if (!doc)
+        return nullptr;
+
+    for (auto it = doc->items().rbegin(); it != doc->items().rend(); ++it) {
+        Canvas::CanvasItem* item = it->get();
+        if (!item)
+            continue;
+        if (auto* wire = dynamic_cast<Canvas::CanvasWire*>(item)) {
+            Q_UNUSED(wire);
+            continue;
+        }
+        if (auto* block = dynamic_cast<Canvas::CanvasBlock*>(item)) {
+            if (block->hitTest(scenePos))
+                return block;
+        }
+    }
+    return nullptr;
+}
+
+std::optional<Canvas::EdgeCandidate> edgeCandidateAt(Canvas::CanvasDocument* doc,
+                                                     Canvas::CanvasView* view,
+                                                     const QPointF& scenePos)
+{
+    if (!doc)
+        return std::nullopt;
+
+    const double zoom = view ? view->zoom() : 1.0;
+    const double threshold = Canvas::Constants::kPortActivationBandPx / std::max(zoom, 0.25);
+    const double step = doc->fabric().config().step;
+
+    for (auto it = doc->items().rbegin(); it != doc->items().rend(); ++it) {
+        auto* block = dynamic_cast<Canvas::CanvasBlock*>(it->get());
+        if (!block)
+            continue;
+
+        const QRectF expanded = block->boundsScene().adjusted(-threshold, -threshold, threshold, threshold);
+        if (!expanded.contains(scenePos))
+            continue;
+
+        const auto hit = Canvas::Utils::edgeHitForRect(block->boundsScene(), scenePos, threshold, step);
+        if (!hit)
+            continue;
+
+        Canvas::EdgeCandidate out;
+        out.itemId = block->id();
+        out.side = hit->side;
+        out.t = hit->t;
+        out.anchorScene = hit->anchorScene;
+        return out;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<Canvas::PortRef> ensureEdgePort(Canvas::CanvasDocument* doc,
+                                              const Canvas::EdgeCandidate& candidate)
+{
+    if (!doc)
+        return std::nullopt;
+
+    auto* block = dynamic_cast<Canvas::CanvasBlock*>(doc->findItem(candidate.itemId));
+    if (!block)
+        return std::nullopt;
+
+    const double tol = 0.05;
+    for (const auto& port : block->ports()) {
+        if (port.side == candidate.side && std::abs(port.t - candidate.t) <= tol)
+            return Canvas::PortRef{block->id(), port.id};
+    }
+
+    const Canvas::PortId portId = block->addPort(candidate.side, candidate.t, Canvas::PortRole::Dynamic);
+    if (portId.isNull())
+        return std::nullopt;
+
+    doc->notifyChanged();
+    return Canvas::PortRef{block->id(), portId};
+}
+
+bool findPortIndex(const Canvas::CanvasBlock& block, Canvas::PortId portId, size_t& outIndex)
+{
+    const auto& ports = block.ports();
+    for (size_t i = 0; i < ports.size(); ++i) {
+        if (ports[i].id == portId) {
+            outIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+Canvas::CanvasWire* hitTestWireEndpoint(Canvas::CanvasDocument* doc,
+                                        Canvas::CanvasView* view,
+                                        const QPointF& scenePos,
+                                        double tol)
+{
+    if (!doc || !view)
+        return nullptr;
+
+    if (auto candidate = pickEndpointCandidate(doc, view, scenePos, tol))
+        return candidate->wire;
+    return nullptr;
+}
+
+std::optional<WireEndpointHit> pickWireEndpoint(Canvas::CanvasWire* wire,
+                                               const Canvas::CanvasRenderContext& ctx,
+                                               const QPointF& scenePos,
+                                               double tol)
+{
+    if (!wire)
+        return std::nullopt;
+
+    auto resolveAnchor = [&](const Canvas::CanvasWire::Endpoint& e) -> QPointF {
+        if (e.attached.has_value()) {
+            const auto ref = *e.attached;
+            QPointF anchor, border, fabric;
+            if (ctx.portTerminal(ref.itemId, ref.portId, anchor, border, fabric))
+                return anchor;
+        }
+        return e.freeScene;
+    };
+
+    const QPointF aAnchor = resolveAnchor(wire->a());
+    const QPointF bAnchor = resolveAnchor(wire->b());
+
+    const double distA = QLineF(scenePos, aAnchor).length();
+    const double distB = QLineF(scenePos, bAnchor).length();
+
+    if (distA > tol && distB > tol)
+        return std::nullopt;
+
+    WireEndpointHit hit;
+    if (distA <= distB) {
+        hit.isA = true;
+        hit.endpoint = wire->a();
+    } else {
+        hit.isA = false;
+        hit.endpoint = wire->b();
+    }
+    return hit;
 }
 
 int pickWireSegment(const std::vector<QPointF>& path,
@@ -223,6 +452,9 @@ void CanvasController::resetLinkingSession()
 	m_linkHubId = ObjectId{};
 	if (m_view)
 		m_view->clearHoveredPort();
+	if (m_view)
+		m_view->clearHoveredEdge();
+	m_hoverEdge.reset();
 }
 
 
@@ -278,12 +510,48 @@ void CanvasController::selectItem(ObjectId id)
         m_view->setSelectedItem(m_selected);
 }
 
+void CanvasController::selectPort(const PortRef& port)
+{
+    m_hasSelectedPort = true;
+    m_selectedPort = port;
+    if (m_view)
+        m_view->setSelectedPort(port.itemId, port.portId);
+    m_selected = ObjectId{};
+    if (m_view)
+        m_view->setSelectedItem(ObjectId{});
+}
+
+void CanvasController::clearSelectedPort()
+{
+    if (!m_hasSelectedPort)
+        return;
+    m_hasSelectedPort = false;
+    m_selectedPort = PortRef{};
+    if (m_view)
+        m_view->clearSelectedPort();
+}
+
 void CanvasController::clearTransientDragState()
 {
     m_dragWire = false;
     m_dragWireId = ObjectId{};
     m_dragWireSeg = -1;
     m_dragWirePath.clear();
+
+    m_dragEndpoint = false;
+    m_dragEndpointWireId = ObjectId{};
+    m_dragEndpointIsA = false;
+    m_dragEndpointOriginal = CanvasWire::Endpoint{};
+    m_dragEndpointPortDynamic = false;
+    m_dragEndpointPortShared = false;
+    m_dragEndpointPort = PortRef{};
+    m_dragEndpointPortMeta = CanvasPort{};
+    m_dragEndpointPortIndex = 0;
+    m_pendingEndpoint = false;
+    m_pendingEndpointWireId = ObjectId{};
+    m_pendingEndpointPort.reset();
+    m_pendingEndpointPressScene = QPointF();
+    m_pendingEndpointPressView = QPointF();
 
     m_dragBlock = nullptr;
 }
@@ -295,9 +563,19 @@ bool CanvasController::handleLinkingPress(const QPointF& scenePos)
     if (m_mode != Mode::Linking)
         return false;
 
-    const double radiusScene = 6.0 / m_view->zoom();
-    const auto hitPort = m_doc->hitTestPort(scenePos, radiusScene);
-    if (!hitPort) {
+    const double radiusScene = Canvas::Constants::kPortHitRadiusPx / std::max(m_view->zoom(), 0.25);
+    std::optional<PortRef> resolvedPort = m_doc->hitTestPort(scenePos, radiusScene);
+    if (!resolvedPort) {
+        if (auto edge = edgeCandidateAt(m_doc, m_view, scenePos)) {
+            resolvedPort = ensureEdgePort(m_doc, *edge);
+        }
+    }
+
+    if (resolvedPort && !Utils::isPortAvailable(*m_doc, resolvedPort->itemId, resolvedPort->portId)) {
+        return true;
+    }
+
+    if (!resolvedPort) {
         if (isSpecialLinkingMode(m_linkingMode)) {
             setLinkingMode(LinkingMode::Normal);
             m_view->update();
@@ -311,27 +589,29 @@ bool CanvasController::handleLinkingPress(const QPointF& scenePos)
         }
 
         CanvasItem* hit = hitTestCanvas(m_doc, m_view, scenePos);
+        clearSelectedPort();
         selectItem(hit ? hit->id() : ObjectId{});
         return true;
     }
 
     if (isSpecialLinkingMode(m_linkingMode))
-        return handleLinkingHubPress(scenePos, *hitPort);
+        return handleLinkingHubPress(scenePos, *resolvedPort);
 
     if (!m_wiring) {
         m_wiring = true;
-        m_wireStartItem = hitPort->itemId;
-        m_wireStartPort = hitPort->portId;
+        m_wireStartItem = resolvedPort->itemId;
+        m_wireStartPort = resolvedPort->portId;
         m_wirePreviewScene = scenePos;
 
-        selectItem(hitPort->itemId);
+        clearSelectedPort();
+        selectItem(resolvedPort->itemId);
         clearTransientDragState();
 
         m_view->update();
         return true;
     }
 
-    if (hitPort->itemId == m_wireStartItem && hitPort->portId == m_wireStartPort) {
+    if (resolvedPort->itemId == m_wireStartItem && resolvedPort->portId == m_wireStartPort) {
         m_wirePreviewScene = scenePos;
         return true;
     }
@@ -339,10 +619,10 @@ bool CanvasController::handleLinkingPress(const QPointF& scenePos)
     CanvasPort startMeta;
     CanvasPort endMeta;
     if (m_doc->getPort(m_wireStartItem, m_wireStartPort, startMeta) &&
-        m_doc->getPort(hitPort->itemId, hitPort->portId, endMeta))
+        m_doc->getPort(resolvedPort->itemId, resolvedPort->portId, endMeta))
     {
         const CanvasWire::Endpoint a{PortRef{m_wireStartItem, m_wireStartPort}, QPointF()};
-        const CanvasWire::Endpoint b{PortRef{hitPort->itemId, hitPort->portId}, QPointF()};
+        const CanvasWire::Endpoint b{PortRef{resolvedPort->itemId, resolvedPort->portId}, QPointF()};
 
         auto w = std::make_unique<CanvasWire>(a, b);
         w->setId(m_doc->allocateId());
@@ -362,17 +642,27 @@ void CanvasController::updateLinkingHoverAndPreview(const QPointF& scenePos)
 {
     if (!m_view || !m_doc)
         return;
-    if (m_mode != Mode::Linking || m_panning)
+    if (m_mode != Mode::Linking || m_panning || m_dragEndpoint)
         return;
 
-    const double radiusScene = 6.0 / m_view->zoom();
-    if (auto hitPort = m_doc->hitTestPort(scenePos, radiusScene))
+    const double radiusScene = Canvas::Constants::kPortHitRadiusPx / std::max(m_view->zoom(), 0.25);
+    if (auto hitPort = m_doc->hitTestPort(scenePos, radiusScene)) {
         m_view->setHoveredPort(hitPort->itemId, hitPort->portId);
-    else
+        m_view->clearHoveredEdge();
+        m_hoverEdge.reset();
+    } else if (auto edge = edgeCandidateAt(m_doc, m_view, scenePos)) {
         m_view->clearHoveredPort();
+        m_view->setHoveredEdge(edge->itemId, edge->side, edge->anchorScene);
+        m_hoverEdge = edge;
+    } else {
+        m_view->clearHoveredPort();
+        m_view->clearHoveredEdge();
+        m_hoverEdge.reset();
+    }
 
-    if (m_wiring && m_wirePreviewScene != scenePos) {
-        m_wirePreviewScene = scenePos;
+    const QPointF preview = (m_hoverEdge.has_value() ? m_hoverEdge->anchorScene : scenePos);
+    if (m_wiring && m_wirePreviewScene != preview) {
+        m_wirePreviewScene = preview;
         m_view->update();
     }
 }
@@ -403,6 +693,7 @@ bool CanvasController::beginLinkingFromPort(const PortRef& hitPort, const QPoint
     m_wireStartPort = hitPort.portId;
     m_wirePreviewScene = scenePos;
 
+    clearSelectedPort();
     selectItem(hitPort.itemId);
     clearTransientDragState();
     m_view->update();
@@ -422,7 +713,10 @@ std::unique_ptr<CanvasWire> CanvasController::buildWire(const PortRef& a, const 
 {
     const CanvasWire::Endpoint start{a, QPointF()};
     const CanvasWire::Endpoint end{b, QPointF()};
-    return std::make_unique<CanvasWire>(start, end);
+    auto wire = std::make_unique<CanvasWire>(start, end);
+    if (auto policy = arrowPolicyFromPortRoles(m_doc, a, b))
+        wire->setArrowPolicy(*policy);
+    return wire;
 }
 
 CanvasBlock* CanvasController::findLinkHub() const
@@ -450,9 +744,15 @@ bool CanvasController::connectToExistingHub(const QPointF& scenePos, const PortR
     if (!resolvePortTerminal(hitPort, endAnchor, endBorder, endFabric))
         return true;
 
-    const PortId hubPort = hub->addPortToward(endAnchor);
+    const auto finishRole = finishWireRole(m_linkingMode);
+    const PortId hubPort = hub->addPortToward(endAnchor, oppositePortRole(finishRole));
     auto w = buildWire(PortRef{hub->id(), hubPort}, hitPort);
     w->setId(m_doc->allocateId());
+    const auto finishStyle = Utils::linkWireStyle(finishWireRole(m_linkingMode));
+    w->setColorOverride(finishStyle.color);
+    w->setArrowPolicy(finishRole == Utils::LinkWireRole::Consumer
+                          ? WireArrowPolicy::End
+                          : WireArrowPolicy::None);
     m_doc->commands().execute(std::make_unique<CreateItemCommand>(std::move(w)));
 
     m_wiring = true;
@@ -483,27 +783,51 @@ bool CanvasController::createHubAndWires(const QPointF& scenePos, const PortRef&
         hubCenter = Utils::snapPointToGrid(hubCenter, step);
 
     const QPointF topLeft(hubCenter.x() - size * 0.5, hubCenter.y() - size * 0.5);
-    auto hub = std::make_unique<CanvasBlock>(QRectF(topLeft, QSizeF(size, size)), true,
-                                             linkingModeLabel(m_linkingMode));
+    auto hub = std::make_unique<CanvasBlock>(QRectF(topLeft, QSizeF(size, size)), true, QString());
     hub->setShowPorts(false);
     hub->setAutoPortLayout(true);
     hub->setPortSnapStep(Constants::kGridStep);
     hub->setLinkHub(true);
     hub->setKeepoutMargin(0.0);
+    hub->setContentPadding(QMarginsF(0.0, 0.0, 0.0, 0.0));
     hub->setId(m_doc->allocateId());
 
-    const PortId hubPortA = hub->addPortToward(startAnchor);
-    const PortId hubPortB = hub->addPortToward(endAnchor);
+    const Utils::LinkHubKind kind =
+        (m_linkingMode == LinkingMode::Split) ? Utils::LinkHubKind::Split :
+        (m_linkingMode == LinkingMode::Join) ? Utils::LinkHubKind::Join :
+                                               Utils::LinkHubKind::Broadcast;
+    const auto style = Utils::linkHubStyle(kind);
+    hub->setCustomColors(style.outline, style.fill, style.text);
+
+    SymbolContentStyle symbolStyle;
+    symbolStyle.text = style.text;
+    auto content = std::make_unique<BlockContentSymbol>(style.symbol, symbolStyle);
+    hub->setContent(std::move(content));
+
+    const auto startRole = startWireRole(m_linkingMode);
+    const auto finishRole = finishWireRole(m_linkingMode);
+    const PortId hubPortA = hub->addPortToward(startAnchor, oppositePortRole(startRole));
+    const PortId hubPortB = hub->addPortToward(endAnchor, oppositePortRole(finishRole));
     const ObjectId hubId = hub->id();
 
     m_doc->commands().execute(std::make_unique<CreateItemCommand>(std::move(hub)));
 
     auto w0 = buildWire(PortRef{m_wireStartItem, m_wireStartPort}, PortRef{hubId, hubPortA});
     w0->setId(m_doc->allocateId());
+    const auto startStyle = Utils::linkWireStyle(startRole);
+    w0->setColorOverride(startStyle.color);
+    w0->setArrowPolicy(startRole == Utils::LinkWireRole::Consumer
+                           ? WireArrowPolicy::Start
+                           : WireArrowPolicy::None);
     m_doc->commands().execute(std::make_unique<CreateItemCommand>(std::move(w0)));
 
     auto w1 = buildWire(PortRef{hubId, hubPortB}, hitPort);
     w1->setId(m_doc->allocateId());
+    const auto finishStyle = Utils::linkWireStyle(finishRole);
+    w1->setColorOverride(finishStyle.color);
+    w1->setArrowPolicy(finishRole == Utils::LinkWireRole::Consumer
+                           ? WireArrowPolicy::End
+                           : WireArrowPolicy::None);
     m_doc->commands().execute(std::make_unique<CreateItemCommand>(std::move(w1)));
 
     m_linkHubId = hubId;
@@ -595,6 +919,212 @@ void CanvasController::endWireSegmentDrag(const QPointF&)
     m_dragWirePath.clear();
 }
 
+bool CanvasController::beginEndpointDrag(CanvasWire* wire, const QPointF& scenePos)
+{
+    if (!m_view || !m_doc || !wire)
+        return false;
+
+    const CanvasRenderContext ctx = buildRenderContext(m_doc, m_view);
+    const double tol = Canvas::Constants::kEndpointHitRadiusPx / std::max(m_view->zoom(), 0.25);
+    const auto hit = pickWireEndpoint(wire, ctx, scenePos, tol);
+    if (!hit)
+        return false;
+
+    m_dragEndpoint = true;
+    m_dragEndpointWireId = wire->id();
+    m_dragEndpointIsA = hit->isA;
+    m_dragEndpointOriginal = hit->endpoint;
+    m_dragEndpointPortDynamic = false;
+    m_dragEndpointPortShared = false;
+    m_dragEndpointPort = PortRef{};
+    m_dragEndpointPortMeta = CanvasPort{};
+    m_dragEndpointPortIndex = 0;
+
+    if (hit->endpoint.attached.has_value()) {
+        const PortRef ref = *hit->endpoint.attached;
+        CanvasPort meta;
+        if (m_doc->getPort(ref.itemId, ref.portId, meta)) {
+            m_dragEndpointPort = ref;
+            m_dragEndpointPortMeta = meta;
+            m_dragEndpointPortDynamic = (meta.role == PortRole::Dynamic);
+            m_dragEndpointPortShared = Utils::countPortAttachments(*m_doc, ref.itemId, ref.portId, wire->id()) > 0;
+
+            if (auto* block = dynamic_cast<CanvasBlock*>(m_doc->findItem(ref.itemId))) {
+                findPortIndex(*block, ref.portId, m_dragEndpointPortIndex);
+            }
+        }
+    }
+
+    CanvasWire::Endpoint next = hit->endpoint;
+    next.attached.reset();
+    const double step = m_doc->fabric().config().step;
+    next.freeScene = Canvas::Utils::snapPointToGrid(scenePos, step);
+
+    if (hit->isA)
+        wire->setEndpointA(next);
+    else
+        wire->setEndpointB(next);
+
+    wire->clearRouteOverride();
+    m_doc->notifyChanged();
+    m_view->update();
+    return true;
+}
+
+void CanvasController::updateEndpointDrag(const QPointF& scenePos)
+{
+    if (!m_dragEndpoint || !m_doc || !m_view)
+        return;
+
+    CanvasWire* wire = nullptr;
+    for (const auto& it : m_doc->items()) {
+        if (it && it->id() == m_dragEndpointWireId) {
+            wire = dynamic_cast<CanvasWire*>(it.get());
+            break;
+        }
+    }
+    if (!wire)
+        return;
+
+    CanvasWire::Endpoint next = m_dragEndpointIsA ? wire->a() : wire->b();
+    next.attached.reset();
+    const double step = m_doc->fabric().config().step;
+    next.freeScene = Canvas::Utils::snapPointToGrid(scenePos, step);
+
+    if (m_dragEndpointIsA)
+        wire->setEndpointA(next);
+    else
+        wire->setEndpointB(next);
+
+    wire->clearRouteOverride();
+    if (auto edge = edgeCandidateAt(m_doc, m_view, scenePos))
+        m_view->setHoveredEdge(edge->itemId, edge->side, edge->anchorScene);
+    else
+        m_view->clearHoveredEdge();
+    m_view->update();
+}
+
+void CanvasController::endEndpointDrag(const QPointF& scenePos)
+{
+    if (!m_dragEndpoint || !m_doc || !m_view)
+        return;
+
+    CanvasWire* wire = nullptr;
+    for (const auto& it : m_doc->items()) {
+        if (it && it->id() == m_dragEndpointWireId) {
+            wire = dynamic_cast<CanvasWire*>(it.get());
+            break;
+        }
+    }
+    if (!wire)
+        return;
+
+    const double radiusScene = Canvas::Constants::kPortHitRadiusPx / std::max(m_view->zoom(), 0.25);
+    std::optional<PortRef> target = m_doc->hitTestPort(scenePos, radiusScene);
+    std::optional<EdgeCandidate> edge = std::nullopt;
+    if (!target)
+        edge = edgeCandidateAt(m_doc, m_view, scenePos);
+
+    bool attached = false;
+    bool movedPort = false;
+
+    if (target && !Utils::isPortAvailable(*m_doc, target->itemId, target->portId, wire->id())) {
+        target.reset();
+    }
+
+    if (target) {
+        CanvasWire::Endpoint next;
+        next.attached = *target;
+        next.freeScene = scenePos;
+        if (m_dragEndpointIsA)
+            wire->setEndpointA(next);
+        else
+            wire->setEndpointB(next);
+        attached = true;
+    } else if (edge.has_value()) {
+        auto* targetBlock = dynamic_cast<CanvasBlock*>(m_doc->findItem(edge->itemId));
+        if (targetBlock) {
+            if (m_dragEndpointPortDynamic && !m_dragEndpointPortShared && m_dragEndpointPort.itemId) {
+                CanvasPort moved = m_dragEndpointPortMeta;
+                moved.side = edge->side;
+                moved.t = Canvas::Utils::clampT(edge->t);
+
+                auto* sourceBlock = dynamic_cast<CanvasBlock*>(m_doc->findItem(m_dragEndpointPort.itemId));
+                if (sourceBlock) {
+                    if (sourceBlock->id() == targetBlock->id()) {
+                        sourceBlock->updatePort(m_dragEndpointPort.portId, moved.side, moved.t);
+                        CanvasWire::Endpoint next;
+                        next.attached = PortRef{sourceBlock->id(), m_dragEndpointPort.portId};
+                        next.freeScene = scenePos;
+                        if (m_dragEndpointIsA)
+                            wire->setEndpointA(next);
+                        else
+                            wire->setEndpointB(next);
+                        attached = true;
+                        movedPort = true;
+                    } else {
+                        const bool removed = sourceBlock->removePort(m_dragEndpointPort.portId).has_value();
+                        if (removed) {
+                            targetBlock->insertPort(targetBlock->ports().size(), moved);
+                            CanvasWire::Endpoint next;
+                            next.attached = PortRef{targetBlock->id(), m_dragEndpointPort.portId};
+                            next.freeScene = scenePos;
+                            if (m_dragEndpointIsA)
+                                wire->setEndpointA(next);
+                            else
+                                wire->setEndpointB(next);
+                            attached = true;
+                            movedPort = true;
+                        }
+                    }
+                }
+            }
+
+            if (!attached) {
+                const PortId newPort = targetBlock->addPort(edge->side, edge->t, PortRole::Dynamic);
+                if (newPort) {
+                    CanvasWire::Endpoint next;
+                    next.attached = PortRef{targetBlock->id(), newPort};
+                    next.freeScene = scenePos;
+                    if (m_dragEndpointIsA)
+                        wire->setEndpointA(next);
+                    else
+                        wire->setEndpointB(next);
+                    attached = true;
+                }
+            }
+        }
+    }
+
+    if (!attached) {
+        if (m_dragEndpointIsA)
+            wire->setEndpointA(m_dragEndpointOriginal);
+        else
+            wire->setEndpointB(m_dragEndpointOriginal);
+        } else if (!movedPort && m_dragEndpointPortDynamic && m_dragEndpointPort.itemId) {
+        if (Utils::countPortAttachments(*m_doc, m_dragEndpointPort.itemId, m_dragEndpointPort.portId, wire->id()) == 0) {
+            if (auto* block = dynamic_cast<CanvasBlock*>(m_doc->findItem(m_dragEndpointPort.itemId))) {
+                block->removePort(m_dragEndpointPort.portId);
+            }
+        }
+    }
+
+    wire->clearRouteOverride();
+    m_doc->notifyChanged();
+    m_view->clearHoveredEdge();
+
+    m_dragEndpoint = false;
+    m_dragEndpointWireId = ObjectId{};
+    m_dragEndpointIsA = false;
+    m_dragEndpointOriginal = CanvasWire::Endpoint{};
+    m_dragEndpointPortDynamic = false;
+    m_dragEndpointPortShared = false;
+    m_dragEndpointPort = PortRef{};
+    m_dragEndpointPortMeta = CanvasPort{};
+    m_dragEndpointPortIndex = 0;
+    m_view->update();
+}
+
 void CanvasController::beginBlockDrag(CanvasBlock* blk, const QPointF& scenePos)
 {
     if (!blk)
@@ -654,10 +1184,29 @@ void CanvasController::onCanvasMousePressed(const QPointF& scenePos, Qt::MouseBu
     if (!buttons.testFlag(Qt::LeftButton) || !m_doc)
         return;
 
+    const double tol = Canvas::Constants::kEndpointHitRadiusPx / std::max(m_view->zoom(), 0.25);
+    if (auto candidate = pickEndpointCandidate(m_doc, m_view, scenePos, tol)) {
+        m_pendingEndpoint = true;
+        m_pendingEndpointWireId = candidate->wire->id();
+        m_pendingEndpointPort = candidate->hit.endpoint.attached;
+        m_pendingEndpointPressScene = scenePos;
+        m_pendingEndpointPressView = viewPos;
+        return;
+    }
+
+    if (m_mode == Mode::Normal) {
+        const double radiusScene = Canvas::Constants::kPortHitRadiusPx / std::max(m_view->zoom(), 0.25);
+        if (auto hitPort = m_doc->hitTestPort(scenePos, radiusScene)) {
+            selectPort(*hitPort);
+            return;
+        }
+    }
+
     if (handleLinkingPress(scenePos))
         return;
 
     CanvasItem* hit = hitTestCanvas(m_doc, m_view, scenePos);
+    clearSelectedPort();
     selectItem(hit ? hit->id() : ObjectId{});
 
     if (auto* wire = dynamic_cast<CanvasWire*>(hit)) {
@@ -678,6 +1227,31 @@ void CanvasController::onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButt
     if (!m_view)
         return;
 
+    if (m_pendingEndpoint && buttons.testFlag(Qt::LeftButton)) {
+        const QPointF viewPos = sceneToView(scenePos);
+        const double dist = QLineF(viewPos, m_pendingEndpointPressView).length();
+        if (dist >= Canvas::Constants::kEndpointDragThresholdPx) {
+            CanvasWire* wire = nullptr;
+            if (m_doc) {
+                for (const auto& it : m_doc->items()) {
+                    if (it && it->id() == m_pendingEndpointWireId) {
+                        wire = dynamic_cast<CanvasWire*>(it.get());
+                        break;
+                    }
+                }
+            }
+            if (wire && beginEndpointDrag(wire, m_pendingEndpointPressScene)) {
+                m_pendingEndpoint = false;
+                m_pendingEndpointWireId = ObjectId{};
+                m_pendingEndpointPort.reset();
+                updateEndpointDrag(scenePos);
+                return;
+            }
+        } else {
+            return;
+        }
+    }
+
     updateLinkingHoverAndPreview(scenePos);
 
     if (m_panning) {
@@ -693,6 +1267,11 @@ void CanvasController::onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButt
         return;
     }
 
+    if (m_dragEndpoint) {
+        updateEndpointDrag(scenePos);
+        return;
+    }
+
     if (m_mode == Mode::Linking)
         return;
 
@@ -702,7 +1281,6 @@ void CanvasController::onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButt
 
 void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods)
 {
-    Q_UNUSED(scenePos);
     Q_UNUSED(mods);
 
     if (!m_view)
@@ -717,8 +1295,28 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
         return;
     }
 
+    if (m_pendingEndpoint) {
+        if (m_mode == Mode::Normal) {
+            if (m_pendingEndpointPort.has_value())
+                selectPort(*m_pendingEndpointPort);
+            else
+                clearSelectedPort();
+        } else if (m_mode == Mode::Linking) {
+            handleLinkingPress(scenePos);
+        }
+        m_pendingEndpoint = false;
+        m_pendingEndpointWireId = ObjectId{};
+        m_pendingEndpointPort.reset();
+        return;
+    }
+
     if (m_dragWire) {
         endWireSegmentDrag(scenePos);
+        return;
+    }
+
+    if (m_dragEndpoint) {
+        endEndpointDrag(scenePos);
         return;
     }
 
@@ -820,6 +1418,13 @@ void CanvasController::onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods)
     }
 
     if (key == Qt::Key_Delete || key == Qt::Key_Backspace) {
+        if (m_hasSelectedPort) {
+            if (m_doc->commands().execute(std::make_unique<DeletePortCommand>(m_selectedPort.itemId,
+                                                                             m_selectedPort.portId))) {
+                clearSelectedPort();
+            }
+            return;
+        }
         if (!m_selected)
             return;
         if (m_doc->commands().execute(std::make_unique<DeleteItemCommand>(m_selected))) {

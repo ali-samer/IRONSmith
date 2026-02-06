@@ -53,5 +53,11 @@
         <file>icons/svg/h_icon.svg</file>
         <file>icons/svg/c_icon.svg</file>
 
+        <!-- Fonts -->
+        <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono.ttf</file>
+        <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono-Bold.ttf</file>
+        <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono-Oblique.ttf</file>
+        <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono-BoldOblique.ttf</file>
+
     </qresource>
 </RCC>

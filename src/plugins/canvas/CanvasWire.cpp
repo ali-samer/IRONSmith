@@ -117,8 +117,13 @@ void CanvasWire::draw(QPainter& p, const CanvasRenderContext& ctx) const
 
     const std::vector<QPointF> route = resolvedPathScene(ctx);
 
-    CanvasStyle::drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, route,
-                              ctx.zoom, ctx.selected(id()));
+    if (m_hasColorOverride) {
+        CanvasStyle::drawWirePathColored(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, route,
+                                         m_colorOverride, ctx.zoom, ctx.selected(id()), m_arrowPolicy);
+    } else {
+        CanvasStyle::drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, route,
+                                  ctx.zoom, ctx.selected(id()), m_arrowPolicy);
+    }
 }
 
 QRectF CanvasWire::boundsScene() const
@@ -132,6 +137,9 @@ std::unique_ptr<CanvasItem> CanvasWire::clone() const
     auto w = std::make_unique<CanvasWire>(m_a, m_b);
     w->setId(id());
     w->m_routeOverride = m_routeOverride;
+    w->m_arrowPolicy = m_arrowPolicy;
+    w->m_hasColorOverride = m_hasColorOverride;
+    w->m_colorOverride = m_colorOverride;
     return w;
 }
 
@@ -170,6 +178,18 @@ void CanvasWire::clearRouteOverride()
 {
     m_routeOverride.clear();
     m_overrideStale = false;
+}
+
+void CanvasWire::setColorOverride(const QColor& color)
+{
+    m_colorOverride = color;
+    m_hasColorOverride = true;
+}
+
+void CanvasWire::clearColorOverride()
+{
+    m_hasColorOverride = false;
+    m_colorOverride = QColor();
 }
 
 bool CanvasWire::attachesTo(ObjectId itemId) const

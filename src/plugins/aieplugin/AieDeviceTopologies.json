@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "devices": [
+    {
+      "id": "amd-xdna1-phoenix",
+      "name": "Phoenix",
+      "vendor": "AMD",
+      "family": "XDNA1",
+      "match": {
+        "linux": {
+          "driver": "amdxdna",
+          "pci_ids": ["1022:1502"]
+        }
+      },
+
+      "grid": {
+        "columns": 5,
+        "rows": {
+          "shim": 1,
+          "mem": 1,
+          "aie": 4
+        },
+        "rowOrderBottomToTop": ["shim", "mem", "aie"]
+      },
+
+      "tiles": {
+        "coordinateSystem": "col_row",
+        "shim": {
+          "rows": [0],
+          "cols": [0, 1, 2, 3],
+          "virtualCols": [4]
+        },
+        "mem": {
+          "rows": [1],
+          "cols": [0, 1, 2, 3, 4]
+        },
+        "aie": {
+          "rows": [2, 3, 4, 5],
+          "cols": [0, 1, 2, 3, 4]
+        }
+      },
+
+      "hostInterface": {
+        "shimCapableColumns": [0, 1, 2, 3],
+        "nonShimColumnsRouteVia": {
+          "4": { "viaColumnsPreference": [3, 2, 1, 0] }
+        },
+        "virtualShimPolicy": {
+          "enabled": true,
+          "virtualShimColumns": [4],
+          "resolveVirtualShimToRealShimColumn": {
+            "strategy": "nearest",
+            "fallbackOrder": [3, 2, 1, 0]
+          }
+        }
+      },
+
+      "ironModelHints": {
+        "columnSlice": {
+          "rows": 6,
+          "rowKindsByIndex": ["shim", "mem", "aie", "aie", "aie", "aie"]
+        }
+      }
+    },
+
+    {
+      "id": "amd-xdna1-hawk-point",
+      "name": "Hawk Point",
+      "vendor": "AMD",
+      "family": "XDNA1",
+      "match": {
+        "linux": {
+          "driver": "amdxdna",
+          "pci_ids": ["1022:1502"]
+        }
+      },
+
+      "grid": {
+        "columns": 5,
+        "rows": {
+          "shim": 1,
+          "mem": 1,
+          "aie": 4
+        },
+        "rowOrderBottomToTop": ["shim", "mem", "aie"]
+      },
+
+      "tiles": {
+        "coordinateSystem": "col_row",
+        "shim": {
+          "rows": [0],
+          "cols": [0, 1, 2, 3],
+          "virtualCols": [4]
+        },
+        "mem": {
+          "rows": [1],
+          "cols": [0, 1, 2, 3, 4]
+        },
+        "aie": {
+          "rows": [2, 3, 4, 5],
+          "cols": [0, 1, 2, 3, 4]
+        }
+      },
+
+      "hostInterface": {
+        "shimCapableColumns": [0, 1, 2, 3],
+        "nonShimColumnsRouteVia": {
+          "4": { "viaColumnsPreference": [3, 2, 1, 0] }
+        },
+        "virtualShimPolicy": {
+          "enabled": true,
+          "virtualShimColumns": [4],
+          "resolveVirtualShimToRealShimColumn": {
+            "strategy": "nearest",
+            "fallbackOrder": [3, 2, 1, 0]
+          }
+        }
+      },
+
+      "ironModelHints": {
+        "columnSlice": {
+          "rows": 6,
+          "rowKindsByIndex": ["shim", "mem", "aie", "aie", "aie", "aie"]
+        }
+      }
+    }
+  ],
+
+  "defaults": {
+    "unknownDevicePolicy": {
+      "grid": { "columns": 1, "rows": { "shim": 1, "mem": 1, "aie": 4 } },
+      "hostInterface": { "shimCapableColumns": [0], "virtualShimPolicy": { "enabled": false } }
+    }
+  }
+}

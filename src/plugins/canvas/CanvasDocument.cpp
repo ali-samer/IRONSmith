@@ -7,6 +7,7 @@
 #include "canvas/CanvasWire.hpp"
 #include "canvas/CanvasRenderContext.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
+#include "canvas/utils/CanvasPortHitTest.hpp"
 
 #include <QtCore/QPointF>
 
@@ -205,7 +206,6 @@ CanvasItem* CanvasDocument::hitTest(const QPointF& scenePos) const
 
 std::optional<PortRef> CanvasDocument::hitTestPort(const QPointF& scenePos, double radiusScene) const
 {
-    const double r2 = radiusScene * radiusScene;
     for (auto it = m_items.rbegin(); it != m_items.rend(); ++it) {
         const CanvasItem* item = it->get();
         if (!item || !item->hasPorts())
@@ -216,9 +216,7 @@ std::optional<PortRef> CanvasDocument::hitTestPort(const QPointF& scenePos, doub
         }
         for (const auto& port : item->ports()) {
             const QPointF a = item->portAnchorScene(port.id);
-            const QPointF d = scenePos - a;
-            const double dist2 = d.x()*d.x() + d.y()*d.y();
-            if (dist2 <= r2)
+            if (Utils::hitTestPortGeometry(a, port.side, scenePos, radiusScene))
                 return PortRef{item->id(), port.id};
         }
     }
@@ -278,6 +276,11 @@ CanvasItem* CanvasDocument::findItem(ObjectId id) const
             return it.get();
     }
     return nullptr;
+}
+
+void CanvasDocument::notifyChanged()
+{
+    emit changed();
 }
 
 bool CanvasDocument::setItemTopLeftImpl(CanvasItem* item, const QPointF& newTopLeftScene, bool emitChanged)

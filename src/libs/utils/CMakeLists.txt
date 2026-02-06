@@ -16,8 +16,15 @@ ironsmith_add_library(Utils
             contextmenu/ContextMenu.cpp
             ui/SidebarPanelFrame.hpp
             ui/SidebarPanelFrame.cpp
+            ui/ColorSwatchButton.hpp
+            ui/ColorSwatchButton.cpp
+            ui/LabeledSlider.hpp
+            ui/LabeledSlider.cpp
             ui/ConfirmationDialog.hpp
             ui/ConfirmationDialog.cpp
+            ui/GridSpec.hpp
+            ui/GridLayout.hpp
+            ui/GridLayout.cpp
             async/AsyncTask.hpp
             filesystem/RecursiveFileSystemWatcher.hpp
             filesystem/RecursiveFileSystemWatcher.cpp

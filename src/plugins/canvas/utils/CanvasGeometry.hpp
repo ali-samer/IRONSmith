@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas/CanvasTypes.hpp"
+#include "canvas/CanvasPorts.hpp"
 
 #include <QtCore/QPointF>
 #include <QtCore/QRectF>
@@ -8,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace Canvas::Utils {
 
@@ -51,6 +53,58 @@ inline QRectF snapBoundsToGrid(const QRectF& r, double step)
 inline double clampT(double t, double lo = 0.10, double hi = 0.90)
 {
     return t < lo ? lo : (t > hi ? hi : t);
+}
+
+struct EdgeHit final {
+    PortSide side = PortSide::Left;
+    double t = 0.5;
+    QPointF anchorScene;
+};
+
+inline std::optional<EdgeHit> edgeHitForRect(const QRectF& boundsScene,
+                                             const QPointF& scenePos,
+                                             double threshold,
+                                             double snapStep)
+{
+    if (boundsScene.width() <= 1e-6 || boundsScene.height() <= 1e-6)
+        return std::nullopt;
+
+    const QRectF expanded = boundsScene.adjusted(-threshold, -threshold, threshold, threshold);
+    if (!expanded.contains(scenePos))
+        return std::nullopt;
+
+    const double dLeft = std::abs(scenePos.x() - boundsScene.left());
+    const double dRight = std::abs(scenePos.x() - boundsScene.right());
+    const double dTop = std::abs(scenePos.y() - boundsScene.top());
+    const double dBottom = std::abs(scenePos.y() - boundsScene.bottom());
+
+    double best = dLeft;
+    PortSide side = PortSide::Left;
+    if (dRight < best) { best = dRight; side = PortSide::Right; }
+    if (dTop < best) { best = dTop; side = PortSide::Top; }
+    if (dBottom < best) { best = dBottom; side = PortSide::Bottom; }
+
+    if (best > threshold)
+        return std::nullopt;
+
+    EdgeHit hit;
+    hit.side = side;
+
+    if (side == PortSide::Left || side == PortSide::Right) {
+        double y = std::clamp(scenePos.y(), boundsScene.top(), boundsScene.bottom());
+        y = snapCoord(y, snapStep);
+        y = std::clamp(y, boundsScene.top(), boundsScene.bottom());
+        hit.anchorScene = QPointF(side == PortSide::Left ? boundsScene.left() : boundsScene.right(), y);
+        hit.t = (hit.anchorScene.y() - boundsScene.top()) / boundsScene.height();
+    } else {
+        double x = std::clamp(scenePos.x(), boundsScene.left(), boundsScene.right());
+        x = snapCoord(x, snapStep);
+        x = std::clamp(x, boundsScene.left(), boundsScene.right());
+        hit.anchorScene = QPointF(x, side == PortSide::Top ? boundsScene.top() : boundsScene.bottom());
+        hit.t = (hit.anchorScene.x() - boundsScene.left()) / boundsScene.width();
+    }
+
+    return hit;
 }
 
 inline FabricCoord toFabricCoord(const QPointF& s, double step)
