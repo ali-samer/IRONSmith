@@ -86,7 +86,6 @@ private:
 	CanvasFabric m_fabric;
 	std::vector<std::unique_ptr<CanvasItem>> m_items;
 	CanvasCommandManager m_commands;
-	quint64 m_nextId = 1;
 };
 
 } // namespace Canvas

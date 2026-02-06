@@ -9,11 +9,9 @@ target_link_libraries(ironsmith
         Utils
         CorePlugin
 )
-add_dependencies(ironsmith
-        DesignModelPlugin
-        CommandPlugin
-        CanvasPlugin
-)
+#add_dependencies(ironsmith
+#        CanvasPlugin
+#)
 set_target_properties(ironsmith PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${IRONSMITH_BUILD_BINDIR}"
         CXX_EXTENSIONS OFF

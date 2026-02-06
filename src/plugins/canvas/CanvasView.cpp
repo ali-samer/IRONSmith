@@ -241,7 +241,7 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event)
 
 void CanvasView::wheelEvent(QWheelEvent* event)
 {
-	emit canvasWheel(viewToScene(event->position()), event->angleDelta(), event->modifiers());
+	emit canvasWheel(viewToScene(event->position()), event->angleDelta(), event->pixelDelta(), event->modifiers());
 	event->accept();
 }
 

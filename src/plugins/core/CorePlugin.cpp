@@ -34,6 +34,7 @@ CorePlugin::~CorePlugin()
 
 	if (auto* ui = m_core->uiHost())
 		ExtensionSystem::PluginManager::removeObject(ui);
+
 }
 
 Utils::Result CorePlugin::initialize(const QStringList& arguments,
@@ -87,11 +88,11 @@ Utils::Result CorePlugin::initialize(const QStringList& arguments,
 	connect(actSave, &QAction::triggered, this, [] { qCWarning(corelog) << "Save triggered (no project service bound yet)."; });
 	connect(actSaveAs, &QAction::triggered, this, [] { qCWarning(corelog) << "Save As triggered (no project service bound yet)."; });
 
-	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.new",    actNew,    RibbonControlType::Button,         {});
-	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.open",   actOpen,   RibbonControlType::Button,         {});
-	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.save",   actSave,   RibbonControlType::Button,         {});
-	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.saveas", actSaveAs, RibbonControlType::Button,         {});
-	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, "project.recent", actRecent, RibbonControlType::DropDownButton, {});
+	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, Constants::PROJECT_NEW_ITEMID,    actNew,    RibbonControlType::Button,         {});
+	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, Constants::PROJECT_OPEN_ITEMID,   actOpen,   RibbonControlType::Button,         {});
+	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, Constants::PROJECT_SAVE_ITEMID,   actSave,   RibbonControlType::Button,         {});
+	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, Constants::PROJECT_SAVE_AS_ITEMID, actSaveAs, RibbonControlType::Button,         {});
+	ui->addRibbonCommand(Constants::RIBBON_TAB_HOME, Constants::RIBBON_TAB_HOME_PROJECT_GROUP, Constants::PROJECT_RECENT_ITEMID, actRecent, RibbonControlType::DropDownButton, {});
 
 	return Utils::Result::success();
 }

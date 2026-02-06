@@ -425,3 +425,160 @@ QWidget#RightSidebarOverlayHost QFrame#SidebarPanelChrome {
     border: none;
     border-radius: 0px;
 }
+
+/* Sidebar panel header + search */
+QWidget#SidebarPanelFrame {
+    background: transparent;
+}
+
+QWidget#SidebarPanelHeader {
+    background: transparent;
+}
+
+QToolButton#SidebarPanelViewButton {
+    background: transparent;
+    border: none;
+    color: #E6EAF0;
+    padding: 1px 14px 1px 2px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+}
+
+QToolButton#SidebarPanelViewButton:hover {
+    color: #FFFFFF;
+}
+
+QToolButton#SidebarPanelViewButton::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: right center;
+    width: 10px;
+    height: 10px;
+    image: url(:/ui/icons/svg/chevron_down.svg);
+}
+
+QLabel#SidebarPanelSubtitle {
+    color: rgba(230, 234, 240, 0.60);
+}
+
+QFrame#SidebarPanelHeaderDivider {
+    background: #2A2F36;
+    min-height: 1px;
+    max-height: 1px;
+}
+
+QLineEdit#SidebarPanelSearch {
+    background: #1B1E20;
+    color: #E6EAF0;
+    border: 1px solid #30363D;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+QLineEdit#SidebarPanelSearch:focus {
+    border-color: #3A7BFF;
+}
+
+QLineEdit#SidebarPanelSearch::placeholder {
+    color: rgba(230, 234, 240, 0.45);
+}
+
+QToolButton#SidebarPanelActionButton {
+    background: transparent;
+    border: none;
+    padding: 2px;
+}
+
+QToolButton#SidebarPanelActionButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+}
+
+QMenu#SidebarPanelViewMenu {
+    background: #1C1F22;
+    color: #E6EAF0;
+    border: 1px solid #30363D;
+    padding: 4px;
+}
+
+QMenu#SidebarPanelViewMenu::item {
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+QMenu#SidebarPanelViewMenu::item:selected {
+    background: #2A2F36;
+}
+
+QMenu#SidebarPanelViewMenu::item:checked {
+    background: #214283;
+    color: #FFFFFF;
+}
+
+QDialog#ConfirmationDialog {
+    background: #15181A;
+    border: 1px solid #30363D;
+    border-radius: 8px;
+    color: #E6EAF0;
+}
+
+QLabel#ConfirmationDialogTitle {
+    color: #F0F3F7;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QLabel#ConfirmationDialogMessage {
+    color: #E6EAF0;
+}
+
+QLabel#ConfirmationDialogInformative,
+QLabel#ConfirmationDialogDetails {
+    color: rgba(230, 234, 240, 0.7);
+}
+
+QDialog#ConfirmationDialog QDialogButtonBox QPushButton {
+    background: #2A2F36;
+    color: #E6EAF0;
+    border: 1px solid #3A414A;
+    border-radius: 4px;
+    padding: 4px 12px;
+}
+
+QDialog#ConfirmationDialog QDialogButtonBox QPushButton:hover {
+    background: #343A42;
+}
+
+QDialog#ConfirmationDialog QPushButton#ConfirmationDialogConfirmButton[destructive=\"true\"] {
+    background: #7B2C2C;
+    border-color: #8E3434;
+}
+
+QDialog#ConfirmationDialog QPushButton#ConfirmationDialogConfirmButton[destructive=\"true\"]:hover {
+    background: #8E3434;
+}
+
+QTreeView#ProjectExplorerTree {
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+QTreeView#ProjectExplorerTree::item {
+    color: #E6EAF0;
+    padding: 2px 0px;
+}
+
+QTreeView#ProjectExplorerTree::item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+QTreeView#ProjectExplorerTree::item:selected:active {
+    background: #214283;
+    color: #FFFFFF;
+}
+
+QTreeView#ProjectExplorerTree::item:selected:!active {
+    background: rgba(33, 66, 131, 0.65);
+    color: #FFFFFF;
+}

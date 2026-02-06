@@ -32,6 +32,7 @@ public:
 											  QString groupId,
 											  std::unique_ptr<RibbonNode> root) = 0;
 
+	virtual QAction* ribbonCommand(QString pageId, QString groupId, QString itemId) = 0;
 	virtual RibbonResult addRibbonCommand(QString pageId,
 										 QString groupId,
 										 QString itemId,

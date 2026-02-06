@@ -244,12 +244,32 @@ RibbonResult UiHostImpl::setRibbonGroupLayout(QString pageId,
     return group->setLayout(std::move(root));
 }
 
+QAction * UiHostImpl::ribbonCommand(QString pageId, QString groupId, QString itemId) {
+    if (!m_ribbonModel) {
+        qCWarning(corelog) << "Ribbon: Ribbon model not available.";
+        return nullptr;
+    }
+
+    auto* page = m_ribbonModel->pageById(pageId);
+    if (!page) {
+        qCWarning(corelog) << "Ribbon: unknown page id '" << pageId << "'";
+    }
+
+    auto* group = page->groupById(groupId);
+    if (!group) {
+        qCWarning(corelog) << "Ribbon: unknown group id '" << groupId << "'";
+        return nullptr;
+    }
+
+    return group->actionById(itemId);
+}
+
 RibbonResult UiHostImpl::addRibbonCommand(QString pageId,
-                                         QString groupId,
-                                         QString itemId,
-                                         QAction* action,
-                                         RibbonControlType type,
-                                         RibbonPresentation pres)
+                                          QString groupId,
+                                          QString itemId,
+                                          QAction* action,
+                                          RibbonControlType type,
+                                          RibbonPresentation pres)
 {
     if (!m_ribbonModel)
         return RibbonResult::failure("Ribbon: model not available.");

@@ -77,7 +77,6 @@ private:
     QString m_label;
     std::vector<CanvasPort> m_ports;
     bool m_showPorts = true;
-    quint64 m_nextPortValue = 1;
     bool m_autoPortLayout = false;
     double m_portSnapStep = Constants::kGridStep;
     bool m_isLinkHub = false;

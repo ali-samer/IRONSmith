@@ -18,7 +18,6 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
     auto blk = std::make_unique<CanvasBlock>(m_boundsScene, m_movable, m_label);
     blk->setPorts(m_ports);
     blk->m_showPorts = m_showPorts;
-    blk->m_nextPortValue = m_nextPortValue;
     blk->m_autoPortLayout = m_autoPortLayout;
     blk->m_portSnapStep = m_portSnapStep;
     blk->m_isLinkHub = m_isLinkHub;
@@ -33,11 +32,6 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
 void CanvasBlock::setPorts(std::vector<CanvasPort> ports)
 {
     m_ports = std::move(ports);
-    m_nextPortValue = 1;
-    for (const auto& port : m_ports) {
-        if (port.id.value() >= m_nextPortValue)
-            m_nextPortValue = port.id.value() + 1;
-    }
 }
 
 static PortSide sideFromAngle(double angle)
@@ -77,7 +71,7 @@ static double snapToStep(double v, double step)
 PortId CanvasBlock::addPort(PortSide side, double t, PortRole role, QString name)
 {
     CanvasPort port;
-    port.id = PortId(m_nextPortValue++);
+    port.id = PortId::create();
     port.role = role;
     port.side = side;
     port.t = t;

@@ -34,5 +34,7 @@ struct Result {
 		ok = false;
 		errors.push_back(msg);
 	}
+
+	explicit operator bool() const { return ok; }
 };
 } // namespace Utils

@@ -47,10 +47,12 @@ ironsmith_add_plugin(CanvasPlugin
             internal/CanvasWireRouting.hpp
             internal/CanvasWireRouting.cpp
 
-        PRIVATE_DEPENDS
+        PUBLIC_DEPENDS
             ${QT6_REQUIRED_COMPONENTS}
-            IRONSmith::ExtensionSystem
             IRONSmith::Utils
+
+        PRIVATE_DEPENDS
+            IRONSmith::ExtensionSystem
             IRONSmith::CorePlugin
 )
 

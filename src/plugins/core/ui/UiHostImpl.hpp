@@ -31,6 +31,7 @@ public:
 									 QString groupId,
 									 std::unique_ptr<RibbonNode> root) override;
 
+	QAction* ribbonCommand(QString pageId, QString groupId, QString itemId) override;
 	RibbonResult addRibbonCommand(QString pageId,
 								 QString groupId,
 								 QString itemId,

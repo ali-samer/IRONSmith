@@ -39,5 +39,12 @@ inline constexpr char SIDEBAR_RIGHT_RAIL[] = "IRONSmith.Sidebar.Right.Rail";
 inline constexpr char SIDEBAR_LEFT_PANEL[] = "IRONSmith.Sidebar.Left.Panel";
 inline constexpr char SIDEBAR_RIGHT_PANEL[] = "IRONSmith.Sidebar.Right.Panel";
 
+// Project Item Ids
+inline constexpr char PROJECT_OPEN_ITEMID[] = "project.open";
+inline constexpr char PROJECT_NEW_ITEMID[] = "project.new";
+inline constexpr char PROJECT_SAVE_ITEMID[] = "project.save";
+inline constexpr char PROJECT_SAVE_AS_ITEMID[] = "project.save.as";
+inline constexpr char PROJECT_RECENT_ITEMID[] = "project.recent";
+
 } // namespace Core
 } // namespace Constants

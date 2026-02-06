@@ -39,6 +39,21 @@ QString linkingModeLabel(Canvas::CanvasController::LinkingMode mode)
     return QString();
 }
 
+QPointF wheelPanDeltaView(const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods)
+{
+    QPoint delta = pixelDelta.isNull() ? angleDelta : pixelDelta;
+    if (delta.isNull())
+        return {};
+
+    if (mods.testFlag(Qt::ShiftModifier)) {
+        if (delta.x() == 0)
+            delta.setX(delta.y());
+        delta.setY(0);
+    }
+
+    return QPointF(delta);
+}
+
 Canvas::CanvasRenderContext buildRenderContext(const Canvas::CanvasDocument* doc,
                                               const Canvas::CanvasView* view)
 {
@@ -367,10 +382,10 @@ bool CanvasController::handleLinkingHubPress(const QPointF& scenePos, const Port
     if (!m_view || !m_doc)
         return false;
 
-    if (!m_linkHubId.isValid() && !m_wiring)
+    if (m_linkHubId.isNull() && !m_wiring)
         return beginLinkingFromPort(hitPort, scenePos);
 
-    if (m_linkHubId.isValid())
+    if (!m_linkHubId.isNull())
         return connectToExistingHub(scenePos, hitPort);
 
     if (hitPort.itemId == m_wireStartItem && hitPort.portId == m_wireStartPort) {
@@ -412,7 +427,7 @@ std::unique_ptr<CanvasWire> CanvasController::buildWire(const PortRef& a, const 
 
 CanvasBlock* CanvasController::findLinkHub() const
 {
-    if (!m_doc || !m_linkHubId.isValid())
+    if (!m_doc || m_linkHubId.isNull())
         return nullptr;
     return dynamic_cast<CanvasBlock*>(m_doc->findItem(m_linkHubId));
 }
@@ -713,28 +728,40 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
 }
 
 
-void CanvasController::onCanvasWheel(const QPointF& scenePos, const QPoint& angleDelta, Qt::KeyboardModifiers mods)
+void CanvasController::onCanvasWheel(const QPointF& scenePos, const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods)
 {
 	if (!m_view)
 		return;
 
-	if (!mods.testFlag(Qt::ControlModifier))
+	if (mods.testFlag(Qt::ControlModifier)) {
+		int dy = angleDelta.y();
+		if (dy == 0)
+			dy = pixelDelta.y();
+		if (dy == 0)
+			return;
+
+		const double factor = dy > 0 ? Constants::kZoomStep : (1.0 / Constants::kZoomStep);
+
+		const double oldZoom = m_view->zoom();
+		const QPointF oldPan = m_view->pan();
+
+		const double newZoom = Tools::clampZoom(oldZoom * factor);
+		m_view->setZoom(newZoom);
+
+		const QPointF panNew = ((scenePos + oldPan) * oldZoom / newZoom) - scenePos;
+		m_view->setPan(panNew);
+		return;
+	}
+
+	const QPointF deltaView = wheelPanDeltaView(angleDelta, pixelDelta, mods);
+	if (deltaView.isNull())
 		return;
 
-	const int dy = angleDelta.y();
-	if (dy == 0)
+	const double zoom = m_view->zoom();
+	if (zoom <= 0.0)
 		return;
 
-	const double factor = dy > 0 ? Constants::kZoomStep : (1.0 / Constants::kZoomStep);
-
-	const double oldZoom = m_view->zoom();
-	const QPointF oldPan = m_view->pan();
-
-	const double newZoom = Tools::clampZoom(oldZoom * factor);
-	m_view->setZoom(newZoom);
-
-	const QPointF panNew = ((scenePos + oldPan) * oldZoom / newZoom) - scenePos;
-	m_view->setPan(panNew);
+	m_view->setPan(m_view->pan() + QPointF(deltaView.x() / zoom, deltaView.y() / zoom));
 }
 
 void CanvasController::onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods)

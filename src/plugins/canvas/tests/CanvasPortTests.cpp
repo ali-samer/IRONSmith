@@ -10,14 +10,16 @@ TEST(CanvasPortTests, PortAnchorsAreClampedAwayFromCorners)
 {
     Canvas::CanvasBlock blk(QRectF(10.0, 20.0, 100.0, 50.0), false);
 
-    std::vector<Canvas::CanvasPort> ports;
+    const Canvas::PortId portA = Canvas::PortId::create();
+    const Canvas::PortId portB = Canvas::PortId::create();
 
-    ports.push_back(Canvas::CanvasPort{Canvas::PortId(1), Canvas::PortRole::Consumer, Canvas::PortSide::Right, 0.0, {}});
-    ports.push_back(Canvas::CanvasPort{Canvas::PortId(2), Canvas::PortRole::Consumer, Canvas::PortSide::Right, 1.0, {}});
+    std::vector<Canvas::CanvasPort> ports;
+    ports.push_back(Canvas::CanvasPort{portA, Canvas::PortRole::Consumer, Canvas::PortSide::Right, 0.0, {}});
+    ports.push_back(Canvas::CanvasPort{portB, Canvas::PortRole::Consumer, Canvas::PortSide::Right, 1.0, {}});
     blk.setPorts(std::move(ports));
 
-    const QPointF a0 = blk.portAnchorScene(Canvas::PortId(1));
-    const QPointF a1 = blk.portAnchorScene(Canvas::PortId(2));
+    const QPointF a0 = blk.portAnchorScene(portA);
+    const QPointF a1 = blk.portAnchorScene(portB);
 
     EXPECT_DOUBLE_EQ(a0.x(), blk.boundsScene().right());
     EXPECT_DOUBLE_EQ(a1.x(), blk.boundsScene().right());

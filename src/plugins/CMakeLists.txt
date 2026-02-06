@@ -3,3 +3,4 @@ add_subdirectory(core)
 
 #-== Level 1 ==-#
 add_subdirectory(canvas)
+add_subdirectory(projectexplorer)

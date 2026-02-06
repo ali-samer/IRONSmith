@@ -73,11 +73,11 @@ static void createDemo(CanvasDocument* document)
 
     const auto makePorts = []() -> std::vector<CanvasPort> {
         std::vector<CanvasPort> ports;
-        ports.push_back(CanvasPort{PortId(1), PortRole::Dynamic, PortSide::Left, 0.50, QStringLiteral("D0")});
-        ports.push_back(CanvasPort{PortId(2), PortRole::Dynamic, PortSide::Right, 0.25, QStringLiteral("D1")});
-        ports.push_back(CanvasPort{PortId(3), PortRole::Dynamic, PortSide::Right, 0.40, QStringLiteral("D2")});
-        ports.push_back(CanvasPort{PortId(4), PortRole::Dynamic, PortSide::Right, 0.55, QStringLiteral("D3")});
-        ports.push_back(CanvasPort{PortId(5), PortRole::Dynamic, PortSide::Right, 0.70, QStringLiteral("D4")});
+        ports.push_back(CanvasPort{PortId::create(), PortRole::Dynamic, PortSide::Left, 0.50, QStringLiteral("D0")});
+        ports.push_back(CanvasPort{PortId::create(), PortRole::Dynamic, PortSide::Right, 0.25, QStringLiteral("D1")});
+        ports.push_back(CanvasPort{PortId::create(), PortRole::Dynamic, PortSide::Right, 0.40, QStringLiteral("D2")});
+        ports.push_back(CanvasPort{PortId::create(), PortRole::Dynamic, PortSide::Right, 0.55, QStringLiteral("D3")});
+        ports.push_back(CanvasPort{PortId::create(), PortRole::Dynamic, PortSide::Right, 0.70, QStringLiteral("D4")});
         return ports;
     };
 

@@ -40,7 +40,7 @@ public slots:
 	void onCanvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
-	void onCanvasWheel(const QPointF& scenePos, const QPoint& angleDelta, Qt::KeyboardModifiers mods);
+	void onCanvasWheel(const QPointF& scenePos, const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods);
 	void onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods);
 
 signals:

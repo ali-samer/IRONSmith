@@ -19,17 +19,20 @@ TEST(CanvasWireCommandTests, CreateUndoRedoRestoresSameWireId)
     auto* blk = doc.createBlock(QRectF(QPointF(64.0, 64.0), QSizeF(160.0, 96.0)), false);
     ASSERT_NE(blk, nullptr);
 
+    const PortId portA = PortId::create();
+    const PortId portB = PortId::create();
+
     std::vector<CanvasPort> ports;
-    ports.push_back(CanvasPort{PortId(1), PortRole::Dynamic, PortSide::Left, 0.50, QStringLiteral("D0")});
-    ports.push_back(CanvasPort{PortId(2), PortRole::Dynamic, PortSide::Right, 0.25, QStringLiteral("D1")});
+    ports.push_back(CanvasPort{portA, PortRole::Dynamic, PortSide::Left, 0.50, QStringLiteral("D0")});
+    ports.push_back(CanvasPort{portB, PortRole::Dynamic, PortSide::Right, 0.25, QStringLiteral("D1")});
     blk->setPorts(std::move(ports));
 
     CanvasWire::Endpoint a;
-    a.attached = PortRef{blk->id(), PortId(1)};
-    a.freeScene = blk->portAnchorScene(PortId(1));
+    a.attached = PortRef{blk->id(), portA};
+    a.freeScene = blk->portAnchorScene(portA);
     CanvasWire::Endpoint b;
-    b.attached = PortRef{blk->id(), PortId(2)};
-    b.freeScene = blk->portAnchorScene(PortId(2));
+    b.attached = PortRef{blk->id(), portB};
+    b.freeScene = blk->portAnchorScene(portB);
 
     auto w = std::make_unique<CanvasWire>(a, b);
     const ObjectId wid = doc.allocateId();

@@ -265,12 +265,12 @@ bool CanvasDocument::insertItem(size_t index, std::unique_ptr<CanvasItem> item)
 
 ObjectId CanvasDocument::nextId()
 {
-    return ObjectId(m_nextId++);
+    return ObjectId::create();
 }
 
 CanvasItem* CanvasDocument::findItem(ObjectId id) const
 {
-    if (!id.isValid())
+    if (id.isNull())
         return nullptr;
 
     for (const auto& it : m_items) {

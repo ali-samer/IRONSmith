@@ -148,6 +148,7 @@ public:
     RibbonNode& addStretch(QString itemId = {});
 
     QAction* action() const { return m_action; }
+    QAction* itemIdRecursive(const QString& itemId) const;
     RibbonControlType controlType() const { return m_controlType; }
     const RibbonPresentation& presentation() const { return m_presentation; }
     const std::function<QWidget*(QWidget*)>& widgetFactory() const { return m_widgetFactory; }
@@ -162,7 +163,6 @@ private:
 
     bool isLayout() const { return m_kind == Kind::Row || m_kind == Kind::Column; }
 
-private:
     Kind m_kind;
     QString m_id;
 
@@ -193,6 +193,7 @@ public:
 
     QVector<RibbonItem> items() const;
 
+    QAction* actionById(const QString& id) const;
     RibbonResult addAction(const QString& itemId, QAction* action,
                            RibbonControlType type = RibbonControlType::Button,
                            RibbonPresentation pres = {});

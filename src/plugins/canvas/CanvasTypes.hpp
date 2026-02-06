@@ -2,43 +2,23 @@
 
 #include "canvas/CanvasGlobal.hpp"
 
+#include "utils/StrongId.hpp"
+
 #include <QtCore/QString>
-#include <QtCore/QtGlobal>
 #include <QtCore/QRect>
 #include <vector>
 
 namespace Canvas {
-
-template <typename Tag>
-class StrongId final
-{
-public:
-	using value_type = quint64;
-
-	constexpr StrongId() = default;
-	explicit constexpr StrongId(value_type v) : m_value(v) {}
-
-	constexpr value_type value() const { return m_value; }
-	constexpr bool isValid() const { return m_value != 0; }
-
-	explicit operator bool() const { return isValid(); }
-
-	friend constexpr bool operator==(StrongId a, StrongId b) { return a.m_value == b.m_value; }
-	friend constexpr bool operator!=(StrongId a, StrongId b) { return a.m_value != b.m_value; }
-
-private:
-	value_type m_value = 0;
-};
 
 struct BlockIdTag {};
 struct PortIdTag {};
 struct LinkIdTag {};
 struct ObjectIdTag {};
 
-using BlockId = StrongId<BlockIdTag>;
-using PortId  = StrongId<PortIdTag>;
-using LinkId  = StrongId<LinkIdTag>;
-using ObjectId = StrongId<ObjectIdTag>;
+using BlockId = Utils::StrongId<BlockIdTag>;
+using PortId  = Utils::StrongId<PortIdTag>;
+using LinkId  = Utils::StrongId<LinkIdTag>;
+using ObjectId = Utils::StrongId<ObjectIdTag>;
 
 struct CANVAS_EXPORT GridCoord final {
 	int x = 0;
@@ -81,17 +61,5 @@ struct CANVAS_EXPORT FabricCoord final {
 // 	QString  tag;
 // };
 //
-
-#define DEFINE_QHASH_OVERLOAD(Id) \
-inline uint qHash(Id id, uint seed = 0) noexcept {  \
-	return ::qHash(id.value(), seed);				\
-}
-
-DEFINE_QHASH_OVERLOAD(Canvas::BlockId)
-DEFINE_QHASH_OVERLOAD(Canvas::PortId)
-DEFINE_QHASH_OVERLOAD(Canvas::LinkId)
-DEFINE_QHASH_OVERLOAD(Canvas::ObjectId)
-
-#undef DEFINE_QHASH_OVERLOAD
 
 } // namespace Canvas

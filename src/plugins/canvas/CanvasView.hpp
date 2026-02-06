@@ -52,7 +52,7 @@ signals:
 	void canvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void canvasMouseMoved(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void canvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
-	void canvasWheel(const QPointF& scenePos, const QPoint& angleDelta, Qt::KeyboardModifiers mods);
+	void canvasWheel(const QPointF& scenePos, const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods);
 	void canvasKeyPressed(int key, Qt::KeyboardModifiers mods);
 
 protected:

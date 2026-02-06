@@ -1,4 +1,4 @@
-#include "canvas/designmodel/DesignIndex.hpp"
+#include "core/designmodel/designmodel/DesignIndex.hpp"
 
 #include <QtCore/QSet>
 

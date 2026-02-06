@@ -3,7 +3,6 @@
 #include <QtCore/QDebug>
 
 namespace Core {
-
 RibbonNode::RibbonNode(Kind k, QString id)
     : m_kind(k), m_id(std::move(id))
 {
@@ -85,10 +84,9 @@ RibbonNode& RibbonNode::addStretch(QString itemId)
     return *m_children.back();
 }
 
-bool RibbonNode::containsItemIdRecursive(const QString& itemId) const
-{
+QAction* RibbonNode::itemIdRecursive(const QString& itemId) const {
     if (itemId.isEmpty())
-        return false;
+        return nullptr;
 
     const bool isLeaf = (m_kind == Kind::LeafCommand
                       || m_kind == Kind::LeafWidget
@@ -96,16 +94,21 @@ bool RibbonNode::containsItemIdRecursive(const QString& itemId) const
                       || m_kind == Kind::Stretch);
 
     if (isLeaf && m_id == itemId)
-        return true;
+        return action();
 
     if (m_kind == Kind::Row || m_kind == Kind::Column) {
         for (const auto& c : m_children) {
-            if (c->containsItemIdRecursive(itemId))
-                return true;
+            if (QAction* a = c->itemIdRecursive(itemId))
+                return a;
         }
     }
 
-    return false;
+    return nullptr;
+}
+
+bool RibbonNode::containsItemIdRecursive(const QString& itemId) const
+{
+    return itemIdRecursive(itemId) != nullptr;
 }
 
 bool RibbonNode::removeItemIdRecursive(const QString& itemId)
@@ -177,29 +180,29 @@ RibbonResult CommandRibbonGroup::setLayout(std::unique_ptr<RibbonNode> root)
 static void flattenNode(const RibbonNode& n, QVector<RibbonItem>& out)
 {
     switch (n.kind()) {
-    case RibbonNode::Kind::Row:
-    case RibbonNode::Kind::Column:
-        for (const auto& c : n.children())
-            flattenNode(*c, out);
-        break;
+        case RibbonNode::Kind::Row:
+        case RibbonNode::Kind::Column:
+            for (const auto& c : n.children())
+                flattenNode(*c, out);
+            break;
 
-    case RibbonNode::Kind::LeafCommand:
-        if (n.action())
-            out.push_back(RibbonItem::makeAction(n.id(), n.action()));
-        break;
+        case RibbonNode::Kind::LeafCommand:
+            if (n.action())
+                out.push_back(RibbonItem::makeAction(n.id(), n.action()));
+            break;
 
-    case RibbonNode::Kind::LeafWidget:
-        if (n.widgetFactory())
-            out.push_back(RibbonItem::makeWidget(n.id(), n.widgetFactory()));
-        break;
+        case RibbonNode::Kind::LeafWidget:
+            if (n.widgetFactory())
+                out.push_back(RibbonItem::makeWidget(n.id(), n.widgetFactory()));
+            break;
 
-    case RibbonNode::Kind::Separator:
-        out.push_back(RibbonItem::makeSeparator(n.id()));
-        break;
+        case RibbonNode::Kind::Separator:
+            out.push_back(RibbonItem::makeSeparator(n.id()));
+            break;
 
-    case RibbonNode::Kind::Stretch:
-        out.push_back(RibbonItem::makeStretch(n.id()));
-        break;
+        case RibbonNode::Kind::Stretch:
+            out.push_back(RibbonItem::makeStretch(n.id()));
+            break;
     }
 }
 
@@ -213,6 +216,15 @@ QVector<RibbonItem> CommandRibbonGroup::items() const
 bool CommandRibbonGroup::itemIdTaken(const QString& itemId) const
 {
     return m_root ? m_root->containsItemIdRecursive(itemId) : false;
+}
+
+QAction* CommandRibbonGroup::actionById(const QString& itemId) const {
+    if (!itemId.isEmpty() && !itemIdTaken(itemId)) {
+        qCWarning(corelog) << "Ribbon group '" << m_id << "' has no action '" << itemId;
+        return nullptr;
+    }
+
+    return m_root->itemIdRecursive(itemId);
 }
 
 RibbonResult CommandRibbonGroup::addAction(const QString& itemId,
