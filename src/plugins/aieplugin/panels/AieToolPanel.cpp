@@ -60,13 +60,15 @@ void AieToolPanel::buildUi()
     layoutForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     layoutForm->setFormAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_spacingSlider = makeSlider(0, 64, 1);
-    m_marginSlider = makeSlider(0, 64, 1);
+    m_horizontalSpacingSlider = makeSlider(0, 128, 1);
+    m_verticalSpacingSlider = makeSlider(0, 128, 1);
+    m_outwardSpreadSlider = makeSlider(0, 128, 1);
     m_autoCellCheck = new QCheckBox(QStringLiteral("Auto size"), layoutGroup);
     m_cellSizeSlider = makeSlider(24, 200, 2);
 
-    layoutForm->addRow(QStringLiteral("Tile spacing"), m_spacingSlider);
-    layoutForm->addRow(QStringLiteral("Outer margin"), m_marginSlider);
+    layoutForm->addRow(QStringLiteral("Horizontal spacing"), m_horizontalSpacingSlider);
+    layoutForm->addRow(QStringLiteral("Vertical spacing"), m_verticalSpacingSlider);
+    layoutForm->addRow(QStringLiteral("Outward spread"), m_outwardSpreadSlider);
     layoutForm->addRow(QString(), m_autoCellCheck);
     layoutForm->addRow(QStringLiteral("Cell size"), m_cellSizeSlider);
 
@@ -111,15 +113,68 @@ void AieToolPanel::buildUi()
     if (!m_coordinator)
         return;
 
-    connect(m_spacingSlider, &Utils::LabeledSlider::valueChanged,
+    connect(m_horizontalSpacingSlider, &Utils::LabeledSlider::valueChanged,
             this, [this](int value) {
                 if (m_coordinator)
-                    m_coordinator->setTileSpacing(static_cast<double>(value));
+                    m_coordinator->setHorizontalSpacing(static_cast<double>(value));
             });
-    connect(m_marginSlider, &Utils::LabeledSlider::valueChanged,
+    connect(m_horizontalSpacingSlider, &Utils::LabeledSlider::sliderPressed,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->beginSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Horizontal);
+            });
+    connect(m_horizontalSpacingSlider, &Utils::LabeledSlider::valueChanged,
             this, [this](int value) {
                 if (m_coordinator)
-                    m_coordinator->setOuterMargin(static_cast<double>(value));
+                    m_coordinator->updateSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Horizontal,
+                                                          static_cast<double>(value));
+            });
+    connect(m_horizontalSpacingSlider, &Utils::LabeledSlider::sliderReleased,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->endSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Horizontal);
+            });
+    connect(m_verticalSpacingSlider, &Utils::LabeledSlider::valueChanged,
+            this, [this](int value) {
+                if (m_coordinator)
+                    m_coordinator->setVerticalSpacing(static_cast<double>(value));
+            });
+    connect(m_verticalSpacingSlider, &Utils::LabeledSlider::sliderPressed,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->beginSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Vertical);
+            });
+    connect(m_verticalSpacingSlider, &Utils::LabeledSlider::valueChanged,
+            this, [this](int value) {
+                if (m_coordinator)
+                    m_coordinator->updateSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Vertical,
+                                                          static_cast<double>(value));
+            });
+    connect(m_verticalSpacingSlider, &Utils::LabeledSlider::sliderReleased,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->endSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Vertical);
+            });
+    connect(m_outwardSpreadSlider, &Utils::LabeledSlider::valueChanged,
+            this, [this](int value) {
+                if (m_coordinator)
+                    m_coordinator->setOutwardSpread(static_cast<double>(value));
+            });
+    connect(m_outwardSpreadSlider, &Utils::LabeledSlider::sliderPressed,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->beginSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Outward);
+            });
+    connect(m_outwardSpreadSlider, &Utils::LabeledSlider::valueChanged,
+            this, [this](int value) {
+                if (m_coordinator)
+                    m_coordinator->updateSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Outward,
+                                                          static_cast<double>(value));
+            });
+    connect(m_outwardSpreadSlider, &Utils::LabeledSlider::sliderReleased,
+            this, [this]() {
+                if (m_coordinator)
+                    m_coordinator->endSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Outward);
             });
     connect(m_autoCellCheck, &QCheckBox::toggled,
             m_coordinator, &AieCanvasCoordinator::setAutoCellSize);
@@ -164,15 +219,20 @@ void AieToolPanel::buildUi()
     connect(m_coordinator, &AieCanvasCoordinator::autoCellSizeChanged, this,
             [this](bool enabled) { m_cellSizeSlider->setEnabled(!enabled); });
 
-    connect(m_coordinator, &AieCanvasCoordinator::tileSpacingChanged, this,
+    connect(m_coordinator, &AieCanvasCoordinator::horizontalSpacingChanged, this,
             [this](double value) {
-                QSignalBlocker block(m_spacingSlider);
-                m_spacingSlider->setValue(static_cast<int>(std::lround(value)));
+                QSignalBlocker block(m_horizontalSpacingSlider);
+                m_horizontalSpacingSlider->setValue(static_cast<int>(std::lround(value)));
             });
-    connect(m_coordinator, &AieCanvasCoordinator::outerMarginChanged, this,
+    connect(m_coordinator, &AieCanvasCoordinator::verticalSpacingChanged, this,
             [this](double value) {
-                QSignalBlocker block(m_marginSlider);
-                m_marginSlider->setValue(static_cast<int>(std::lround(value)));
+                QSignalBlocker block(m_verticalSpacingSlider);
+                m_verticalSpacingSlider->setValue(static_cast<int>(std::lround(value)));
+            });
+    connect(m_coordinator, &AieCanvasCoordinator::outwardSpreadChanged, this,
+            [this](double value) {
+                QSignalBlocker block(m_outwardSpreadSlider);
+                m_outwardSpreadSlider->setValue(static_cast<int>(std::lround(value)));
             });
     connect(m_coordinator, &AieCanvasCoordinator::autoCellSizeChanged, this,
             [this](bool enabled) {
@@ -229,8 +289,9 @@ void AieToolPanel::syncFromCoordinator()
     if (!m_coordinator)
         return;
 
-    QSignalBlocker blockSpacing(m_spacingSlider);
-    QSignalBlocker blockMargin(m_marginSlider);
+    QSignalBlocker blockHSpacing(m_horizontalSpacingSlider);
+    QSignalBlocker blockVSpacing(m_verticalSpacingSlider);
+    QSignalBlocker blockOutward(m_outwardSpreadSlider);
     QSignalBlocker blockAuto(m_autoCellCheck);
     QSignalBlocker blockCell(m_cellSizeSlider);
     QSignalBlocker blockPorts(m_showPortsCheck);
@@ -241,8 +302,9 @@ void AieToolPanel::syncFromCoordinator()
     QSignalBlocker blockOutline(m_outlineColorButton);
     QSignalBlocker blockLabel(m_labelColorButton);
 
-    m_spacingSlider->setValue(static_cast<int>(std::lround(m_coordinator->tileSpacing())));
-    m_marginSlider->setValue(static_cast<int>(std::lround(m_coordinator->outerMargin())));
+    m_horizontalSpacingSlider->setValue(static_cast<int>(std::lround(m_coordinator->horizontalSpacing())));
+    m_verticalSpacingSlider->setValue(static_cast<int>(std::lround(m_coordinator->verticalSpacing())));
+    m_outwardSpreadSlider->setValue(static_cast<int>(std::lround(m_coordinator->outwardSpread())));
     m_autoCellCheck->setChecked(m_coordinator->autoCellSize());
     m_cellSizeSlider->setValue(static_cast<int>(std::lround(m_coordinator->cellSize())));
     m_cellSizeSlider->setEnabled(!m_coordinator->autoCellSize());

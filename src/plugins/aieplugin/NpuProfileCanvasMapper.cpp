@@ -20,13 +20,7 @@ QString tileKindId(TileKind kind)
 
 QString tileKindLabel(TileKind kind)
 {
-    switch (kind) {
-        case TileKind::Shim: return QStringLiteral("SHIM");
-        case TileKind::Mem: return QStringLiteral("MEM");
-        case TileKind::Aie: return QStringLiteral("AIE");
-        default: break;
-    }
-    return QStringLiteral("TILE");
+    return tileKindId(kind).toUpper();
 }
 
 TileKind tileKindFor(const NpuProfile& profile, int col, int row)
@@ -85,10 +79,11 @@ Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& o
     }
 
     const int totalRows = profile.grid.rows.total();
+    const int gridRows = totalRows + 1;
 
     Utils::GridSpec gridSpec;
     gridSpec.columns = profile.grid.columns;
-    gridSpec.rows = totalRows;
+    gridSpec.rows = gridRows;
     gridSpec.origin = Utils::GridOrigin::BottomLeft;
     gridSpec.autoCellSize = true;
     gridSpec.cellSpacing = QSizeF(Aie::kDefaultTileSpacing, Aie::kDefaultTileSpacing);
@@ -98,8 +93,19 @@ Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& o
     QVector<Canvas::Api::CanvasBlockSpec> blocks;
     blocks.reserve(gridSpec.columns * gridSpec.rows);
 
+    if (gridSpec.columns > 0) {
+        Canvas::Api::CanvasBlockSpec ddr;
+        ddr.id = QStringLiteral("ddr");
+        ddr.label = QStringLiteral("DDR");
+        ddr.gridRect = {0, 0, gridSpec.columns, 1};
+        ddr.movable = false;
+        ddr.showPorts = false;
+        ddr.deletable = false;
+        ddr.styleKey = QStringLiteral("ddr");
+        blocks.push_back(std::move(ddr));
+    }
+
     for (int row = 0; row < totalRows; ++row) {
-        const int renderRow = (totalRows - 1) - row;
         for (int col = 0; col < gridSpec.columns; ++col) {
             const TileKind kind = tileKindFor(profile, col, row);
             if (kind == TileKind::Unknown)
@@ -109,7 +115,7 @@ Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& o
             const QString kindId = tileKindId(kind);
             spec.id = QStringLiteral("%1%2_%3").arg(kindId).arg(col).arg(row);
             spec.label = tileKindLabel(kind);
-            spec.gridRect = { col, renderRow, 1, 1 };
+            spec.gridRect = { col, row + 1, 1, 1 };
             spec.movable = false;
             spec.showPorts = true;
             spec.deletable = false;

@@ -43,6 +43,9 @@ public:
 
 signals:
     void valueChanged(int value);
+    void sliderPressed();
+    void sliderReleased();
+    void sliderMoved(int value);
 
 private:
     void updateValueLabel(int value);

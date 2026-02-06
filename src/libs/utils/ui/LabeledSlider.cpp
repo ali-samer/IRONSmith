@@ -25,6 +25,9 @@ LabeledSlider::LabeledSlider(Qt::Orientation orientation, QWidget* parent)
     layout->addWidget(m_slider, 1);
     layout->addWidget(m_valueLabel, 0);
 
+    connect(m_slider, &QSlider::sliderPressed, this, &LabeledSlider::sliderPressed);
+    connect(m_slider, &QSlider::sliderReleased, this, &LabeledSlider::sliderReleased);
+    connect(m_slider, &QSlider::sliderMoved, this, &LabeledSlider::sliderMoved);
     connect(m_slider, &QSlider::valueChanged, this, [this](int value) {
         updateValueLabel(value);
         emit valueChanged(value);

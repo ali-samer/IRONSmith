@@ -30,8 +30,9 @@ private:
 
     AieCanvasCoordinator* m_coordinator = nullptr;
     Utils::SidebarPanelFrame* m_frame = nullptr;
-    Utils::LabeledSlider* m_spacingSlider = nullptr;
-    Utils::LabeledSlider* m_marginSlider = nullptr;
+    Utils::LabeledSlider* m_horizontalSpacingSlider = nullptr;
+    Utils::LabeledSlider* m_verticalSpacingSlider = nullptr;
+    Utils::LabeledSlider* m_outwardSpreadSlider = nullptr;
     class QCheckBox* m_autoCellCheck = nullptr;
     Utils::LabeledSlider* m_cellSizeSlider = nullptr;
     class QCheckBox* m_showPortsCheck = nullptr;

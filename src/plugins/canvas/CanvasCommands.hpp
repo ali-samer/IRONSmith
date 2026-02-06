@@ -97,4 +97,21 @@ private:
     std::vector<SavedPort> m_savedOrphanPorts;
 };
 
+class CANVAS_EXPORT CompositeCommand final : public CanvasCommand
+{
+public:
+    explicit CompositeCommand(QString name = QStringLiteral("Composite Command"));
+
+    void add(std::unique_ptr<CanvasCommand> cmd);
+    bool empty() const noexcept { return m_commands.empty(); }
+
+    QString name() const override;
+    bool apply(CanvasDocument& doc) override;
+    bool revert(CanvasDocument& doc) override;
+
+private:
+    QString m_name;
+    std::vector<std::unique_ptr<CanvasCommand>> m_commands;
+};
+
 } // namespace Canvas

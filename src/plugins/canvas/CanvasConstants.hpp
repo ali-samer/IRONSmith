@@ -23,6 +23,7 @@ inline constexpr double kPortHitRadiusPx = 8.0;
 inline constexpr double kEdgeHoverRadiusPx = 14.0;
 inline constexpr double kEndpointHitRadiusPx = 10.0;
 inline constexpr double kEndpointDragThresholdPx = 4.0;
+inline constexpr double kMarqueeDragThresholdPx = 4.0;
 inline constexpr double kPortActivationBandPx = 20.0;
 
 inline constexpr double kPortStubLength = 10.0;

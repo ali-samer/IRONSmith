@@ -13,6 +13,9 @@ using namespace Qt::StringLiterals;
 const QString kStateName = u"aie/panelState"_s;
 const QString kTileSpacingKey = u"tileSpacing"_s;
 const QString kOuterMarginKey = u"outerMargin"_s;
+const QString kHorizontalSpacingKey = u"horizontalSpacing"_s;
+const QString kVerticalSpacingKey = u"verticalSpacing"_s;
+const QString kOutwardSpreadKey = u"outwardSpread"_s;
 const QString kAutoCellSizeKey = u"autoCellSize"_s;
 const QString kCellSizeKey = u"cellSize"_s;
 const QString kShowPortsKey = u"showPorts"_s;
@@ -66,8 +69,9 @@ void AiePanelState::setCoordinator(AieCanvasCoordinator* coordinator)
     if (!m_coordinator)
         return;
 
-    connect(m_coordinator, &AieCanvasCoordinator::tileSpacingChanged, this, &AiePanelState::scheduleSave);
-    connect(m_coordinator, &AieCanvasCoordinator::outerMarginChanged, this, &AiePanelState::scheduleSave);
+    connect(m_coordinator, &AieCanvasCoordinator::horizontalSpacingChanged, this, &AiePanelState::scheduleSave);
+    connect(m_coordinator, &AieCanvasCoordinator::verticalSpacingChanged, this, &AiePanelState::scheduleSave);
+    connect(m_coordinator, &AieCanvasCoordinator::outwardSpreadChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::autoCellSizeChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::cellSizeChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::showPortsChanged, this, &AiePanelState::scheduleSave);
@@ -97,10 +101,19 @@ void AiePanelState::apply(const QJsonObject& state)
 
     m_applying = true;
 
-    if (state.contains(kTileSpacingKey))
+    if (state.contains(kHorizontalSpacingKey))
+        m_coordinator->setHorizontalSpacing(state.value(kHorizontalSpacingKey).toDouble(m_coordinator->horizontalSpacing()));
+    if (state.contains(kVerticalSpacingKey))
+        m_coordinator->setVerticalSpacing(state.value(kVerticalSpacingKey).toDouble(m_coordinator->verticalSpacing()));
+    if (state.contains(kOutwardSpreadKey))
+        m_coordinator->setOutwardSpread(state.value(kOutwardSpreadKey).toDouble(m_coordinator->outwardSpread()));
+
+    if (!state.contains(kHorizontalSpacingKey) && !state.contains(kVerticalSpacingKey) && state.contains(kTileSpacingKey)) {
         m_coordinator->setTileSpacing(state.value(kTileSpacingKey).toDouble(m_coordinator->tileSpacing()));
-    if (state.contains(kOuterMarginKey))
-        m_coordinator->setOuterMargin(state.value(kOuterMarginKey).toDouble(m_coordinator->outerMargin()));
+    }
+    if (!state.contains(kOutwardSpreadKey) && state.contains(kOuterMarginKey)) {
+        m_coordinator->setOutwardSpread(state.value(kOuterMarginKey).toDouble(m_coordinator->outwardSpread()));
+    }
     if (state.contains(kAutoCellSizeKey))
         m_coordinator->setAutoCellSize(state.value(kAutoCellSizeKey).toBool(m_coordinator->autoCellSize()));
     if (state.contains(kCellSizeKey))
@@ -130,8 +143,9 @@ QJsonObject AiePanelState::snapshot() const
     if (!m_coordinator)
         return obj;
 
-    obj.insert(kTileSpacingKey, m_coordinator->tileSpacing());
-    obj.insert(kOuterMarginKey, m_coordinator->outerMargin());
+    obj.insert(kHorizontalSpacingKey, m_coordinator->horizontalSpacing());
+    obj.insert(kVerticalSpacingKey, m_coordinator->verticalSpacing());
+    obj.insert(kOutwardSpreadKey, m_coordinator->outwardSpread());
     obj.insert(kAutoCellSizeKey, m_coordinator->autoCellSize());
     obj.insert(kCellSizeKey, m_coordinator->cellSize());
     obj.insert(kShowPortsKey, m_coordinator->showPorts());

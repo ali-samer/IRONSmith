@@ -6,6 +6,8 @@ ironsmith_add_plugin(AiePlugin
             AiePlugin.cpp
             AieGlobal.hpp
             AieConstants.hpp
+            AieService.hpp
+            AieService.cpp
             AiePlugin.json
             AieDeviceTopologies.json
             AiePluginResources.qrc
@@ -16,6 +18,7 @@ ironsmith_add_plugin(AiePlugin
             NpuProfileCanvasMapper.cpp
             AieCanvasCoordinator.hpp
             AieCanvasCoordinator.cpp
+            api/IAieHost.hpp
             state/AiePanelState.hpp
             state/AiePanelState.cpp
             panels/AieToolPanel.hpp

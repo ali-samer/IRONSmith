@@ -45,13 +45,24 @@
         <file>icons/svg/folder.svg</file>
         <file>icons/svg/graphml_icon.svg</file>
         <file>icons/svg/json_icon.svg</file>
+        <file>icons/svg/auto_route_icon.svg</file>
+        <file>icons/svg/link_icon.svg</file>
         <file>icons/svg/markdown_icon.svg</file>
+        <file>icons/svg/merge_link_icon.svg</file>
         <file>icons/svg/opened_folder.svg</file>
+        <file>icons/svg/pan_icon.svg</file>
         <file>icons/svg/python_icon.svg</file>
+        <file>icons/svg/reset_icon.svg</file>
+        <file>icons/svg/select_hand_pointer_icon.svg</file>
+        <file>icons/svg/split_link_icon.svg</file>
         <file>icons/svg/text_file_icon.svg</file>
         <file>icons/svg/xml_icon.svg</file>
         <file>icons/svg/h_icon.svg</file>
         <file>icons/svg/c_icon.svg</file>
+        <file>icons/svg/broadcast_link_icon.svg</file>
+        <file>icons/svg/zoom_fit_icon.svg</file>
+        <file>icons/svg/zoom_in_icon.svg</file>
+        <file>icons/svg/zoom_out_icon.svg</file>
 
         <!-- Fonts -->
         <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono.ttf</file>

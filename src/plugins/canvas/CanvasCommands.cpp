@@ -6,6 +6,7 @@
 #include "canvas/CanvasWire.hpp"
 
 #include <algorithm>
+#include <utility>
 
 #include "canvas/utils/CanvasPortUsage.hpp"
 
@@ -313,6 +314,55 @@ bool DeletePortCommand::revert(CanvasDocument& doc)
     }
 
     doc.notifyChanged();
+    return ok;
+}
+
+CompositeCommand::CompositeCommand(QString name)
+    : m_name(std::move(name))
+{}
+
+void CompositeCommand::add(std::unique_ptr<CanvasCommand> cmd)
+{
+    if (cmd)
+        m_commands.push_back(std::move(cmd));
+}
+
+QString CompositeCommand::name() const
+{
+    return m_name;
+}
+
+bool CompositeCommand::apply(CanvasDocument& doc)
+{
+    if (m_commands.empty())
+        return false;
+
+    size_t applied = 0;
+    for (auto& cmd : m_commands) {
+        if (!cmd || !cmd->apply(doc)) {
+            for (size_t i = applied; i > 0; --i) {
+                auto& revertCmd = m_commands[i - 1];
+                if (revertCmd)
+                    revertCmd->revert(doc);
+            }
+            return false;
+        }
+        ++applied;
+    }
+    return true;
+}
+
+bool CompositeCommand::revert(CanvasDocument& doc)
+{
+    if (m_commands.empty())
+        return false;
+
+    bool ok = true;
+    for (size_t i = m_commands.size(); i > 0; --i) {
+        auto& cmd = m_commands[i - 1];
+        if (cmd)
+            ok = cmd->revert(doc) && ok;
+    }
     return ok;
 }
 

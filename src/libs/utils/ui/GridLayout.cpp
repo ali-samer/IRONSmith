@@ -63,10 +63,10 @@ QRectF GridLayout::rectForGrid(const GridSpec& spec,
 
     double y = 0.0;
     if (spec.origin == GridOrigin::TopLeft) {
+        y = spec.outerMargin.top() + rect.row * (cellSize.height() + spacingH);
+    } else {
         const int fromTop = spec.rows - rect.row - rect.rowSpan;
         y = spec.outerMargin.top() + fromTop * (cellSize.height() + spacingH);
-    } else {
-        y = spec.outerMargin.bottom() + rect.row * (cellSize.height() + spacingH);
     }
 
     return QRectF(QPointF(x, y), QSizeF(width, height));

@@ -38,8 +38,8 @@ TEST(NpuProfileCanvasMapperTests, BuildsGridAndBlocks)
     ASSERT_TRUE(result.ok) << result.errors.join("\n").toStdString();
 
     EXPECT_EQ(model.gridSpec.columns, 3);
-    EXPECT_EQ(model.gridSpec.rows, 3);
-    EXPECT_EQ(model.blocks.size(), 7);
+    EXPECT_EQ(model.gridSpec.rows, 4);
+    EXPECT_EQ(model.blocks.size(), 8);
 
     auto hasId = [&](const QString& id) {
         return std::any_of(model.blocks.begin(), model.blocks.end(), [&](const auto& spec) {
@@ -50,4 +50,5 @@ TEST(NpuProfileCanvasMapperTests, BuildsGridAndBlocks)
     EXPECT_TRUE(hasId(QStringLiteral("shim0_0")));
     EXPECT_TRUE(hasId(QStringLiteral("mem1_1")));
     EXPECT_TRUE(hasId(QStringLiteral("aie2_2")));
+    EXPECT_TRUE(hasId(QStringLiteral("ddr")));
 }

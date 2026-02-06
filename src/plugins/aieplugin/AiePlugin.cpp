@@ -1,9 +1,7 @@
 #include "aieplugin/AieGlobal.hpp"
-#include "aieplugin/AieCanvasCoordinator.hpp"
 #include "aieplugin/AieConstants.hpp"
-#include "aieplugin/NpuProfileCanvasMapper.hpp"
-#include "aieplugin/NpuProfileLoader.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
+#include "aieplugin/AieService.hpp"
 #include "aieplugin/state/AiePanelState.hpp"
 
 #include <extensionsystem/IPlugin.hpp>
@@ -15,6 +13,7 @@
 #include "core/api/ISidebarRegistry.hpp"
 #include "core/api/SidebarToolSpec.hpp"
 #include "core/ui/IUiHost.hpp"
+#include "canvas/api/ICanvasHost.hpp"
 #include "canvas/api/ICanvasGridHost.hpp"
 #include "canvas/api/ICanvasStyleHost.hpp"
 #include "canvas/api/CanvasStyleTypes.hpp"
@@ -39,7 +38,7 @@ public:
 
 private:
     QPointer<Core::ISidebarRegistry> m_sidebarRegistry;
-    QPointer<AieCanvasCoordinator> m_canvasCoordinator;
+    QPointer<AieService> m_service;
     QPointer<AiePanelState> m_panelState;
     bool m_toolRegistered = false;
 };
@@ -60,8 +59,9 @@ void logResultErrors(const QString& context, const Utils::Result& result)
 Utils::Result AiePlugin::initialize(const QStringList& arguments, ExtensionSystem::PluginManager& manager)
 {
     Q_UNUSED(arguments);
-    Q_UNUSED(manager);
     qInitResources_AiePluginResources();
+    m_service = new AieService(this);
+    ExtensionSystem::PluginManager::addObject(m_service);
     return Utils::Result::success();
 }
 
@@ -78,35 +78,30 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
         qCWarning(aiepluginlog) << "AiePlugin: Canvas grid host not available.";
         return;
     }
+    auto* canvasHost = manager.getObject<Canvas::Api::ICanvasHost>();
     auto* styleHost = manager.getObject<Canvas::Api::ICanvasStyleHost>();
 
-    NpuProfileCatalog catalog;
+    if (!m_service) {
+        qCWarning(aiepluginlog) << "AiePlugin: AieService not available.";
+        return;
+    }
+    m_service->setGridHost(gridHost);
+    m_service->setStyleHost(styleHost);
+    m_service->setCanvasHost(canvasHost);
+
     const Utils::Result loadResult =
-        loadProfileCatalogFromFile(QString::fromLatin1(Aie::kDeviceTopologiesResource), catalog);
+        m_service->loadProfileCatalog(QString::fromLatin1(Aie::kDeviceTopologiesResource));
     if (!loadResult) {
         logResultErrors(QStringLiteral("AiePlugin: Failed to load NPU profile catalog."), loadResult);
         return;
     }
 
     const QString profileId = QString::fromLatin1(Aie::kDefaultProfileId);
-    const NpuProfile* profile = findProfileById(catalog, profileId);
-    if (!profile) {
-        qCWarning(aiepluginlog) << "AiePlugin: Profile not found:" << profileId;
-        return;
-    }
-
-    CanvasGridModel model;
-    const Utils::Result buildResult = buildCanvasGridModel(*profile, model);
+    const Utils::Result buildResult = m_service->setProfileId(profileId);
     if (!buildResult) {
         logResultErrors(QStringLiteral("AiePlugin: Failed to build canvas grid model."), buildResult);
         return;
     }
-
-    if (!m_canvasCoordinator)
-        m_canvasCoordinator = new AieCanvasCoordinator(this);
-    m_canvasCoordinator->setGridHost(gridHost);
-    m_canvasCoordinator->setStyleHost(styleHost);
-    m_canvasCoordinator->setBaseModel(model);
 
     QHash<QString, Canvas::Api::CanvasBlockStyle> baseStyles;
     Canvas::Api::CanvasBlockStyle aieStyle;
@@ -130,12 +125,19 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
     shimStyle.cornerRadius = 0.0;
     baseStyles.insert(QStringLiteral("shim"), shimStyle);
 
-    m_canvasCoordinator->setBaseStyles(baseStyles);
+    Canvas::Api::CanvasBlockStyle ddrStyle;
+    ddrStyle.fillColor = QColor(QStringLiteral("#0F1116"));
+    ddrStyle.outlineColor = QColor(QStringLiteral("#E6E9EF"));
+    ddrStyle.labelColor = QColor(QStringLiteral("#E6E9EF"));
+    ddrStyle.cornerRadius = 0.0;
+    baseStyles.insert(QStringLiteral("ddr"), ddrStyle);
+
+    m_service->setBaseStyles(baseStyles);
 
     if (!m_panelState)
-        m_panelState = new AiePanelState(m_canvasCoordinator, this);
+        m_panelState = new AiePanelState(m_service->coordinator(), this);
     else
-        m_panelState->setCoordinator(m_canvasCoordinator);
+        m_panelState->setCoordinator(m_service->coordinator());
 
     if (!m_sidebarRegistry)
         m_sidebarRegistry = uiHost->sidebarRegistry();
@@ -153,7 +155,7 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
         spec.toolTip = QStringLiteral("AIE Grid Tools");
 
         const auto factory = [this](QWidget* parent) -> QWidget* {
-            return new AieToolPanel(m_canvasCoordinator, parent);
+            return new AieToolPanel(m_service ? m_service->coordinator() : nullptr, parent);
         };
 
         QString error;
@@ -172,6 +174,10 @@ ExtensionSystem::IPlugin::ShutdownFlag AiePlugin::aboutToShutdown()
         if (!m_sidebarRegistry->unregisterTool(QStringLiteral("IRONSmith.AieGridTools"), &error)) {
             qCWarning(aiepluginlog) << "AiePlugin: unregisterTool failed:" << error;
         }
+    }
+    if (m_service) {
+        ExtensionSystem::PluginManager::removeObject(m_service);
+        m_service = nullptr;
     }
     return ShutdownFlag::SynchronousShutdown;
 }

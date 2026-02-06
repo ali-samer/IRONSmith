@@ -505,9 +505,13 @@ void CanvasController::endPanning()
 
 void CanvasController::selectItem(ObjectId id)
 {
-    m_selected = id;
-    if (m_view)
-        m_view->setSelectedItem(m_selected);
+    if (!id) {
+        clearSelection();
+        return;
+    }
+    QSet<ObjectId> next;
+    next.insert(id);
+    setSelection(next);
 }
 
 void CanvasController::selectPort(const PortRef& port)
@@ -516,9 +520,7 @@ void CanvasController::selectPort(const PortRef& port)
     m_selectedPort = port;
     if (m_view)
         m_view->setSelectedPort(port.itemId, port.portId);
-    m_selected = ObjectId{};
-    if (m_view)
-        m_view->setSelectedItem(ObjectId{});
+    clearSelection();
 }
 
 void CanvasController::clearSelectedPort()
@@ -529,6 +531,54 @@ void CanvasController::clearSelectedPort()
     m_selectedPort = PortRef{};
     if (m_view)
         m_view->clearSelectedPort();
+}
+
+void CanvasController::setSelection(const QSet<ObjectId>& ids)
+{
+    if (m_selectedItems == ids)
+        return;
+    m_selectedItems = ids;
+    if (m_view)
+        m_view->setSelectedItems(m_selectedItems);
+    if (!m_selectedItems.isEmpty())
+        clearSelectedPort();
+}
+
+void CanvasController::clearSelection()
+{
+    if (m_selectedItems.isEmpty())
+        return;
+    m_selectedItems.clear();
+    if (m_view)
+        m_view->clearSelectedItems();
+}
+
+void CanvasController::addToSelection(ObjectId id)
+{
+    if (!id)
+        return;
+    if (m_selectedItems.contains(id))
+        return;
+    QSet<ObjectId> next = m_selectedItems;
+    next.insert(id);
+    setSelection(next);
+}
+
+void CanvasController::toggleSelection(ObjectId id)
+{
+    if (!id)
+        return;
+    QSet<ObjectId> next = m_selectedItems;
+    if (next.contains(id))
+        next.remove(id);
+    else
+        next.insert(id);
+    setSelection(next);
+}
+
+bool CanvasController::isSelected(ObjectId id) const
+{
+    return m_selectedItems.contains(id);
 }
 
 void CanvasController::clearTransientDragState()
@@ -553,7 +603,11 @@ void CanvasController::clearTransientDragState()
     m_pendingEndpointPressScene = QPointF();
     m_pendingEndpointPressView = QPointF();
 
-    m_dragBlock = nullptr;
+    m_dragBlocks.clear();
+    m_dragPrimary = nullptr;
+    m_dragPrimaryStartTopLeft = QPointF();
+
+    clearMarqueeSelection();
 }
 
 bool CanvasController::handleLinkingPress(const QPointF& scenePos)
@@ -863,7 +917,8 @@ void CanvasController::beginWireSegmentDrag(CanvasWire* wire, const QPointF& sce
     m_dragWireOffset = horizontal ? (scenePos.y() - axisCoord) : (scenePos.x() - axisCoord);
     m_dragWirePath = wire->resolvedPathCoords(ctx);
 
-    m_dragBlock = nullptr;
+    m_dragBlocks.clear();
+    m_dragPrimary = nullptr;
 }
 
 void CanvasController::updateWireSegmentDrag(const QPointF& scenePos)
@@ -1130,53 +1185,180 @@ void CanvasController::beginBlockDrag(CanvasBlock* blk, const QPointF& scenePos)
     if (!blk)
         return;
 
-    m_dragBlock = blk;
-    m_dragStartTopLeft = blk->boundsScene().topLeft();
-    m_dragOffset = scenePos - blk->boundsScene().topLeft();
+    m_dragBlocks.clear();
+    m_dragPrimary = blk;
+    m_dragPrimaryStartTopLeft = blk->boundsScene().topLeft();
+    m_dragOffset = scenePos - m_dragPrimaryStartTopLeft;
+
+    const bool useSelection = isSelected(blk->id()) && m_selectedItems.size() > 1;
+    if (useSelection && m_doc) {
+        for (const auto& id : m_selectedItems) {
+            auto* item = m_doc->findItem(id);
+            auto* block = dynamic_cast<CanvasBlock*>(item);
+            if (!block || !block->isMovable())
+                continue;
+            m_dragBlocks.push_back(DragBlockState{block, block->boundsScene().topLeft()});
+        }
+    }
+
+    if (m_dragBlocks.empty() && blk->isMovable())
+        m_dragBlocks.push_back(DragBlockState{blk, blk->boundsScene().topLeft()});
 }
 
 void CanvasController::updateBlockDrag(const QPointF& scenePos)
 {
-    if (!m_dragBlock || !m_view || !m_doc)
+    if (!m_dragPrimary || m_dragBlocks.empty() || !m_view || !m_doc)
         return;
 
     const QPointF newTopLeft = scenePos - m_dragOffset;
     const double step = m_doc->fabric().config().step;
 
-    QRectF newBounds = m_dragBlock->boundsScene();
-    newBounds.moveTopLeft(Utils::snapPointToGrid(newTopLeft, step));
-    m_dragBlock->setBoundsScene(newBounds);
+    const QPointF snappedPrimary = Utils::snapPointToGrid(newTopLeft, step);
+    const QPointF delta = snappedPrimary - m_dragPrimaryStartTopLeft;
+
+    for (auto& state : m_dragBlocks) {
+        if (!state.block)
+            continue;
+        QRectF newBounds = state.block->boundsScene();
+        newBounds.moveTopLeft(state.startTopLeft + delta);
+        state.block->setBoundsScene(newBounds);
+    }
 
     m_view->update();
 }
 
 void CanvasController::endBlockDrag()
 {
-    if (!m_doc || !m_dragBlock) {
-        m_dragBlock = nullptr;
+    if (!m_doc || m_dragBlocks.empty()) {
+        m_dragBlocks.clear();
+        m_dragPrimary = nullptr;
         return;
     }
 
-    const QPointF endTopLeft = m_dragBlock->boundsScene().topLeft();
-    if (endTopLeft != m_dragStartTopLeft) {
-        m_doc->commands().execute(std::make_unique<MoveItemCommand>(
-            m_dragBlock->id(), m_dragStartTopLeft, endTopLeft));
+    auto batch = std::make_unique<CompositeCommand>(QStringLiteral("Move Items"));
+    for (const auto& state : m_dragBlocks) {
+        if (!state.block)
+            continue;
+        const QPointF endTopLeft = state.block->boundsScene().topLeft();
+        if (endTopLeft == state.startTopLeft)
+            continue;
+        batch->add(std::make_unique<MoveItemCommand>(state.block->id(), state.startTopLeft, endTopLeft));
+    }
+    if (!batch->empty())
+        m_doc->commands().execute(std::move(batch));
+
+    m_dragBlocks.clear();
+    m_dragPrimary = nullptr;
+}
+
+void CanvasController::beginMarqueeSelection(const QPointF& scenePos, Qt::KeyboardModifiers mods)
+{
+    if (!m_view || !m_doc)
+        return;
+
+    m_marqueeActive = true;
+    m_marqueeStartScene = scenePos;
+    m_marqueeStartView = sceneToView(scenePos);
+    m_marqueeRectScene = QRectF(scenePos, scenePos);
+    m_marqueeMods = mods;
+    m_marqueeBaseSelection = m_selectedItems;
+
+    if (!mods.testFlag(Qt::ShiftModifier) && !mods.testFlag(Qt::ControlModifier))
+        m_marqueeBaseSelection.clear();
+
+    clearSelectedPort();
+    m_view->setMarqueeRect(m_marqueeRectScene);
+    updateMarqueeSelection(scenePos);
+}
+
+void CanvasController::updateMarqueeSelection(const QPointF& scenePos)
+{
+    if (!m_marqueeActive || !m_view || !m_doc)
+        return;
+
+    m_marqueeRectScene = QRectF(m_marqueeStartScene, scenePos).normalized();
+    m_view->setMarqueeRect(m_marqueeRectScene);
+
+    const QSet<ObjectId> hits = collectItemsInRect(m_marqueeRectScene);
+    QSet<ObjectId> next = m_marqueeBaseSelection;
+
+    if (m_marqueeMods.testFlag(Qt::ControlModifier)) {
+        for (const auto& id : hits) {
+            if (next.contains(id))
+                next.remove(id);
+            else
+                next.insert(id);
+        }
+    } else if (m_marqueeMods.testFlag(Qt::ShiftModifier)) {
+        next.unite(hits);
+    } else {
+        next = hits;
     }
 
-    m_dragBlock = nullptr;
+    setSelection(next);
+}
+
+void CanvasController::endMarqueeSelection(const QPointF& scenePos)
+{
+    if (!m_marqueeActive)
+        return;
+
+    const QPointF endView = sceneToView(scenePos);
+    const double dist = QLineF(m_marqueeStartView, endView).length();
+    if (dist < Canvas::Constants::kMarqueeDragThresholdPx) {
+        if (m_marqueeMods.testFlag(Qt::ShiftModifier) || m_marqueeMods.testFlag(Qt::ControlModifier)) {
+            setSelection(m_marqueeBaseSelection);
+        } else {
+            clearSelection();
+        }
+    } else {
+        updateMarqueeSelection(scenePos);
+    }
+
+    m_marqueeActive = false;
+    if (m_view)
+        m_view->clearMarqueeRect();
+}
+
+void CanvasController::clearMarqueeSelection()
+{
+    if (!m_marqueeActive)
+        return;
+    m_marqueeActive = false;
+    m_marqueeRectScene = QRectF();
+    if (m_view)
+        m_view->clearMarqueeRect();
+}
+
+QSet<ObjectId> CanvasController::collectItemsInRect(const QRectF& sceneRect) const
+{
+    QSet<ObjectId> ids;
+    if (!m_doc)
+        return ids;
+
+    const QRectF rect = sceneRect.normalized();
+    for (const auto& it : m_doc->items()) {
+        if (!it)
+            continue;
+        if (rect.intersects(it->boundsScene()))
+            ids.insert(it->id());
+    }
+    return ids;
 }
 
 
 void CanvasController::onCanvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods)
 {
-    Q_UNUSED(mods);
-
     if (!m_view)
         return;
 
     const QPointF viewPos = sceneToView(scenePos);
 
     if (buttons.testFlag(Qt::MiddleButton)) {
+        beginPanning(viewPos);
+        return;
+    }
+    if (m_mode == Mode::Panning && buttons.testFlag(Qt::LeftButton)) {
         beginPanning(viewPos);
         return;
     }
@@ -1206,17 +1388,35 @@ void CanvasController::onCanvasMousePressed(const QPointF& scenePos, Qt::MouseBu
         return;
 
     CanvasItem* hit = hitTestCanvas(m_doc, m_view, scenePos);
-    clearSelectedPort();
-    selectItem(hit ? hit->id() : ObjectId{});
+
+    if (m_mode == Mode::Normal && !hit) {
+        beginMarqueeSelection(scenePos, mods);
+        return;
+    }
+
+    if (hit) {
+        clearSelectedPort();
+        if (mods.testFlag(Qt::ControlModifier))
+            toggleSelection(hit->id());
+        else if (mods.testFlag(Qt::ShiftModifier))
+            addToSelection(hit->id());
+        else
+            selectItem(hit->id());
+    } else {
+        if (!mods.testFlag(Qt::ControlModifier) && !mods.testFlag(Qt::ShiftModifier))
+            clearSelection();
+    }
 
     if (auto* wire = dynamic_cast<CanvasWire*>(hit)) {
-        beginWireSegmentDrag(wire, scenePos);
-        if (m_dragWire)
-            return;
+        if (!mods.testFlag(Qt::ControlModifier) && !mods.testFlag(Qt::ShiftModifier)) {
+            beginWireSegmentDrag(wire, scenePos);
+            if (m_dragWire)
+                return;
+        }
     }
 
     auto* blk = dynamic_cast<CanvasBlock*>(hit);
-    if (blk && blk->isMovable())
+    if (blk && blk->isMovable() && !mods.testFlag(Qt::ControlModifier) && !mods.testFlag(Qt::ShiftModifier))
         beginBlockDrag(blk, scenePos);
 }
 
@@ -1252,10 +1452,17 @@ void CanvasController::onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButt
         }
     }
 
+    if (m_marqueeActive && buttons.testFlag(Qt::LeftButton)) {
+        updateMarqueeSelection(scenePos);
+        return;
+    }
+
     updateLinkingHoverAndPreview(scenePos);
 
     if (m_panning) {
-        if (buttons.testFlag(Qt::MiddleButton))
+        const bool allowPan = buttons.testFlag(Qt::MiddleButton) ||
+                              (m_mode == Mode::Panning && buttons.testFlag(Qt::LeftButton));
+        if (allowPan)
             updatePanning(sceneToView(scenePos));
         else
             endPanning();
@@ -1275,7 +1482,7 @@ void CanvasController::onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButt
     if (m_mode == Mode::Linking)
         return;
 
-    if (m_dragBlock && buttons.testFlag(Qt::LeftButton))
+    if (!m_dragBlocks.empty() && buttons.testFlag(Qt::LeftButton))
         updateBlockDrag(scenePos);
 }
 
@@ -1286,8 +1493,12 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
     if (!m_view)
         return;
 
-    if (m_panning && !buttons.testFlag(Qt::MiddleButton))
-        endPanning();
+    if (m_panning) {
+        const bool allowPan = buttons.testFlag(Qt::MiddleButton) ||
+                              (m_mode == Mode::Panning && buttons.testFlag(Qt::LeftButton));
+        if (!allowPan)
+            endPanning();
+    }
 
     if (!m_doc) {
         m_wiring = false;
@@ -1310,6 +1521,11 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
         return;
     }
 
+    if (m_marqueeActive) {
+        endMarqueeSelection(scenePos);
+        return;
+    }
+
     if (m_dragWire) {
         endWireSegmentDrag(scenePos);
         return;
@@ -1320,9 +1536,8 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
         return;
     }
 
-    if (m_dragBlock) {
+    if (!m_dragBlocks.empty())
         endBlockDrag();
-    }
 }
 
 
@@ -1425,13 +1640,46 @@ void CanvasController::onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods)
             }
             return;
         }
-        if (!m_selected)
+        if (m_selectedItems.isEmpty())
             return;
-        if (m_doc->commands().execute(std::make_unique<DeleteItemCommand>(m_selected))) {
-            m_selected = ObjectId{};
-            if (m_view)
-                m_view->setSelectedItem(ObjectId{});
+
+        QSet<ObjectId> deletion = m_selectedItems;
+        for (const auto& id : m_selectedItems) {
+            auto* item = m_doc->findItem(id);
+            if (!item) {
+                deletion.remove(id);
+                continue;
+            }
+            if (auto* block = dynamic_cast<CanvasBlock*>(item)) {
+                if (!block->isDeletable()) {
+                    deletion.remove(id);
+                    continue;
+                }
+                if (block->isLinkHub()) {
+                    for (const auto& it : m_doc->items()) {
+                        auto* wire = dynamic_cast<CanvasWire*>(it.get());
+                        if (wire && wire->attachesTo(id))
+                            deletion.remove(wire->id());
+                    }
+                }
+            }
         }
+
+        if (deletion.isEmpty())
+            return;
+
+        std::vector<ObjectId> ordered;
+        ordered.reserve(deletion.size());
+        for (const auto& id : deletion)
+            ordered.push_back(id);
+        std::sort(ordered.begin(), ordered.end());
+
+        auto batch = std::make_unique<CompositeCommand>(QStringLiteral("Delete Items"));
+        for (const auto& id : ordered)
+            batch->add(std::make_unique<DeleteItemCommand>(id));
+
+        if (!batch->empty() && m_doc->commands().execute(std::move(batch)))
+            clearSelection();
     }
 }
 

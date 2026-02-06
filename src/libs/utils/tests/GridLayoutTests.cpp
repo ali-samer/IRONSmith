@@ -51,7 +51,7 @@ TEST(GridLayoutTests, RectForGridBottomLeft)
 
     const QRectF out = GridLayout::rectForGrid(spec, rect, QSizeF(20.0, 10.0));
     EXPECT_DOUBLE_EQ(out.left(), 2.0 + 1 * (20.0 + 10.0));
-    EXPECT_DOUBLE_EQ(out.top(), 6.0 + 2 * (10.0 + 5.0));
+    EXPECT_DOUBLE_EQ(out.top(), 3.0 + (spec.rows - rect.row - rect.rowSpan) * (10.0 + 5.0));
     EXPECT_DOUBLE_EQ(out.width(), 2 * 20.0 + 1 * 10.0);
     EXPECT_DOUBLE_EQ(out.height(), 10.0);
 }
@@ -73,7 +73,7 @@ TEST(GridLayoutTests, RectForGridTopLeft)
 
     const QRectF out = GridLayout::rectForGrid(spec, rect, QSizeF(10.0, 10.0));
     EXPECT_DOUBLE_EQ(out.left(), 1.0);
-    EXPECT_DOUBLE_EQ(out.top(), 2.0 + (spec.rows - rect.row - rect.rowSpan) * (10.0 + 4.0));
+    EXPECT_DOUBLE_EQ(out.top(), 2.0 + rect.row * (10.0 + 4.0));
     EXPECT_DOUBLE_EQ(out.width(), 10.0);
     EXPECT_DOUBLE_EQ(out.height(), 10.0);
 }
