@@ -180,17 +180,17 @@
   <data key="d1">MethodCall</data>
 </node>
 <node id="Binding_39">
-  <data key="d0">inputA</data>
+  <data key="d0">inputa_in</data>
   <data key="d1">Binding</data>
   <data key="d8">vector_ty</data>
 </node>
 <node id="Binding_40">
-  <data key="d0">outputC</data>
+  <data key="d0">outputc_out</data>
   <data key="d1">Binding</data>
   <data key="d8">vector_ty</data>
 </node>
 <node id="Operation_41">
-  <data key="d0">fill_inputA_col0</data>
+  <data key="d0">fill_inputa_in_col0</data>
   <data key="d1">Operation</data>
 </node>
 <node id="MethodCall_42">
@@ -207,7 +207,7 @@
   <data key="d1">MethodCall</data>
 </node>
 <node id="Operation_45">
-  <data key="d0">drain_outputC_col0</data>
+  <data key="d0">drain_outputc_out_col0</data>
   <data key="d1">Operation</data>
 </node>
 <node id="MethodCall_46">
@@ -674,8 +674,8 @@
 <edge source="Assign_73" target="Variable_74">
   <data key="d13">assigns</data>
 </edge>
-<edge source="Variable_74" target="Binding_39">
-  <data key="d13">refers_to</data>
+<edge source="Variable_74" target="Variable_74">
+  <data key="d13">defines</data>
 </edge>
 <edge source="Expr_75" target="Call_76">
   <data key="d13">contains</data>
@@ -704,8 +704,8 @@
 <edge source="Assign_83" target="Variable_84">
   <data key="d13">assigns</data>
 </edge>
-<edge source="Variable_84" target="Binding_40">
-  <data key="d13">refers_to</data>
+<edge source="Variable_84" target="Variable_84">
+  <data key="d13">defines</data>
 </edge>
 <edge source="Call_85" target="FunctionCall_86">
   <data key="d13">calls</data>

@@ -227,11 +227,6 @@
             <type_ref>worker_chunk_ty</type_ref>
           </list>
         </kwarg>
-        <kwarg name="include_dirs">
-          <list>
-            <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
-          </list>
-        </kwarg>
       </attributes>
     </ExternalFunction>
     <ExternalFunction name="externalfunc2">
@@ -242,11 +237,6 @@
           <list>
             <type_ref>worker_chunk_ty</type_ref>
             <type_ref>worker_chunk_ty</type_ref>
-          </list>
-        </kwarg>
-        <kwarg name="include_dirs">
-          <list>
-            <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
           </list>
         </kwarg>
       </attributes>
@@ -455,150 +445,6 @@
         <kwarg name="name" value="of_in_b_col3"/>
       </attributes>
     </ObjectFifo>
-    <ObjectFifo name="split_a_col0_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col0_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col0_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col0_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col1_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col1_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col1_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col1_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col2_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col2_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col2_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col2_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col3_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col3_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_a_col3_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_a_col3_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col0_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col0_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col0_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col0_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col1_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col1_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col1_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col1_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col2_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col2_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col2_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col2_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col3_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col3_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="split_b_col3_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="split_b_col3_1"/>
-      </attributes>
-    </ObjectFifo>
     <ObjectFifo name="of_inter_1">
       <obj_type>
         <type_ref>worker_chunk_ty</type_ref>
@@ -705,78 +551,6 @@
       <attributes>
         <kwarg name="depth" value="2"/>
         <kwarg name="name" value="of_out_d_col3"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col0_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col0_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col0_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col0_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col1_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col1_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col1_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col1_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col2_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col2_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col2_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col2_1"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col3_0">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col3_0"/>
-      </attributes>
-    </ObjectFifo>
-    <ObjectFifo name="join_d_col3_1">
-      <obj_type>
-        <type_ref>worker_chunk_ty</type_ref>
-      </obj_type>
-      <attributes>
-        <kwarg name="depth" value="2"/>
-        <kwarg name="name" value="join_d_col3_1"/>
       </attributes>
     </ObjectFifo>
     <ObjectFifo name="MEM_L2_L1_A1A2_col0">
@@ -2399,12 +2173,22 @@
         </call>
       </context>
       <bindings>
-        <bind name="A" type_ref="data_ty"/>
-        <bind name="B" type_ref="data_ty"/>
-        <bind name="D" type_ref="data_ty"/>
+        <bind name="a_in" type_ref="data_ty"/>
+        <bind name="b_in" type_ref="data_ty"/>
+        <bind name="d_out" type_ref="data_ty"/>
       </bindings>
       <body>
-        <Operation name="fill_A_col0">
+        <Operation name="start">
+          <target>
+            <method ref="rt" name="start"/>
+          </target>
+          <args>
+            <arg>
+              <var ref="Workers"/>
+            </arg>
+          </args>
+        </Operation>
+        <Operation name="fill_a_in_col0">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2424,7 +2208,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="A"/>
+              <var ref="a_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2473,7 +2257,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_A_col1">
+        <Operation name="fill_a_in_col1">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2493,7 +2277,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="A"/>
+              <var ref="a_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2542,7 +2326,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_A_col2">
+        <Operation name="fill_a_in_col2">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2562,7 +2346,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="A"/>
+              <var ref="a_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2611,7 +2395,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_A_col3">
+        <Operation name="fill_a_in_col3">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2631,7 +2415,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="A"/>
+              <var ref="a_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2680,7 +2464,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_B_col0">
+        <Operation name="fill_b_in_col0">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2700,7 +2484,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="B"/>
+              <var ref="b_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2749,7 +2533,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_B_col1">
+        <Operation name="fill_b_in_col1">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2769,7 +2553,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="B"/>
+              <var ref="b_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2818,7 +2602,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_B_col2">
+        <Operation name="fill_b_in_col2">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2838,7 +2622,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="B"/>
+              <var ref="b_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2887,7 +2671,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_B_col3">
+        <Operation name="fill_b_in_col3">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2907,7 +2691,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="B"/>
+              <var ref="b_in"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2956,7 +2740,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_D_col0">
+        <Operation name="drain_d_out_col0">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -2976,7 +2760,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="D"/>
+              <var ref="d_out"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -3026,7 +2810,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_D_col1">
+        <Operation name="drain_d_out_col1">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -3046,7 +2830,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="D"/>
+              <var ref="d_out"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -3096,7 +2880,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_D_col2">
+        <Operation name="drain_d_out_col2">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -3116,7 +2900,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="D"/>
+              <var ref="d_out"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -3166,7 +2950,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_D_col3">
+        <Operation name="drain_d_out_col3">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -3186,7 +2970,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="D"/>
+              <var ref="d_out"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -3304,7 +3088,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>np.bfloat16</var>
+                <var>bfloat16</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>
@@ -3322,7 +3106,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>np.bfloat16</var>
+                <var>bfloat16</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>
@@ -3340,7 +3124,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>np.bfloat16</var>
+                <var>bfloat16</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>

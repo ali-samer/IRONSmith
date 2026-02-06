@@ -518,50 +518,20 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (4 FIFOs)\n";
 
-        // Step 8: Add split output FIFOs (these are created by split operations but we need IDs first)
-        std::cout << "  [8/16] Adding split output FIFOs... ";
-        // We need 16 split output FIFOs (4 splits for A, 4 splits for B, 2 outputs each)
-        std::map<std::string, std::string> metaSplitA = {{"context", "L2_L1"}, {"direction", "intermediate"}, {"data", "A"}};
-        std::map<std::string, std::string> metaSplitB = {{"context", "L2_L1"}, {"direction", "intermediate"}, {"data", "B"}};
-        auto split_a_col0_0 = bridge.addFifo("split_a_col0_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col0_1 = bridge.addFifo("split_a_col0_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col1_0 = bridge.addFifo("split_a_col1_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col1_1 = bridge.addFifo("split_a_col1_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col2_0 = bridge.addFifo("split_a_col2_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col2_1 = bridge.addFifo("split_a_col2_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col3_0 = bridge.addFifo("split_a_col3_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_a_col3_1 = bridge.addFifo("split_a_col3_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitA);
-        auto split_b_col0_0 = bridge.addFifo("split_b_col0_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col0_1 = bridge.addFifo("split_b_col0_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col1_0 = bridge.addFifo("split_b_col1_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col1_1 = bridge.addFifo("split_b_col1_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col2_0 = bridge.addFifo("split_b_col2_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col2_1 = bridge.addFifo("split_b_col2_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col3_0 = bridge.addFifo("split_b_col3_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        auto split_b_col3_1 = bridge.addFifo("split_b_col3_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaSplitB);
-        if (!split_a_col0_0 || !split_a_col0_1 || !split_a_col1_0 || !split_a_col1_1 ||
-            !split_a_col2_0 || !split_a_col2_1 || !split_a_col3_0 || !split_a_col3_1 ||
-            !split_b_col0_0 || !split_b_col0_1 || !split_b_col1_0 || !split_b_col1_1 ||
-            !split_b_col2_0 || !split_b_col2_1 || !split_b_col3_0 || !split_b_col3_1) {
-            std::cerr << "FAILED\n";
-            return false;
-        }
-        std::cout << "OK (16 FIFOs)\n";
-
-        // Step 9: Add split operations for A (with context, data, column metadata)
-        std::cout << "  [9/16] Adding split operations for A... ";
+        // Step 8: Add split operations for A (output names provided, FIFOs created automatically)
+        std::cout << "  [8/14] Adding split operations for A... ";
         std::map<std::string, std::string> splitMetaA_col0 = {{"context", "L2_L1"}, {"data", "A"}, {"column", "0"}};
         std::map<std::string, std::string> splitMetaA_col1 = {{"context", "L2_L1"}, {"data", "A"}, {"column", "1"}};
         std::map<std::string, std::string> splitMetaA_col2 = {{"context", "L2_L1"}, {"data", "A"}, {"column", "2"}};
         std::map<std::string, std::string> splitMetaA_col3 = {{"context", "L2_L1"}, {"data", "A"}, {"column", "3"}};
         auto splitA_col0 = bridge.addFifoSplit("split_a_col0", *of_in_a_col0, 2, *workerChunkTy,
-            {*split_a_col0_0, *split_a_col0_1}, {0, 16}, *mem0, hlir::ComponentId(), splitMetaA_col0);
+            {"MEM_L2_L1_A1_col0", "MEM_L2_L1_A2_col0"}, {0, 16}, *mem0, hlir::ComponentId(), splitMetaA_col0);
         auto splitA_col1 = bridge.addFifoSplit("split_a_col1", *of_in_a_col1, 2, *workerChunkTy,
-            {*split_a_col1_0, *split_a_col1_1}, {0, 16}, *mem1, hlir::ComponentId(), splitMetaA_col1);
+            {"MEM_L2_L1_A3_col1", "MEM_L2_L1_A4_col1"}, {0, 16}, *mem1, hlir::ComponentId(), splitMetaA_col1);
         auto splitA_col2 = bridge.addFifoSplit("split_a_col2", *of_in_a_col2, 2, *workerChunkTy,
-            {*split_a_col2_0, *split_a_col2_1}, {0, 16}, *mem2, hlir::ComponentId(), splitMetaA_col2);
+            {"MEM_L2_L1_A5_col2", "MEM_L2_L1_A6_col2"}, {0, 16}, *mem2, hlir::ComponentId(), splitMetaA_col2);
         auto splitA_col3 = bridge.addFifoSplit("split_a_col3", *of_in_a_col3, 2, *workerChunkTy,
-            {*split_a_col3_0, *split_a_col3_1}, {0, 16}, *mem3, hlir::ComponentId(), splitMetaA_col3);
+            {"MEM_L2_L1_A7_col3", "MEM_L2_L1_A8_col3"}, {0, 16}, *mem3, hlir::ComponentId(), splitMetaA_col3);
         if (!splitA_col0 || !splitA_col1 || !splitA_col2 || !splitA_col3) {
             std::cerr << "FAILED\n";
             if (splitA_col0.error().size() > 0) std::cerr << "    " << splitA_col0.error()[0].message << "\n";
@@ -569,28 +539,28 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (4 split ops)\n";
 
-        // Step 10: Add split operations for B (with context, data, column metadata)
-        std::cout << "  [10/16] Adding split operations for B... ";
+        // Step 9: Add split operations for B (output names provided, FIFOs created automatically)
+        std::cout << "  [9/14] Adding split operations for B... ";
         std::map<std::string, std::string> splitMetaB_col0 = {{"context", "L2_L1"}, {"data", "B"}, {"column", "0"}};
         std::map<std::string, std::string> splitMetaB_col1 = {{"context", "L2_L1"}, {"data", "B"}, {"column", "1"}};
         std::map<std::string, std::string> splitMetaB_col2 = {{"context", "L2_L1"}, {"data", "B"}, {"column", "2"}};
         std::map<std::string, std::string> splitMetaB_col3 = {{"context", "L2_L1"}, {"data", "B"}, {"column", "3"}};
         auto splitB_col0 = bridge.addFifoSplit("split_b_col0", *of_in_b_col0, 2, *workerChunkTy,
-            {*split_b_col0_0, *split_b_col0_1}, {0, 16}, *mem0, hlir::ComponentId(), splitMetaB_col0);
+            {"MEM_L2_L1_B1_col0", "MEM_L2_L1_B2_col0"}, {0, 16}, *mem0, hlir::ComponentId(), splitMetaB_col0);
         auto splitB_col1 = bridge.addFifoSplit("split_b_col1", *of_in_b_col1, 2, *workerChunkTy,
-            {*split_b_col1_0, *split_b_col1_1}, {0, 16}, *mem1, hlir::ComponentId(), splitMetaB_col1);
+            {"MEM_L2_L1_B3_col1", "MEM_L2_L1_B4_col1"}, {0, 16}, *mem1, hlir::ComponentId(), splitMetaB_col1);
         auto splitB_col2 = bridge.addFifoSplit("split_b_col2", *of_in_b_col2, 2, *workerChunkTy,
-            {*split_b_col2_0, *split_b_col2_1}, {0, 16}, *mem2, hlir::ComponentId(), splitMetaB_col2);
+            {"MEM_L2_L1_B5_col2", "MEM_L2_L1_B6_col2"}, {0, 16}, *mem2, hlir::ComponentId(), splitMetaB_col2);
         auto splitB_col3 = bridge.addFifoSplit("split_b_col3", *of_in_b_col3, 2, *workerChunkTy,
-            {*split_b_col3_0, *split_b_col3_1}, {0, 16}, *mem3, hlir::ComponentId(), splitMetaB_col3);
+            {"MEM_L2_L1_B7_col3", "MEM_L2_L1_B8_col3"}, {0, 16}, *mem3, hlir::ComponentId(), splitMetaB_col3);
         if (!splitB_col0 || !splitB_col1 || !splitB_col2 || !splitB_col3) {
             std::cerr << "FAILED\n";
             return false;
         }
         std::cout << "OK (4 split ops)\n";
 
-        // Step 11: Add intermediate FIFOs (between add and relu stages)
-        std::cout << "  [11/16] Adding intermediate FIFOs... ";
+        // Step 10: Add intermediate FIFOs (between add and relu stages)
+        std::cout << "  [10/14] Adding intermediate FIFOs... ";
         std::map<std::string, std::string> metaInter = {{"context", "L1_L1"}, {"direction", "intermediate"}, {"stage", "add_to_relu"}};
         auto of_inter_1 = bridge.addFifo("of_inter_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaInter);
         auto of_inter_2 = bridge.addFifo("of_inter_2", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaInter);
@@ -607,8 +577,8 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (8 FIFOs)\n";
 
-        // Step 12: Add output FIFOs and join input FIFOs for D
-        std::cout << "  [12/16] Adding output and join FIFOs for D... ";
+        // Step 11: Add output FIFOs for D
+        std::cout << "  [11/14] Adding output FIFOs for D... ";
         std::map<std::string, std::string> metaD_col0 = {{"context", "L2_L3"}, {"direction", "output"}, {"data", "D"}, {"column", "0"}};
         std::map<std::string, std::string> metaD_col1 = {{"context", "L2_L3"}, {"direction", "output"}, {"data", "D"}, {"column", "1"}};
         std::map<std::string, std::string> metaD_col2 = {{"context", "L2_L3"}, {"direction", "output"}, {"data", "D"}, {"column", "2"}};
@@ -617,38 +587,26 @@ static bool testAddActivateExample() {
         auto of_out_d_col1 = bridge.addFifo("of_out_d_col1", *chunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaD_col1);
         auto of_out_d_col2 = bridge.addFifo("of_out_d_col2", *chunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaD_col2);
         auto of_out_d_col3 = bridge.addFifo("of_out_d_col3", *chunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaD_col3);
-        // Join input FIFOs
-        std::map<std::string, std::string> metaJoinD = {{"context", "L1_L2"}, {"direction", "intermediate"}, {"data", "D"}};
-        auto join_d_col0_0 = bridge.addFifo("join_d_col0_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col0_1 = bridge.addFifo("join_d_col0_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col1_0 = bridge.addFifo("join_d_col1_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col1_1 = bridge.addFifo("join_d_col1_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col2_0 = bridge.addFifo("join_d_col2_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col2_1 = bridge.addFifo("join_d_col2_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col3_0 = bridge.addFifo("join_d_col3_0", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        auto join_d_col3_1 = bridge.addFifo("join_d_col3_1", *workerChunkTy, 2, std::nullopt, {}, hlir::ComponentId(), metaJoinD);
-        if (!of_out_d_col0 || !of_out_d_col1 || !of_out_d_col2 || !of_out_d_col3 ||
-            !join_d_col0_0 || !join_d_col0_1 || !join_d_col1_0 || !join_d_col1_1 ||
-            !join_d_col2_0 || !join_d_col2_1 || !join_d_col3_0 || !join_d_col3_1) {
+        if (!of_out_d_col0 || !of_out_d_col1 || !of_out_d_col2 || !of_out_d_col3) {
             std::cerr << "FAILED\n";
             return false;
         }
-        std::cout << "OK (12 FIFOs)\n";
+        std::cout << "OK (4 FIFOs)\n";
 
-        // Step 13: Add join operations for D (with context, data, column metadata)
-        std::cout << "  [13/16] Adding join operations for D... ";
+        // Step 12: Add join operations for D (input names provided, FIFOs created automatically)
+        std::cout << "  [12/14] Adding join operations for D... ";
         std::map<std::string, std::string> joinMetaD_col0 = {{"context", "L1_L2"}, {"data", "D"}, {"column", "0"}};
         std::map<std::string, std::string> joinMetaD_col1 = {{"context", "L1_L2"}, {"data", "D"}, {"column", "1"}};
         std::map<std::string, std::string> joinMetaD_col2 = {{"context", "L1_L2"}, {"data", "D"}, {"column", "2"}};
         std::map<std::string, std::string> joinMetaD_col3 = {{"context", "L1_L2"}, {"data", "D"}, {"column", "3"}};
         auto joinD_col0 = bridge.addFifoJoin("join_d_col0", *of_out_d_col0, 2, *workerChunkTy,
-            {*join_d_col0_0, *join_d_col0_1}, {0, 16}, *mem0, hlir::ComponentId(), joinMetaD_col0);
+            {"MEM_L1_L2_D1_col0", "MEM_L1_L2_D2_col0"}, {0, 16}, *mem0, hlir::ComponentId(), joinMetaD_col0);
         auto joinD_col1 = bridge.addFifoJoin("join_d_col1", *of_out_d_col1, 2, *workerChunkTy,
-            {*join_d_col1_0, *join_d_col1_1}, {0, 16}, *mem1, hlir::ComponentId(), joinMetaD_col1);
+            {"MEM_L1_L2_D3_col1", "MEM_L1_L2_D4_col1"}, {0, 16}, *mem1, hlir::ComponentId(), joinMetaD_col1);
         auto joinD_col2 = bridge.addFifoJoin("join_d_col2", *of_out_d_col2, 2, *workerChunkTy,
-            {*join_d_col2_0, *join_d_col2_1}, {0, 16}, *mem2, hlir::ComponentId(), joinMetaD_col2);
+            {"MEM_L1_L2_D5_col2", "MEM_L1_L2_D6_col2"}, {0, 16}, *mem2, hlir::ComponentId(), joinMetaD_col2);
         auto joinD_col3 = bridge.addFifoJoin("join_d_col3", *of_out_d_col3, 2, *workerChunkTy,
-            {*join_d_col3_0, *join_d_col3_1}, {0, 16}, *mem3, hlir::ComponentId(), joinMetaD_col3);
+            {"MEM_L1_L2_D7_col3", "MEM_L1_L2_D8_col3"}, {0, 16}, *mem3, hlir::ComponentId(), joinMetaD_col3);
         if (!joinD_col0 || !joinD_col1 || !joinD_col2 || !joinD_col3) {
             std::cerr << "FAILED\n";
             if (joinD_col0.error().size() > 0) std::cerr << "    " << joinD_col0.error()[0].message << "\n";
@@ -656,8 +614,8 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (4 join ops)\n";
 
-        // Step 14: Add external kernels (with operation metadata)
-        std::cout << "  [14/16] Adding external kernels... ";
+        // Step 13: Add external kernels (with operation metadata)
+        std::cout << "  [13/14] Adding external kernels... ";
         std::map<std::string, std::string> kernelMeta1 = {{"operation", "element_wise_add"}};
         std::map<std::string, std::string> kernelMeta2 = {{"operation", "relu_activation"}};
         auto externalfunc1 = bridge.addExternalKernel(
@@ -677,8 +635,8 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (2 kernels)\n";
 
-        // Step 15: Add core functions (with operation metadata)
-        std::cout << "  [15/16] Adding core functions... ";
+        // Step 14: Add core functions (with operation metadata)
+        std::cout << "  [14/14] Adding core functions... ";
         // corefunc1: add function (kernel, inputA, inputB, outputC)
         std::map<std::string, std::string> coreFuncMeta1 = {{"operation", "eltwise_add"}};
         std::map<std::string, std::string> coreFuncMeta2 = {{"operation", "relu"}};
@@ -704,8 +662,8 @@ static bool testAddActivateExample() {
         }
         std::cout << "OK (2 core functions)\n";
 
-        // Step 16: Add workers (16 total) with operation, column, worker_index metadata
-        std::cout << "  [16/16] Adding workers... ";
+        // Add workers (16 total) with operation, column, worker_index metadata
+        std::cout << "  [Workers] Adding workers... ";
         // Add workers (8 total)
         std::map<std::string, std::string> wAdd_c0_w0 = {{"operation", "add"}, {"column", "0"}, {"worker_index", "0"}};
         std::map<std::string, std::string> wAdd_c0_w1 = {{"operation", "add"}, {"column", "0"}, {"worker_index", "1"}};
@@ -1013,6 +971,308 @@ static bool testAddActivateExample() {
     }
 }
 
+static bool testVectorExpExample() {
+    std::cout << "\n=== Testing Vector Exp Example (Full Pipeline) ===\n";
+
+    try {
+        // Create vector exp design using HLIR C++ Bridge
+        hlir::HlirBridge bridge("vector_exp_test");
+
+        // Step 1: Add constants
+        std::cout << "  [1/14] Adding constants... ";
+        auto constN = bridge.addConstant("N", "65536", "int");
+        if (!constN) {
+            std::cerr << "FAILED\n    " << constN.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 2: Add tensor types
+        std::cout << "  [2/14] Adding tensor types... ";
+        // data_ty: N elements bfloat16
+        auto dataTy = bridge.addTensorType("data_ty", {"N"}, "bfloat16");
+        if (!dataTy) {
+            std::cerr << "FAILED\n    " << dataTy.error()[0].message << "\n";
+            return false;
+        }
+        // memtile_ty: N/16 elements bfloat16
+        auto memtileTy = bridge.addTensorType("memtile_ty", {"N / 16"}, "bfloat16");
+        if (!memtileTy) {
+            std::cerr << "FAILED\n    " << memtileTy.error()[0].message << "\n";
+            return false;
+        }
+        // tile_ty: N/64 elements bfloat16
+        auto tileTy = bridge.addTensorType("tile_ty", {"N / 64"}, "bfloat16");
+        if (!tileTy) {
+            std::cerr << "FAILED\n    " << tileTy.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 3: Add tiles (single column design)
+        std::cout << "  [3/14] Adding tiles... ";
+        auto shim0 = bridge.addTile("shim0", hlir::TileKind::SHIM, 0, 0);
+        auto mem0 = bridge.addTile("mem0", hlir::TileKind::MEM, 0, 1);
+        auto tile_0_2 = bridge.addTile("tile_0_2", hlir::TileKind::COMPUTE, 0, 2);
+        auto tile_0_3 = bridge.addTile("tile_0_3", hlir::TileKind::COMPUTE, 0, 3);
+        auto tile_0_4 = bridge.addTile("tile_0_4", hlir::TileKind::COMPUTE, 0, 4);
+        auto tile_0_5 = bridge.addTile("tile_0_5", hlir::TileKind::COMPUTE, 0, 5);
+        if (!shim0 || !mem0 || !tile_0_2 || !tile_0_3 || !tile_0_4 || !tile_0_5) {
+            std::cerr << "FAILED\n";
+            return false;
+        }
+        std::cout << "OK (1 SHIM, 1 MEM, 4 COMPUTE)\n";
+
+        // Step 4: Add input FIFO for A
+        std::cout << "  [4/14] Adding input FIFO... ";
+        std::map<std::string, std::string> metaInA = {{"context", "L3_L2"}, {"direction", "input"}, {"data", "A"}, {"column", "0"}};
+        auto of_in_a = bridge.addFifo("of_in_a", *memtileTy, 2, std::nullopt, {}, hlir::ComponentId(), metaInA);
+        if (!of_in_a) {
+            std::cerr << "FAILED\n    " << of_in_a.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 5: Add output FIFO for C
+        std::cout << "  [5/12] Adding output FIFO... ";
+        std::map<std::string, std::string> metaOutC = {{"context", "L2_L3"}, {"direction", "output"}, {"data", "C"}, {"column", "0"}};
+        auto of_out_c = bridge.addFifo("of_out_c", *memtileTy, 2, std::nullopt, {}, hlir::ComponentId(), metaOutC);
+        if (!of_out_c) {
+            std::cerr << "FAILED\n    " << of_out_c.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 6: Add split operation for A (output names are provided, FIFOs created automatically)
+        // Offsets: 0, N/64*1=1024, N/64*2=2048, N/64*3=3072
+        std::cout << "  [6/12] Adding split operation... ";
+        std::map<std::string, std::string> splitMetaA = {{"context", "L2_L1"}, {"data", "A"}, {"column", "0"}};
+        auto splitA = bridge.addFifoSplit("split_a_col0", *of_in_a, 4, *tileTy,
+            {"MEM_L2_L1_A1_col0", "MEM_L2_L1_A2_col0", "MEM_L2_L1_A3_col0", "MEM_L2_L1_A4_col0"},
+            {0, 1024, 2048, 3072}, *mem0, hlir::ComponentId(), splitMetaA);
+        if (!splitA) {
+            std::cerr << "FAILED\n";
+            if (splitA.error().size() > 0) std::cerr << "    " << splitA.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 7: Add join operation for C (input names are provided, FIFOs created automatically)
+        std::cout << "  [7/12] Adding join operation... ";
+        std::map<std::string, std::string> joinMetaC = {{"context", "L1_L2"}, {"data", "C"}, {"column", "0"}};
+        auto joinC = bridge.addFifoJoin("join_c_col0", *of_out_c, 4, *tileTy,
+            {"MEM_L1_L2_C1_col0", "MEM_L1_L2_C2_col0", "MEM_L1_L2_C3_col0", "MEM_L1_L2_C4_col0"},
+            {0, 1024, 2048, 3072}, *mem0, hlir::ComponentId(), joinMetaC);
+        if (!joinC) {
+            std::cerr << "FAILED\n";
+            if (joinC.error().size() > 0) std::cerr << "    " << joinC.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 8: Add external kernel
+        std::cout << "  [8/12] Adding external kernel... ";
+        std::map<std::string, std::string> kernelMeta = {{"operation", "exp"}};
+        auto exp_bf16_1024 = bridge.addExternalKernel(
+            "exp_bf16_1024", "exp_bf16_1024",
+            "/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/bf16_exp.cc",
+            {*tileTy, *tileTy},
+            {"/scratch/IRONSmithTesting/mlir-aie/aie_kernels", "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"},
+            hlir::ComponentId(), kernelMeta);
+        if (!exp_bf16_1024) {
+            std::cerr << "FAILED\n";
+            if (exp_bf16_1024.error().size() > 0) std::cerr << "    " << exp_bf16_1024.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 9: Add core function with loop count = N/4096 = 16
+        std::cout << "  [9/12] Adding core function... ";
+        std::map<std::string, std::string> coreFuncMeta = {{"operation", "exp"}, {"loop_count", "N / 4096"}};
+        auto corefunc_exp = bridge.addCoreFunction(
+            "corefunc_exp",
+            {"kernel", "inputA", "outputC"},
+            {{"outputC", 1, "elem_out"}, {"inputA", 1, "elem_in"}},  // Acquire order matches Python
+            {"kernel", {"elem_in", "elem_out"}},
+            {{"inputA", 1}, {"outputC", 1}},  // Release order matches Python
+            hlir::ComponentId(), coreFuncMeta);
+        if (!corefunc_exp) {
+            std::cerr << "FAILED\n";
+            if (corefunc_exp.error().size() > 0) std::cerr << "    " << corefunc_exp.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 10: Add workers (4 total)
+        std::cout << "  [10/12] Adding workers... ";
+        std::map<std::string, std::string> w0Meta = {{"operation", "exp"}, {"column", "0"}, {"worker_index", "0"}};
+        std::map<std::string, std::string> w1Meta = {{"operation", "exp"}, {"column", "0"}, {"worker_index", "1"}};
+        std::map<std::string, std::string> w2Meta = {{"operation", "exp"}, {"column", "0"}, {"worker_index", "2"}};
+        std::map<std::string, std::string> w3Meta = {{"operation", "exp"}, {"column", "0"}, {"worker_index", "3"}};
+
+        auto worker0 = bridge.addWorker("worker0", *corefunc_exp,
+            {hlir::HlirBridge::FunctionArg::kernel(*exp_bf16_1024),
+             hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 0),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 0)},
+            *tile_0_2, hlir::ComponentId(), w0Meta);
+        auto worker1 = bridge.addWorker("worker1", *corefunc_exp,
+            {hlir::HlirBridge::FunctionArg::kernel(*exp_bf16_1024),
+             hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 1),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 1)},
+            *tile_0_3, hlir::ComponentId(), w1Meta);
+        auto worker2 = bridge.addWorker("worker2", *corefunc_exp,
+            {hlir::HlirBridge::FunctionArg::kernel(*exp_bf16_1024),
+             hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 2),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 2)},
+            *tile_0_4, hlir::ComponentId(), w2Meta);
+        auto worker3 = bridge.addWorker("worker3", *corefunc_exp,
+            {hlir::HlirBridge::FunctionArg::kernel(*exp_bf16_1024),
+             hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 3),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 3)},
+            *tile_0_5, hlir::ComponentId(), w3Meta);
+
+        if (!worker0 || !worker1 || !worker2 || !worker3) {
+            std::cerr << "FAILED\n";
+            if (worker0.error().size() > 0) std::cerr << "    " << worker0.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK (4 workers)\n";
+
+        // Step 11: Create runtime
+        std::cout << "  [11/12] Creating runtime... ";
+        auto runtime = bridge.createRuntime("runtime");
+        if (!runtime) {
+            std::cerr << "FAILED\n    " << runtime.error()[0].message << "\n";
+            return false;
+        }
+
+        // Add input/output types
+        auto addInputA = bridge.runtimeAddInputType(*memtileTy);
+        auto addOutputC = bridge.runtimeAddOutputType(*memtileTy);
+        if (!addInputA || !addOutputC) {
+            std::cerr << "FAILED (types)\n";
+            return false;
+        }
+
+        // Add parameters
+        auto addParamA = bridge.runtimeAddParam("inputA");
+        auto addParamC = bridge.runtimeAddParam("outputC");
+        if (!addParamA || !addParamC) {
+            std::cerr << "FAILED (params)\n";
+            return false;
+        }
+
+        // Add workers to runtime
+        auto rtAddW0 = bridge.runtimeAddWorker(*worker0);
+        auto rtAddW1 = bridge.runtimeAddWorker(*worker1);
+        auto rtAddW2 = bridge.runtimeAddWorker(*worker2);
+        auto rtAddW3 = bridge.runtimeAddWorker(*worker3);
+        if (!rtAddW0 || !rtAddW1 || !rtAddW2 || !rtAddW3) {
+            std::cerr << "FAILED (workers)\n";
+            return false;
+        }
+
+        // Add fill operation
+        auto fillA = bridge.runtimeAddFill("fill_a", *of_in_a, "inputA", *shim0, 0, false);
+        if (!fillA) {
+            std::cerr << "FAILED (fill)\n    " << fillA.error()[0].message << "\n";
+            return false;
+        }
+
+        // Add drain operation
+        auto drainC = bridge.runtimeAddDrain("drain_c", *of_out_c, "outputC", *shim0, 0, false);
+        if (!drainC) {
+            std::cerr << "FAILED (drain)\n    " << drainC.error()[0].message << "\n";
+            return false;
+        }
+
+        // Build runtime
+        auto buildRuntime = bridge.runtimeBuild();
+        if (!buildRuntime) {
+            std::cerr << "FAILED (build)\n    " << buildRuntime.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 12: Build and validate
+        std::cout << "  [12/12] Building and validating program... ";
+        auto buildResult = bridge.build();
+        if (!buildResult) {
+            std::cerr << "FAILED\n";
+            for (const auto& diag : buildResult.error()) {
+                std::cerr << "    " << diag.message << "\n";
+            }
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Export to XML
+        std::cout << "  [Export] Exporting to GUI XML... ";
+        ensureOutputDir();
+        std::string xmlPath = OUTPUT_DIR + "vector_exp_test_gui.xml";
+        auto exportResult = bridge.exportToGuiXml(xmlPath);
+        if (!exportResult) {
+            std::cerr << "FAILED\n    " << exportResult.error()[0].message << "\n";
+            return false;
+        }
+
+        if (!std::filesystem::exists(xmlPath)) {
+            std::cerr << "FAILED (file not created)\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Run code generator
+        std::cout << "  [CodeGen] Running code generator... ";
+        codegen::CodeGenBridge codegenBridge;
+        codegen::CodeGenOptions options;
+        options.outputDir = OUTPUT_DIR;
+
+        auto codegenResult = codegenBridge.runCodeGen(xmlPath, options);
+        if (!codegenResult) {
+            std::cerr << "FAILED\n";
+            for (const auto& diag : codegenResult.error()) {
+                std::cerr << "    " << diag.message << "\n";
+            }
+            return false;
+        }
+
+        const auto& output = codegenResult.value();
+        std::cout << "OK (" << output.generatedFiles.size() << " files)\n";
+
+        // Verify generated files
+        bool foundGraphML = false;
+        bool foundPython = false;
+        for (const auto& file : output.generatedFiles) {
+            std::string filename = file.filename().string();
+            if (filename.ends_with(".graphml")) foundGraphML = true;
+            if (filename.starts_with("generated_") && filename.ends_with(".py")) foundPython = true;
+        }
+
+        std::cout << "  [Verify] Checking generated files... ";
+        if (!foundGraphML || !foundPython) {
+            std::cerr << "FAILED\n";
+            std::cerr << "    GraphML: " << (foundGraphML ? "Found" : "Missing") << "\n";
+            std::cerr << "    Python: " << (foundPython ? "Found" : "Missing") << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        std::cout << "\n  Vector Exp Example: ALL TESTS PASSED\n";
+        std::cout << "  Generated files saved to: " << OUTPUT_DIR << "\n";
+        std::cout << "    - " << xmlPath << "\n";
+        for (const auto& file : output.generatedFiles) {
+            std::cout << "    - " << file.filename().string() << "\n";
+        }
+
+        return true;
+
+    } catch (const std::exception& e) {
+        std::cerr << "EXCEPTION: " << e.what() << "\n";
+        return false;
+    }
+}
+
 bool runBridgeTests() {
     std::cout << "\n";
     std::cout << "========================================\n";
@@ -1023,6 +1283,7 @@ bool runBridgeTests() {
     bool codegenPassed = testCodeGenBridge();
     bool passthroughPassed = testPassthroughExample();
     bool addActivatePassed = testAddActivateExample();
+    bool vectorExpPassed = testVectorExpExample();
 
     std::cout << "\n========================================\n";
     std::cout << "  Test Summary\n";
@@ -1031,9 +1292,10 @@ bool runBridgeTests() {
     std::cout << "  CodeGen Bridge:       " << (codegenPassed ? "PASSED" : "FAILED") << "\n";
     std::cout << "  Passthrough Example:  " << (passthroughPassed ? "PASSED" : "FAILED") << "\n";
     std::cout << "  Add-Activate Example: " << (addActivatePassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Vector Exp Example:   " << (vectorExpPassed ? "PASSED" : "FAILED") << "\n";
     std::cout << "========================================\n";
 
-    bool allPassed = hlirPassed && codegenPassed && passthroughPassed && addActivatePassed;
+    bool allPassed = hlirPassed && codegenPassed && passthroughPassed && addActivatePassed && vectorExpPassed;
     std::cout << "\n  Overall: " << (allPassed ? "SUCCESS" : "FAILURE") << "\n\n";
 
     return allPassed;

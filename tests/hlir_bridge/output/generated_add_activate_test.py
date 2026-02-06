@@ -41,22 +41,6 @@ def add_activate_test_jit(A, B, D):
     of_in_b_col1 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_in_b_col1")
     of_in_b_col2 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_in_b_col2")
     of_in_b_col3 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_in_b_col3")
-    split_a_col0_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col0_0")
-    split_a_col0_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col0_1")
-    split_a_col1_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col1_0")
-    split_a_col1_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col1_1")
-    split_a_col2_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col2_0")
-    split_a_col2_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col2_1")
-    split_a_col3_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col3_0")
-    split_a_col3_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_a_col3_1")
-    split_b_col0_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col0_0")
-    split_b_col0_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col0_1")
-    split_b_col1_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col1_0")
-    split_b_col1_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col1_1")
-    split_b_col2_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col2_0")
-    split_b_col2_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col2_1")
-    split_b_col3_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col3_0")
-    split_b_col3_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="split_b_col3_1")
     of_inter_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="of_inter_1")
     of_inter_2 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="of_inter_2")
     of_inter_3 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="of_inter_3")
@@ -69,14 +53,6 @@ def add_activate_test_jit(A, B, D):
     of_out_d_col1 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_out_d_col1")
     of_out_d_col2 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_out_d_col2")
     of_out_d_col3 = ObjectFifo(obj_type=chunk_ty, depth=2, name="of_out_d_col3")
-    join_d_col0_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col0_0")
-    join_d_col0_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col0_1")
-    join_d_col1_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col1_0")
-    join_d_col1_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col1_1")
-    join_d_col2_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col2_0")
-    join_d_col2_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col2_1")
-    join_d_col3_0 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col3_0")
-    join_d_col3_1 = ObjectFifo(obj_type=worker_chunk_ty, depth=2, name="join_d_col3_1")
     MEM_L2_L1_A1A2_col0 = of_in_a_col0.cons().split(obj_types=[chunk_a_worker, chunk_a_worker], offsets=[((A.numel() // 8) * 0), ((A.numel() // 8) * 1)], names=["MEM_L2_L1_A1_col0", "MEM_L2_L1_A2_col0"], placement=Tile(0, 1))
     MEM_L2_L1_A3A4_col1 = of_in_a_col1.cons().split(obj_types=[chunk_a_worker, chunk_a_worker], offsets=[((A.numel() // 8) * 0), ((A.numel() // 8) * 1)], names=["MEM_L2_L1_A3_col1", "MEM_L2_L1_A4_col1"], placement=Tile(1, 1))
     MEM_L2_L1_A5A6_col2 = of_in_a_col2.cons().split(obj_types=[chunk_a_worker, chunk_a_worker], offsets=[((A.numel() // 8) * 0), ((A.numel() // 8) * 1)], names=["MEM_L2_L1_A5_col2", "MEM_L2_L1_A6_col2"], placement=Tile(2, 1))
@@ -92,11 +68,11 @@ def add_activate_test_jit(A, B, D):
 
     #Define kernels here... ------------------------------------------------\/
     externalfunc1 = ExternalFunction(
-        name="eltwise_add_bf16_scalar", source_file="../../../aie_kernels/aie2/add.cc", arg_types=[worker_chunk_ty, worker_chunk_ty, worker_chunk_ty], include_dirs=["/scratch/andrewa/mlir-aie/aie_kernels/"]
+        name="eltwise_add_bf16_scalar", source_file="../../../aie_kernels/aie2/add.cc", arg_types=[worker_chunk_ty, worker_chunk_ty, worker_chunk_ty]
     )
 
     externalfunc2 = ExternalFunction(
-        name="bf16_relu", source_file="../../../aie_kernels/aie2/relu.cc", arg_types=[worker_chunk_ty, worker_chunk_ty], include_dirs=["/scratch/andrewa/mlir-aie/aie_kernels/"]
+        name="bf16_relu", source_file="../../../aie_kernels/aie2/relu.cc", arg_types=[worker_chunk_ty, worker_chunk_ty]
     )
 
     # core_fn here:
@@ -139,19 +115,20 @@ def add_activate_test_jit(A, B, D):
 
     # Runtime operations to move data to/from the AIE-array
     rt = Runtime()
-    with rt.sequence(data_ty, data_ty, data_ty) as (A, B, D):
-        rt.fill(placement=Tile(0, 0), in_fifo=of_in_a_col0.prod(), source=A, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 0), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
-        rt.fill(placement=Tile(1, 0), in_fifo=of_in_a_col1.prod(), source=A, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 1), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
-        rt.fill(placement=Tile(2, 0), in_fifo=of_in_a_col2.prod(), source=A, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 2), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
-        rt.fill(placement=Tile(3, 0), in_fifo=of_in_a_col3.prod(), source=A, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 3), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
-        rt.fill(placement=Tile(0, 0), in_fifo=of_in_b_col0.prod(), source=B, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 0), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
-        rt.fill(placement=Tile(1, 0), in_fifo=of_in_b_col1.prod(), source=B, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 1), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
-        rt.fill(placement=Tile(2, 0), in_fifo=of_in_b_col2.prod(), source=B, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 2), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
-        rt.fill(placement=Tile(3, 0), in_fifo=of_in_b_col3.prod(), source=B, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 3), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
-        rt.drain(placement=Tile(0, 0), out_fifo=of_out_d_col0.cons(), dest=D, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 0), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
-        rt.drain(placement=Tile(1, 0), out_fifo=of_out_d_col1.cons(), dest=D, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 1), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
-        rt.drain(placement=Tile(2, 0), out_fifo=of_out_d_col2.cons(), dest=D, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 2), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
-        rt.drain(placement=Tile(3, 0), out_fifo=of_out_d_col3.cons(), dest=D, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 3), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
+    with rt.sequence(data_ty, data_ty, data_ty) as (a_in, b_in, d_out):
+        rt.start(*Workers)
+        rt.fill(placement=Tile(0, 0), in_fifo=of_in_a_col0.prod(), source=a_in, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 0), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
+        rt.fill(placement=Tile(1, 0), in_fifo=of_in_a_col1.prod(), source=a_in, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 1), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
+        rt.fill(placement=Tile(2, 0), in_fifo=of_in_a_col2.prod(), source=a_in, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 2), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
+        rt.fill(placement=Tile(3, 0), in_fifo=of_in_a_col3.prod(), source=a_in, tap=TensorAccessPattern(tensor_dims=[A.numel()], offset=((A.numel() // 4) * 3), sizes=[((A.numel() // 4) // (A.numel() // 8)), (A.numel() // 8)], strides=[(A.numel() // 8), 1]))
+        rt.fill(placement=Tile(0, 0), in_fifo=of_in_b_col0.prod(), source=b_in, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 0), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
+        rt.fill(placement=Tile(1, 0), in_fifo=of_in_b_col1.prod(), source=b_in, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 1), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
+        rt.fill(placement=Tile(2, 0), in_fifo=of_in_b_col2.prod(), source=b_in, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 2), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
+        rt.fill(placement=Tile(3, 0), in_fifo=of_in_b_col3.prod(), source=b_in, tap=TensorAccessPattern(tensor_dims=[B.numel()], offset=((B.numel() // 4) * 3), sizes=[((B.numel() // 4) // (B.numel() // 8)), (B.numel() // 8)], strides=[(B.numel() // 8), 1]))
+        rt.drain(placement=Tile(0, 0), out_fifo=of_out_d_col0.cons(), dest=d_out, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 0), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
+        rt.drain(placement=Tile(1, 0), out_fifo=of_out_d_col1.cons(), dest=d_out, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 1), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
+        rt.drain(placement=Tile(2, 0), out_fifo=of_out_d_col2.cons(), dest=d_out, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 2), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
+        rt.drain(placement=Tile(3, 0), out_fifo=of_out_d_col3.cons(), dest=d_out, wait=True, tap=TensorAccessPattern(tensor_dims=[D.numel()], offset=((D.numel() // 4) * 3), sizes=[((D.numel() // 4) // (D.numel() // 8)), (D.numel() // 8)], strides=[(D.numel() // 8), 1]))
 
     # Create the program from the current device and runtime
     my_program = Program(iron.get_current_device(), rt)
@@ -162,9 +139,9 @@ def add_activate_test_jit(A, B, D):
 
 def main():
     data_size = 128
-    A = iron.arange(data_size, dtype=np.bfloat16, device="npu")
-    B = iron.arange(data_size, dtype=np.bfloat16, device="npu")
-    D = iron.zeros(data_size, dtype=np.bfloat16, device="npu")
+    A = iron.arange(data_size, dtype=bfloat16, device="npu")
+    B = iron.arange(data_size, dtype=bfloat16, device="npu")
+    D = iron.zeros(data_size, dtype=bfloat16, device="npu")
     add_activate_test_jit(A, B, D)
 
 
