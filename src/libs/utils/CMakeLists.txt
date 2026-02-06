@@ -26,6 +26,7 @@ ironsmith_add_library(Utils
             ui/GridLayout.hpp
             ui/GridLayout.cpp
             async/AsyncTask.hpp
+            async/DebouncedInvoker.hpp
             filesystem/RecursiveFileSystemWatcher.hpp
             filesystem/RecursiveFileSystemWatcher.cpp
             filesystem/PathPatternMatcher.hpp

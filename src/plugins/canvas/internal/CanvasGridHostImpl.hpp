@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas/api/ICanvasGridHost.hpp"
+#include "utils/async/DebouncedInvoker.hpp"
 
 #include <QtCore/QHash>
 #include <QtCore/QPointer>
@@ -45,6 +46,7 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    void scheduleRebuild();
     void rebuildBlocks();
     void removeAllBlocks();
     QSizeF resolveCellSize() const;
@@ -57,6 +59,7 @@ private:
     Utils::GridSpec m_gridSpec;
     QVector<Canvas::Api::CanvasBlockSpec> m_blockSpecs;
     QHash<QString, CanvasBlockHandleImpl*> m_handles;
+    Utils::Async::DebouncedInvoker m_rebuildDebounce;
 };
 
 } // namespace Canvas::Internal

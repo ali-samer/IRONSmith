@@ -5,6 +5,7 @@
 #include "canvas/api/ICanvasGridHost.hpp"
 #include "canvas/api/ICanvasStyleHost.hpp"
 #include "canvas/api/CanvasStyleTypes.hpp"
+#include "utils/async/DebouncedInvoker.hpp"
 
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
@@ -92,12 +93,16 @@ signals:
     void labelColorChanged(const QColor& color);
 
 private:
-    void applyIfReady();
+    void requestApply();
+    void applyNow();
 
     QPointer<Canvas::Api::ICanvasGridHost> m_gridHost;
     QPointer<Canvas::Api::ICanvasStyleHost> m_styleHost;
     CanvasGridModel m_baseModel;
     QHash<QString, Canvas::Api::CanvasBlockStyle> m_baseStyles;
+
+    bool m_dirty = false;
+    Utils::Async::DebouncedInvoker m_applyDebounce;
 
     double m_tileSpacing = 0.0;
     double m_outerMargin = 0.0;

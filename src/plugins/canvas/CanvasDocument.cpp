@@ -10,6 +10,7 @@
 #include "canvas/utils/CanvasPortHitTest.hpp"
 
 #include <QtCore/QPointF>
+#include <QtCore/QtGlobal>
 
 #include <vector>
 #include <cmath>
@@ -176,7 +177,7 @@ CanvasBlock* CanvasDocument::createBlock(const QRectF& boundsScene, bool movable
 
     CanvasBlock* raw = blk.get();
     m_items.push_back(std::move(blk));
-    emit changed();
+    notifyChanged();
     return raw;
 }
 
@@ -206,14 +207,11 @@ CanvasItem* CanvasDocument::hitTest(const QPointF& scenePos) const
 
 std::optional<PortRef> CanvasDocument::hitTestPort(const QPointF& scenePos, double radiusScene) const
 {
+    ensureAutoPortLayout();
     for (auto it = m_items.rbegin(); it != m_items.rend(); ++it) {
         const CanvasItem* item = it->get();
         if (!item || !item->hasPorts())
             continue;
-        if (auto* block = const_cast<CanvasBlock*>(dynamic_cast<const CanvasBlock*>(item))) {
-            if (block->autoPortLayout())
-                arrangeAutoPorts(*block);
-        }
         for (const auto& port : item->ports()) {
             const QPointF a = item->portAnchorScene(port.id);
             if (Utils::hitTestPortGeometry(a, port.side, scenePos, radiusScene))
@@ -243,7 +241,7 @@ std::optional<CanvasDocument::RemovedItem> CanvasDocument::removeItem(ObjectId i
             out.index = i;
             out.item = std::move(ptr);
             m_items.erase(m_items.begin() + static_cast<std::ptrdiff_t>(i));
-            emit changed();
+            notifyChanged();
             return out;
         }
     }
@@ -257,7 +255,7 @@ bool CanvasDocument::insertItem(size_t index, std::unique_ptr<CanvasItem> item)
     if (index > m_items.size())
         index = m_items.size();
     m_items.insert(m_items.begin() + static_cast<std::ptrdiff_t>(index), std::move(item));
-    emit changed();
+    notifyChanged();
     return true;
 }
 
@@ -280,7 +278,47 @@ CanvasItem* CanvasDocument::findItem(ObjectId id) const
 
 void CanvasDocument::notifyChanged()
 {
+    if (!m_inAutoPortLayout)
+        scheduleAutoPortLayout();
     emit changed();
+}
+
+void CanvasDocument::scheduleAutoPortLayout()
+{
+    if (m_autoPortLayoutPending)
+        return;
+    m_autoPortLayoutPending = true;
+    m_autoPortLayoutTimer.start();
+}
+
+void CanvasDocument::applyAutoPortLayout()
+{
+    if (!m_autoPortLayoutPending)
+        return;
+
+    m_autoPortLayoutPending = false;
+    m_autoPortLayoutTimer.stop();
+
+    bool changed_ = false;
+    m_inAutoPortLayout = true;
+    for (const auto& it : m_items) {
+        auto* block = dynamic_cast<CanvasBlock*>(it.get());
+        if (!block || !block->autoPortLayout() || !block->hasPorts())
+            continue;
+        changed_ = arrangeAutoPorts(*block) || changed_;
+    }
+    m_inAutoPortLayout = false;
+
+    if (changed_)
+        emit changed();
+}
+
+void CanvasDocument::ensureAutoPortLayout() const
+{
+    if (!m_autoPortLayoutPending)
+        return;
+    auto* self = const_cast<CanvasDocument*>(this);
+    self->applyAutoPortLayout();
 }
 
 bool CanvasDocument::setItemTopLeftImpl(CanvasItem* item, const QPointF& newTopLeftScene, bool emitChanged)
@@ -307,7 +345,7 @@ bool CanvasDocument::setItemTopLeftImpl(CanvasItem* item, const QPointF& newTopL
             wire->clearRouteOverride();
     }
     if (emitChanged)
-        emit changed();
+        notifyChanged();
     return true;
 }
 
@@ -325,6 +363,10 @@ CanvasDocument::CanvasDocument(QObject* parent)
     : QObject(parent)
     , m_commands(this)
 {
+    m_autoPortLayoutTimer.setSingleShot(true);
+    m_autoPortLayoutTimer.setInterval(0);
+    connect(&m_autoPortLayoutTimer, &QTimer::timeout, this, &CanvasDocument::applyAutoPortLayout);
+
 	CanvasFabric::Config cfg;
 	cfg.step = Constants::kGridStep;
 	m_fabric.setConfig(cfg);
@@ -341,7 +383,7 @@ void CanvasDocument::setStatusText(QString text)
 		return;
 
 	m_statusText = std::move(text);
-	emit changed();
+	notifyChanged();
 }
 
 bool CanvasDocument::isFabricPointBlocked(const FabricCoord& coord) const
@@ -363,13 +405,10 @@ bool CanvasDocument::computePortTerminal(ObjectId itemId, PortId portId,
                                         QPointF& outBorderScene,
                                         QPointF& outFabricScene) const
 {
+    ensureAutoPortLayout();
     const CanvasItem* item = findItem(itemId);
     if (!item || !item->hasPorts())
         return false;
-    if (auto* block = const_cast<CanvasBlock*>(dynamic_cast<const CanvasBlock*>(item))) {
-        if (block->autoPortLayout())
-            arrangeAutoPorts(*block);
-    }
 
     std::optional<CanvasPort> meta;
     for (const auto& p : item->ports()) {
@@ -403,23 +442,40 @@ bool CanvasDocument::computePortTerminal(ObjectId itemId, PortId portId,
     return true;
 }
 
-void CanvasDocument::arrangeAutoPorts(CanvasBlock& block) const
+bool CanvasDocument::arrangeAutoPorts(CanvasBlock& block) const
 {
     if (!block.autoPortLayout() || !block.hasPorts())
-        return;
+        return false;
+
+    const auto beforePorts = block.ports();
 
     std::array<std::vector<PortConn>, 4> groups;
     collectPortGroups(*this, block, groups);
 
     const double step = m_fabric.config().step;
     if (step <= 0.0)
-        return;
+        return false;
 
     QRectF bounds;
-    resizeBlockForPorts(*this, block, groups, step, bounds);
+    const bool boundsChanged = resizeBlockForPorts(*this, block, groups, step, bounds);
 
     for (auto& list : groups)
         layoutPortsOnSide(block, bounds, step, list);
+
+    const auto& afterPorts = block.ports();
+    bool portsChanged = beforePorts.size() != afterPorts.size();
+    if (!portsChanged) {
+        for (size_t i = 0; i < beforePorts.size(); ++i) {
+            const auto& a = beforePorts[i];
+            const auto& b = afterPorts[i];
+            if (a.id != b.id || a.side != b.side || !qFuzzyCompare(a.t, b.t)) {
+                portsChanged = true;
+                break;
+            }
+        }
+    }
+
+    return boundsChanged || portsChanged;
 }
 
 bool CanvasDocument::computePortTerminalThunk(void* user, ObjectId itemId, PortId portId,

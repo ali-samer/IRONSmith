@@ -6,6 +6,7 @@
 #include <QtCore/QPointF>
 #include <QtCore/QRectF>
 #include <QtCore/QString>
+#include <QtCore/QTimer>
 
 #include "canvas/CanvasFabric.hpp"
 #include "canvas/CanvasCommandManager.hpp"
@@ -82,12 +83,19 @@ signals:
 private:
 	friend class CanvasCommandManager;
 	bool setItemTopLeftImpl(CanvasItem* item, const QPointF& newTopLeftScene, bool emitChanged);
-	void arrangeAutoPorts(CanvasBlock& block) const;
+	bool arrangeAutoPorts(CanvasBlock& block) const;
+	void scheduleAutoPortLayout();
+	void applyAutoPortLayout();
+	void ensureAutoPortLayout() const;
 
 	QString m_statusText;
 	CanvasFabric m_fabric;
 	std::vector<std::unique_ptr<CanvasItem>> m_items;
 	CanvasCommandManager m_commands;
+
+    QTimer m_autoPortLayoutTimer;
+    bool m_autoPortLayoutPending = false;
+    bool m_inAutoPortLayout = false;
 };
 
 } // namespace Canvas

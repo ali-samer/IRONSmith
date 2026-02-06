@@ -12,8 +12,15 @@
 
 namespace Aie {
 
+namespace {
+
+constexpr int kApplyDebounceMs = 50;
+
+} // namespace
+
 AieCanvasCoordinator::AieCanvasCoordinator(QObject* parent)
     : QObject(parent)
+    , m_applyDebounce(this)
     , m_tileSpacing(Aie::kDefaultTileSpacing)
     , m_outerMargin(Aie::kDefaultOuterMargin)
     , m_autoCellSize(true)
@@ -26,6 +33,8 @@ AieCanvasCoordinator::AieCanvasCoordinator(QObject* parent)
     , m_outlineColor(QColor(Canvas::Constants::kBlockOutlineColor))
     , m_labelColor(QColor(Canvas::Constants::kBlockTextColor))
 {
+    m_applyDebounce.setDelayMs(kApplyDebounceMs);
+    m_applyDebounce.setAction([this]() { applyNow(); });
 }
 
 void AieCanvasCoordinator::setGridHost(Canvas::Api::ICanvasGridHost* host)
@@ -33,7 +42,7 @@ void AieCanvasCoordinator::setGridHost(Canvas::Api::ICanvasGridHost* host)
     if (m_gridHost == host)
         return;
     m_gridHost = host;
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setStyleHost(Canvas::Api::ICanvasStyleHost* host)
@@ -41,19 +50,19 @@ void AieCanvasCoordinator::setStyleHost(Canvas::Api::ICanvasStyleHost* host)
     if (m_styleHost == host)
         return;
     m_styleHost = host;
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setBaseModel(const CanvasGridModel& model)
 {
     m_baseModel = model;
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setBaseStyles(const QHash<QString, Canvas::Api::CanvasBlockStyle>& styles)
 {
     m_baseStyles = styles;
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setTileSpacing(double spacing)
@@ -63,7 +72,7 @@ void AieCanvasCoordinator::setTileSpacing(double spacing)
         return;
     m_tileSpacing = spacing;
     emit tileSpacingChanged(m_tileSpacing);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setOuterMargin(double margin)
@@ -73,7 +82,7 @@ void AieCanvasCoordinator::setOuterMargin(double margin)
         return;
     m_outerMargin = margin;
     emit outerMarginChanged(m_outerMargin);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setAutoCellSize(bool enabled)
@@ -82,7 +91,7 @@ void AieCanvasCoordinator::setAutoCellSize(bool enabled)
         return;
     m_autoCellSize = enabled;
     emit autoCellSizeChanged(m_autoCellSize);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setCellSize(double size)
@@ -93,7 +102,7 @@ void AieCanvasCoordinator::setCellSize(double size)
     m_cellSize = size;
     emit cellSizeChanged(m_cellSize);
     if (!m_autoCellSize)
-        applyIfReady();
+        requestApply();
 }
 
 void AieCanvasCoordinator::setShowPorts(bool enabled)
@@ -102,7 +111,7 @@ void AieCanvasCoordinator::setShowPorts(bool enabled)
         return;
     m_showPorts = enabled;
     emit showPortsChanged(m_showPorts);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setShowLabels(bool enabled)
@@ -111,7 +120,7 @@ void AieCanvasCoordinator::setShowLabels(bool enabled)
         return;
     m_showLabels = enabled;
     emit showLabelsChanged(m_showLabels);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setKeepoutMargin(double margin)
@@ -120,7 +129,7 @@ void AieCanvasCoordinator::setKeepoutMargin(double margin)
         return;
     m_keepoutMargin = margin;
     emit keepoutMarginChanged(m_keepoutMargin);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setUseCustomColors(bool enabled)
@@ -129,7 +138,7 @@ void AieCanvasCoordinator::setUseCustomColors(bool enabled)
         return;
     m_useCustomColors = enabled;
     emit useCustomColorsChanged(m_useCustomColors);
-    applyIfReady();
+    requestApply();
 }
 
 void AieCanvasCoordinator::setFillColor(const QColor& color)
@@ -139,7 +148,7 @@ void AieCanvasCoordinator::setFillColor(const QColor& color)
     m_fillColor = color;
     emit fillColorChanged(m_fillColor);
     if (m_useCustomColors)
-        applyIfReady();
+        requestApply();
 }
 
 void AieCanvasCoordinator::setOutlineColor(const QColor& color)
@@ -149,7 +158,7 @@ void AieCanvasCoordinator::setOutlineColor(const QColor& color)
     m_outlineColor = color;
     emit outlineColorChanged(m_outlineColor);
     if (m_useCustomColors)
-        applyIfReady();
+        requestApply();
 }
 
 void AieCanvasCoordinator::setLabelColor(const QColor& color)
@@ -159,7 +168,7 @@ void AieCanvasCoordinator::setLabelColor(const QColor& color)
     m_labelColor = color;
     emit labelColorChanged(m_labelColor);
     if (m_useCustomColors)
-        applyIfReady();
+        requestApply();
 }
 
 void AieCanvasCoordinator::apply()
@@ -210,10 +219,19 @@ void AieCanvasCoordinator::apply()
     }
 }
 
-void AieCanvasCoordinator::applyIfReady()
+void AieCanvasCoordinator::requestApply()
 {
+    m_dirty = true;
+    m_applyDebounce.trigger();
+}
+
+void AieCanvasCoordinator::applyNow()
+{
+    if (!m_dirty)
+        return;
     if (!m_gridHost || !m_baseModel.gridSpec.isValid())
         return;
+    m_dirty = false;
     apply();
 }
 
