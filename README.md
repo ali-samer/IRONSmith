@@ -4,4 +4,31 @@
 
 ---
 
-To compile and run, select a build profile from the CMake presets
+To compile and run, select a build profile from the CMake presets.
+
+## Build presets
+
+Available `cmake --build` presets:
+
+- `build-dev-debug`
+- `build-dev-release`
+- `build-dev-asan`
+
+Each build preset uses a matching configure preset:
+
+- `build-dev-debug`  → `dev-debug`
+- `build-dev-release` → `dev-release`
+- `build-dev-asan`   → `dev-asan`
+
+## Configure, build, and run
+
+### Debug build
+
+```bash
+# From the project root
+cmake --preset dev-debug
+cmake --build --preset build-dev-debug
+
+# Run (example)
+./out/build/dev-debug/bin/ironsmith
+```
