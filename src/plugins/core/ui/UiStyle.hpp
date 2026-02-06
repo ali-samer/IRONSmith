@@ -5,6 +5,8 @@
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
 #include <QtWidgets/QApplication>
+#include <QtGui/QFont>
+#include <QtGui/QFontDatabase>
 
 namespace Ui {
 
@@ -53,7 +55,39 @@ struct UiStyle final
 
 	static void applyAppStyle(QApplication& app)
 	{
-		Q_UNUSED(app);
+		static QString s_fontFamily;
+		if (s_fontFamily.isEmpty()) {
+			const QStringList fontFiles = {
+				":/ui/fonts/dejavu-sans-mono/ttf/DejaVuSansMono.ttf",
+				":/ui/fonts/dejavu-sans-mono/ttf/DejaVuSansMono-Bold.ttf",
+				":/ui/fonts/dejavu-sans-mono/ttf/DejaVuSansMono-Oblique.ttf",
+				":/ui/fonts/dejavu-sans-mono/ttf/DejaVuSansMono-BoldOblique.ttf"
+			};
+
+			int regularId = -1;
+			for (const auto& file : fontFiles) {
+				const int id = QFontDatabase::addApplicationFont(file);
+				if (regularId < 0 && file.contains("DejaVuSansMono.ttf"))
+					regularId = id;
+			}
+
+			if (regularId >= 0) {
+				const QStringList families = QFontDatabase::applicationFontFamilies(regularId);
+				if (!families.isEmpty())
+					s_fontFamily = families.front();
+			}
+
+			if (s_fontFamily.isEmpty())
+				qWarning() << "IRONSmith: failed to load application font.";
+		}
+
+		if (!s_fontFamily.isEmpty()) {
+			QFont f = app.font();
+			if (f.family() != s_fontFamily) {
+				f.setFamily(s_fontFamily);
+				app.setFont(f);
+			}
+		}
 
 		static QString s_lastApplied;
 		const QString qss = loadStylesheet();

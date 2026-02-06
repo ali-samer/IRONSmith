@@ -1,0 +1,16 @@
+#pragma once
+
+#include <QtCore/QLoggingCategory>
+#include <QtCore/QtGlobal>
+
+#if defined(AIEPLUGIN_BUILD_SHARED) && (AIEPLUGIN_BUILD_SHARED == 1)
+#	if defined(AIEPLUGIN_LIBRARY)
+#		define AIEPLUGIN_EXPORT Q_DECL_EXPORT
+#	else
+#		define AIEPLUGIN_EXPORT Q_DECL_IMPORT
+#	endif
+#else
+#	define AIEPLUGIN_EXPORT
+#endif
+
+Q_DECLARE_LOGGING_CATEGORY(aiepluginlog)

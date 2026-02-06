@@ -3,6 +3,8 @@
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasController.hpp"
 #include "canvas/CanvasConstants.hpp"
+#include "canvas/CanvasPorts.hpp"
+#include "canvas/CanvasStyle.hpp"
 #include "canvas/Tools.hpp"
 
 #include "canvas/CanvasRenderContext.hpp"
@@ -20,7 +22,7 @@ namespace Canvas {
 static bool isSelectedThunk(void* user, ObjectId id)
 {
     const auto* view = static_cast<const CanvasView*>(user);
-    return view && view->selectedItem() == id;
+    return view && view->isSelected(id);
 }
 
 CanvasView::CanvasView(QWidget* parent)
@@ -54,11 +56,61 @@ void CanvasView::setController(CanvasController* controller)
 	m_controller = controller;
 }
 
+ObjectId CanvasView::selectedItem() const noexcept
+{
+    if (m_selectedItems.size() != 1)
+        return ObjectId{};
+    return *m_selectedItems.constBegin();
+}
+
 void CanvasView::setSelectedItem(ObjectId id)
 {
-    if (m_selected == id)
+    if (!id) {
+        clearSelectedItems();
         return;
-    m_selected = id;
+    }
+    QSet<ObjectId> next;
+    next.insert(id);
+    setSelectedItems(next);
+}
+
+void CanvasView::setSelectedItems(const QSet<ObjectId>& items)
+{
+    if (m_selectedItems == items)
+        return;
+    m_selectedItems = items;
+    update();
+    emit selectedItemsChanged();
+    emit selectedItemChanged(selectedItem());
+}
+
+void CanvasView::clearSelectedItems()
+{
+    if (m_selectedItems.isEmpty())
+        return;
+    m_selectedItems.clear();
+    update();
+    emit selectedItemsChanged();
+    emit selectedItemChanged(ObjectId{});
+}
+
+void CanvasView::setSelectedPort(ObjectId itemId, PortId portId)
+{
+    if (m_hasSelectedPort && m_selectedPortItem == itemId && m_selectedPortId == portId)
+        return;
+    m_hasSelectedPort = true;
+    m_selectedPortItem = itemId;
+    m_selectedPortId = portId;
+    update();
+}
+
+void CanvasView::clearSelectedPort()
+{
+    if (!m_hasSelectedPort)
+        return;
+    m_hasSelectedPort = false;
+    m_selectedPortItem = ObjectId{};
+    m_selectedPortId = PortId{};
     update();
 }
 
@@ -70,6 +122,7 @@ void CanvasView::setHoveredPort(ObjectId itemId, PortId portId)
 	m_hoveredItem = itemId;
 	m_hoveredPort = portId;
 	update();
+	emit hoveredPortChanged(m_hoveredItem, m_hoveredPort);
 }
 
 void CanvasView::clearHoveredPort()
@@ -80,6 +133,48 @@ void CanvasView::clearHoveredPort()
 	m_hoveredItem = ObjectId{};
 	m_hoveredPort = PortId{};
 	update();
+	emit hoveredPortCleared();
+}
+
+void CanvasView::setHoveredEdge(ObjectId itemId, PortSide side, const QPointF& anchorScene)
+{
+	if (m_hasHoveredEdge && m_hoveredEdgeItem == itemId && m_hoveredEdgeSide == side && m_hoveredEdgeAnchor == anchorScene)
+		return;
+	m_hasHoveredEdge = true;
+	m_hoveredEdgeItem = itemId;
+	m_hoveredEdgeSide = side;
+	m_hoveredEdgeAnchor = anchorScene;
+	update();
+}
+
+void CanvasView::clearHoveredEdge()
+{
+	if (!m_hasHoveredEdge)
+		return;
+	m_hasHoveredEdge = false;
+	m_hoveredEdgeItem = ObjectId{};
+	m_hoveredEdgeSide = PortSide::Left;
+	m_hoveredEdgeAnchor = QPointF();
+	update();
+}
+
+void CanvasView::setMarqueeRect(const QRectF& sceneRect)
+{
+    const QRectF normalized = sceneRect.normalized();
+    if (m_hasMarquee && m_marqueeSceneRect == normalized)
+        return;
+    m_hasMarquee = true;
+    m_marqueeSceneRect = normalized;
+    update();
+}
+
+void CanvasView::clearMarqueeRect()
+{
+    if (!m_hasMarquee)
+        return;
+    m_hasMarquee = false;
+    m_marqueeSceneRect = QRectF();
+    update();
 }
 
 void CanvasView::setZoom(double zoom)
@@ -162,6 +257,27 @@ void CanvasView::drawOverlayLayer(QPainter &p) const {
 	if (!m_document || !m_controller)
 		return;
 
+	if (m_hasHoveredEdge && (m_controller->mode() == CanvasController::Mode::Linking ||
+	                         m_controller->isEndpointDragActive())) {
+		p.save();
+		CanvasStyle::drawPort(p, m_hoveredEdgeAnchor, m_hoveredEdgeSide, PortRole::Dynamic, m_zoom, true);
+		p.restore();
+	}
+
+	if (m_hasMarquee) {
+		QColor stroke(Constants::kBlockSelectionColor);
+		stroke.setAlphaF(0.8);
+		QColor fill(Constants::kBlockSelectionColor);
+		fill.setAlphaF(0.15);
+
+		QPen pen(stroke);
+		pen.setWidthF(1.0 / std::clamp(m_zoom, 0.25, 8.0));
+		pen.setStyle(Qt::DashLine);
+		p.setPen(pen);
+		p.setBrush(fill);
+		p.drawRect(m_marqueeSceneRect);
+	}
+
 	if (m_controller->mode() != CanvasController::Mode::Linking || !m_controller->isLinkingInProgress())
 		return;
 
@@ -218,6 +334,9 @@ CanvasRenderContext CanvasView::buildRenderContext(const QRectF& sceneRect, bool
 		ctx.hoveredPortItem = m_hoveredItem;
 		ctx.hoveredPortId = m_hoveredPort;
 	}
+	ctx.hasSelectedPort = m_hasSelectedPort;
+	ctx.selectedPortItem = m_selectedPortItem;
+	ctx.selectedPortId = m_selectedPortId;
 	return ctx;
 }
 

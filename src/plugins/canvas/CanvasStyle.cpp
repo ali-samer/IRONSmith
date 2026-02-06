@@ -101,8 +101,8 @@ void CanvasStyle::drawPort(QPainter& p, const QPointF& anchorScene, PortSide sid
     p.setPen(pen);
     p.setBrush(fill);
 
-    const double stubLen = hovered ? 14.0 : 10.0;
-    const double half = hovered ? 4.0 : 3.0;
+    const double stubLen = hovered ? Constants::kPortStubLengthHover : Constants::kPortStubLength;
+    const double half = hovered ? Constants::kPortBoxHalfHover : Constants::kPortBoxHalf;
 
     QPointF dir(0, 0);
     switch (side) {
@@ -122,16 +122,25 @@ void CanvasStyle::drawPort(QPainter& p, const QPointF& anchorScene, PortSide sid
 void CanvasStyle::drawWire(QPainter& p,
                            const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
                            const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
-                           double zoom, bool selected)
+                           double zoom, bool selected, WireArrowPolicy arrowPolicy)
 {
-    drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, {}, zoom, selected);
+    drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, {}, zoom, selected, arrowPolicy);
+}
+
+void CanvasStyle::drawWireColored(QPainter& p,
+                           const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                           const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                           const QColor& color,
+                           double zoom, bool selected, WireArrowPolicy arrowPolicy)
+{
+    drawWirePathColored(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, {}, color, zoom, selected, arrowPolicy);
 }
 
 void CanvasStyle::drawWirePath(QPainter& p,
                            const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
                            const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
                            const std::vector<QPointF>& pathScene,
-                           double zoom, bool selected)
+                           double zoom, bool selected, WireArrowPolicy arrowPolicy)
 {
     const double base = 2.0 / clamped(zoom, 0.25, 8.0);
     const double penW = clamped(base, 0.5, 3.0);
@@ -160,22 +169,81 @@ void CanvasStyle::drawWirePath(QPainter& p,
     p.drawLine(bFabric, bBorder);
     p.drawLine(bBorder, bAnchor);
 
-    const QPointF dir = bAnchor - bBorder;
-    const double len = std::hypot(dir.x(), dir.y());
-    if (len > 1e-6) {
-        const QPointF n(dir.x() / len, dir.y() / len);
-        const QPointF perp(-n.y(), n.x());
-        const double arrowLen = 8.0 / clamped(zoom, 0.25, 8.0);
-        const double arrowHalfW = 4.0 / clamped(zoom, 0.25, 8.0);
-        const QPointF tip = bBorder;
-        const QPointF base = tip - n * arrowLen;
-        const QPointF left = base + perp * arrowHalfW;
-        const QPointF right = base - perp * arrowHalfW;
-        QPolygonF tri;
-        tri << tip << left << right;
-        p.setBrush(c);
-        p.drawPolygon(tri);
-        p.setBrush(Qt::NoBrush);
+    if (arrowPolicy != WireArrowPolicy::None) {
+        const QPointF tip = (arrowPolicy == WireArrowPolicy::End) ? bBorder : aBorder;
+        const QPointF anchor = (arrowPolicy == WireArrowPolicy::End) ? bAnchor : aAnchor;
+        const QPointF dir = anchor - tip;
+        const double len = std::hypot(dir.x(), dir.y());
+        if (len > 1e-6) {
+            const QPointF n(dir.x() / len, dir.y() / len);
+            const QPointF perp(-n.y(), n.x());
+            const double arrowLen = 8.0 / clamped(zoom, 0.25, 8.0);
+            const double arrowHalfW = 4.0 / clamped(zoom, 0.25, 8.0);
+            const QPointF base = tip - n * arrowLen;
+            const QPointF left = base + perp * arrowHalfW;
+            const QPointF right = base - perp * arrowHalfW;
+            QPolygonF tri;
+            tri << tip << left << right;
+            p.setBrush(c);
+            p.drawPolygon(tri);
+            p.setBrush(Qt::NoBrush);
+        }
+    }
+}
+
+void CanvasStyle::drawWirePathColored(QPainter& p,
+                           const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                           const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                           const std::vector<QPointF>& pathScene,
+                           const QColor& color,
+                           double zoom, bool selected, WireArrowPolicy arrowPolicy)
+{
+    const double base = 2.0 / clamped(zoom, 0.25, 8.0);
+    const double penW = clamped(base, 0.5, 3.0);
+
+    QColor c(selected ? Constants::kBlockSelectionColor : color);
+    QPen pen(c);
+    pen.setWidthF(penW);
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    p.drawLine(aAnchor, aBorder);
+    p.drawLine(aBorder, aFabric);
+
+    if (pathScene.size() >= 2) {
+        QPolygonF poly;
+        poly.reserve(static_cast<int>(pathScene.size()));
+        for (const auto& pt : pathScene)
+            poly << pt;
+        p.drawPolyline(poly);
+    } else {
+        p.drawLine(aFabric, bFabric);
+    }
+
+    p.drawLine(bFabric, bBorder);
+    p.drawLine(bBorder, bAnchor);
+
+    if (arrowPolicy != WireArrowPolicy::None) {
+        const QPointF tip = (arrowPolicy == WireArrowPolicy::End) ? bBorder : aBorder;
+        const QPointF anchor = (arrowPolicy == WireArrowPolicy::End) ? bAnchor : aAnchor;
+        const QPointF dir = anchor - tip;
+        const double len = std::hypot(dir.x(), dir.y());
+        if (len > 1e-6) {
+            const QPointF n(dir.x() / len, dir.y() / len);
+            const QPointF perp(-n.y(), n.x());
+            const double arrowLen = 8.0 / clamped(zoom, 0.25, 8.0);
+            const double arrowHalfW = 4.0 / clamped(zoom, 0.25, 8.0);
+            const QPointF base = tip - n * arrowLen;
+            const QPointF left = base + perp * arrowHalfW;
+            const QPointF right = base - perp * arrowHalfW;
+            QPolygonF tri;
+            tri << tip << left << right;
+            p.setBrush(c);
+            p.drawPolygon(tri);
+            p.setBrush(Qt::NoBrush);
+        }
     }
 }
 

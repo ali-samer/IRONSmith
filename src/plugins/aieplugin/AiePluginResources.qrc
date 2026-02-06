@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/aie">
+    <file>AieDeviceTopologies.json</file>
+  </qresource>
+</RCC>

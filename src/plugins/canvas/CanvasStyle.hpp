@@ -6,6 +6,7 @@
 #include <QtCore/QPointF>
 #include <QtCore/QRectF>
 #include <QtCore/QString>
+#include <QtGui/QColor>
 #include <vector>
 
 class QPainter;
@@ -34,12 +35,27 @@ struct CANVAS_EXPORT CanvasStyle final
                              const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
                              const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
                              const std::vector<QPointF>& pathScene,
-                             double zoom, bool selected);
+                             double zoom, bool selected,
+                             WireArrowPolicy arrowPolicy = WireArrowPolicy::End);
+    static void drawWirePathColored(QPainter& p,
+                             const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                             const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                             const std::vector<QPointF>& pathScene,
+                             const QColor& color,
+                             double zoom, bool selected,
+                             WireArrowPolicy arrowPolicy = WireArrowPolicy::End);
 
     static void drawWire(QPainter& p,
                          const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
                          const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
-                         double zoom, bool selected);
+                         double zoom, bool selected,
+                         WireArrowPolicy arrowPolicy = WireArrowPolicy::End);
+    static void drawWireColored(QPainter& p,
+                         const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,
+                         const QPointF& bFabric, const QPointF& bBorder, const QPointF& bAnchor,
+                         const QColor& color,
+                         double zoom, bool selected,
+                         WireArrowPolicy arrowPolicy = WireArrowPolicy::End);
 };
 
 } // namespace Canvas

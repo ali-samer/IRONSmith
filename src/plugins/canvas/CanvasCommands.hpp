@@ -2,14 +2,22 @@
 
 #include "canvas/CanvasCommand.hpp"
 #include "canvas/CanvasItem.hpp"
+#include "canvas/CanvasPorts.hpp"
 
 #include <QtCore/QPointF>
 
 #include <memory>
+#include <optional>
 
 namespace Canvas {
 
 class CanvasItem;
+
+struct SavedPort final {
+    ObjectId itemId{};
+    size_t index = 0;
+    CanvasPort port;
+};
 
 class CANVAS_EXPORT MoveItemCommand final : public CanvasCommand
 {
@@ -45,6 +53,7 @@ private:
     ObjectId m_itemId{};
     bool m_initialized = false;
     std::vector<SavedItem> m_savedItems;
+    std::vector<SavedPort> m_savedPorts;
 };
 
 class CANVAS_EXPORT CreateItemCommand final : public CanvasCommand
@@ -61,6 +70,48 @@ private:
     ObjectId m_itemId{};
     size_t m_index = 0;
     bool m_hasIndex = false;
+};
+
+class CANVAS_EXPORT DeletePortCommand final : public CanvasCommand
+{
+public:
+    DeletePortCommand(ObjectId itemId, PortId portId);
+
+    QString name() const override;
+    bool apply(CanvasDocument& doc) override;
+    bool revert(CanvasDocument& doc) override;
+
+private:
+    struct SavedWire final {
+        ObjectId id{};
+        size_t index = 0;
+        std::unique_ptr<CanvasItem> item;
+    };
+
+    ObjectId m_itemId{};
+    PortId m_portId{};
+    bool m_initialized = false;
+    std::vector<SavedWire> m_savedWires;
+    std::optional<CanvasPort> m_savedPort;
+    size_t m_portIndex = 0;
+    std::vector<SavedPort> m_savedOrphanPorts;
+};
+
+class CANVAS_EXPORT CompositeCommand final : public CanvasCommand
+{
+public:
+    explicit CompositeCommand(QString name = QStringLiteral("Composite Command"));
+
+    void add(std::unique_ptr<CanvasCommand> cmd);
+    bool empty() const noexcept { return m_commands.empty(); }
+
+    QString name() const override;
+    bool apply(CanvasDocument& doc) override;
+    bool revert(CanvasDocument& doc) override;
+
+private:
+    QString m_name;
+    std::vector<std::unique_ptr<CanvasCommand>> m_commands;
 };
 
 } // namespace Canvas

@@ -3,11 +3,13 @@
 #include "canvas/CanvasGlobal.hpp"
 #include "canvas/CanvasRenderContext.hpp"
 #include "canvas/CanvasTypes.hpp"
+#include "canvas/CanvasPorts.hpp"
 
 #include <QtCore/QPointer>
 #include <QtCore/QPointF>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
+#include <QtCore/QSet>
 
 #include <QtWidgets/QWidget>
 
@@ -40,15 +42,29 @@ public:
 	QPointF viewToScene(const QPointF& viewPos) const;
 	QPointF sceneToView(const QPointF& scenePos) const;
 
-	ObjectId selectedItem() const noexcept { return m_selected; }
+	ObjectId selectedItem() const noexcept;
+	const QSet<ObjectId>& selectedItems() const noexcept { return m_selectedItems; }
+	bool isSelected(ObjectId id) const noexcept { return m_selectedItems.contains(id); }
 	void setSelectedItem(ObjectId id);
+	void setSelectedItems(const QSet<ObjectId>& items);
+	void clearSelectedItems();
+	void setSelectedPort(ObjectId itemId, PortId portId);
+	void clearSelectedPort();
 
 	void setHoveredPort(ObjectId itemId, PortId portId);
 	void clearHoveredPort();
+	void setHoveredEdge(ObjectId itemId, PortSide side, const QPointF& anchorScene);
+	void clearHoveredEdge();
+	void setMarqueeRect(const QRectF& sceneRect);
+	void clearMarqueeRect();
 
 signals:
 	void zoomChanged(double zoom);
 	void panChanged(QPointF pan);
+	void selectedItemChanged(Canvas::ObjectId id);
+	void selectedItemsChanged();
+	void hoveredPortChanged(Canvas::ObjectId itemId, Canvas::PortId portId);
+	void hoveredPortCleared();
 	void canvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void canvasMouseMoved(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void canvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
@@ -78,10 +94,19 @@ private:
 
 	double  m_zoom = 1.0;
 	QPointF m_pan = {0.0, 0.0};
-	ObjectId m_selected{};
+	QSet<ObjectId> m_selectedItems;
 	bool m_hasHoveredPort = false;
 	ObjectId m_hoveredItem{};
 	PortId m_hoveredPort{};
+	bool m_hasSelectedPort = false;
+	ObjectId m_selectedPortItem{};
+	PortId m_selectedPortId{};
+	bool m_hasHoveredEdge = false;
+	ObjectId m_hoveredEdgeItem{};
+	PortSide m_hoveredEdgeSide = PortSide::Left;
+	QPointF m_hoveredEdgeAnchor{};
+	bool m_hasMarquee = false;
+	QRectF m_marqueeSceneRect;
 };
 
 } // namespace Canvas

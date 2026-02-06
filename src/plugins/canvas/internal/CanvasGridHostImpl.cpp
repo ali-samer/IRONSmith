@@ -1,0 +1,351 @@
+#include "canvas/internal/CanvasGridHostImpl.hpp"
+
+#include "canvas/CanvasBlock.hpp"
+#include "canvas/CanvasConstants.hpp"
+#include "canvas/CanvasDocument.hpp"
+#include "canvas/CanvasView.hpp"
+#include "canvas/CanvasWire.hpp"
+#include "canvas/internal/CanvasBlockHandleImpl.hpp"
+#include "canvas/api/ICanvasStyleHost.hpp"
+#include "canvas/api/CanvasStyleTypes.hpp"
+
+#include "utils/ui/GridLayout.hpp"
+
+#include <QtCore/QEvent>
+#include <QtCore/QMarginsF>
+#include <QtCore/QSet>
+#include <QtCore/QtGlobal>
+
+namespace Canvas::Internal {
+
+namespace {
+
+constexpr double kFallbackCellSize = Canvas::Constants::kGridStep * 10.0;
+constexpr QMarginsF kDefaultContentPadding{8.0, 8.0, 8.0, 8.0};
+
+struct ResolvedBlockStyle final {
+    bool hasCustomColors = false;
+    QColor fill;
+    QColor outline;
+    QColor label;
+    double cornerRadius = -1.0;
+};
+
+ResolvedBlockStyle resolveStyle(const Canvas::Api::CanvasBlockSpec& spec,
+                                Canvas::Api::ICanvasStyleHost* styleHost)
+{
+    ResolvedBlockStyle out;
+
+    Canvas::Api::CanvasBlockStyle style;
+    const bool hasStyle = styleHost && !spec.styleKey.trimmed().isEmpty()
+                          && styleHost->hasBlockStyle(spec.styleKey);
+    if (hasStyle)
+        style = styleHost->blockStyle(spec.styleKey);
+
+    if (spec.hasCustomColors) {
+        out.hasCustomColors = true;
+        out.outline = spec.outlineColor;
+        out.fill = spec.fillColor;
+        out.label = spec.labelColor;
+    } else if (hasStyle && style.hasColors()) {
+        out.hasCustomColors = true;
+        out.outline = style.outlineColor.isValid() ? style.outlineColor : QColor(Canvas::Constants::kBlockOutlineColor);
+        out.fill = style.fillColor.isValid() ? style.fillColor : QColor(Canvas::Constants::kBlockFillColor);
+        out.label = style.labelColor.isValid() ? style.labelColor : QColor(Canvas::Constants::kBlockTextColor);
+    }
+
+    if (spec.cornerRadius >= 0.0)
+        out.cornerRadius = spec.cornerRadius;
+    else if (hasStyle && style.cornerRadius >= 0.0)
+        out.cornerRadius = style.cornerRadius;
+
+    return out;
+}
+
+bool applyBlockSpec(Canvas::CanvasBlock* block,
+                    const Canvas::Api::CanvasBlockSpec& spec,
+                    const QRectF& bounds,
+                    const ResolvedBlockStyle& style,
+                    bool& geometryChanged,
+                    bool& keepoutChanged)
+{
+    if (!block)
+        return false;
+
+    bool changed = false;
+    geometryChanged = false;
+    keepoutChanged = false;
+
+    if (block->boundsScene() != bounds) {
+        block->setBoundsScene(bounds);
+        geometryChanged = true;
+        changed = true;
+    }
+
+    if (block->isMovable() != spec.movable) {
+        block->setMovable(spec.movable);
+        changed = true;
+    }
+
+    if (block->isDeletable() != spec.deletable) {
+        block->setDeletable(spec.deletable);
+        changed = true;
+    }
+
+    if (block->label() != spec.label) {
+        block->setLabel(spec.label);
+        changed = true;
+    }
+
+    if (block->showPorts() != spec.showPorts) {
+        block->setShowPorts(spec.showPorts);
+        changed = true;
+    }
+
+    const double keepoutMargin = (spec.keepoutMargin >= 0.0) ? spec.keepoutMargin : -1.0;
+    if (!qFuzzyCompare(block->keepoutMargin(), keepoutMargin)) {
+        block->setKeepoutMargin(keepoutMargin);
+        keepoutChanged = true;
+        changed = true;
+    }
+
+    if (spec.hasCustomPadding) {
+        if (block->contentPadding() != spec.contentPadding) {
+            block->setContentPadding(spec.contentPadding);
+            changed = true;
+        }
+    } else if (block->contentPadding() != kDefaultContentPadding) {
+        block->setContentPadding(kDefaultContentPadding);
+        changed = true;
+    }
+
+    if (style.hasCustomColors) {
+        if (!block->hasCustomColors() ||
+            block->outlineColor() != style.outline ||
+            block->fillColor() != style.fill ||
+            block->labelColor() != style.label) {
+            block->setCustomColors(style.outline, style.fill, style.label);
+            changed = true;
+        }
+    } else if (block->hasCustomColors()) {
+        block->clearCustomColors();
+        changed = true;
+    }
+
+    if (block->cornerRadius() != style.cornerRadius) {
+        block->setCornerRadius(style.cornerRadius);
+        changed = true;
+    }
+
+    return changed;
+}
+
+} // namespace
+
+CanvasGridHostImpl::CanvasGridHostImpl(CanvasDocument* document,
+                                       CanvasView* view,
+                                       Canvas::Api::ICanvasStyleHost* styleHost,
+                                       QObject* parent)
+    : Canvas::Api::ICanvasGridHost(parent)
+    , m_document(document)
+    , m_view(view)
+    , m_styleHost(styleHost)
+    , m_rebuildDebounce(this)
+{
+    if (m_view)
+        m_view->installEventFilter(this);
+    m_rebuildDebounce.setDelayMs(0);
+    m_rebuildDebounce.setAction([this]() { rebuildBlocks(); });
+}
+
+void CanvasGridHostImpl::setGridSpec(const Utils::GridSpec& spec)
+{
+    if (m_gridSpec.columns == spec.columns &&
+        m_gridSpec.rows == spec.rows &&
+        m_gridSpec.origin == spec.origin &&
+        m_gridSpec.cellSize == spec.cellSize &&
+        m_gridSpec.autoCellSize == spec.autoCellSize &&
+        m_gridSpec.cellSpacing == spec.cellSpacing &&
+        m_gridSpec.outerMargin == spec.outerMargin)
+        return;
+
+    m_gridSpec = spec;
+    emit gridSpecChanged(m_gridSpec);
+    scheduleRebuild();
+}
+
+Utils::GridSpec CanvasGridHostImpl::gridSpec() const
+{
+    return m_gridSpec;
+}
+
+void CanvasGridHostImpl::setBlocks(const QVector<Canvas::Api::CanvasBlockSpec>& blocks)
+{
+    m_blockSpecs = blocks;
+    scheduleRebuild();
+}
+
+void CanvasGridHostImpl::clearBlocks()
+{
+    m_blockSpecs.clear();
+    scheduleRebuild();
+}
+
+Canvas::Api::ICanvasBlockHandle* CanvasGridHostImpl::blockHandle(const QString& id) const
+{
+    return m_handles.value(id, nullptr);
+}
+
+QVector<Canvas::Api::ICanvasBlockHandle*> CanvasGridHostImpl::blockHandles() const
+{
+    QVector<Canvas::Api::ICanvasBlockHandle*> result;
+    result.reserve(m_handles.size());
+    for (auto* handle : m_handles)
+        result.push_back(handle);
+    return result;
+}
+
+bool CanvasGridHostImpl::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == m_view && event && event->type() == QEvent::Resize) {
+        if (m_gridSpec.autoCellSize)
+            scheduleRebuild();
+    }
+
+    return Canvas::Api::ICanvasGridHost::eventFilter(watched, event);
+}
+
+void CanvasGridHostImpl::scheduleRebuild()
+{
+    m_rebuildDebounce.trigger();
+}
+
+void CanvasGridHostImpl::rebuildBlocks()
+{
+    if (!m_document) {
+        return;
+    }
+
+    if (!m_gridSpec.isValid()) {
+        removeAllBlocks();
+        emit blocksChanged();
+        return;
+    }
+
+    const QSizeF cellSize = resolveCellSize();
+
+    QHash<QString, CanvasBlockHandleImpl*> nextHandles;
+    nextHandles.reserve(m_blockSpecs.size());
+
+    QSet<ObjectId> geometryTouched;
+    bool hasInPlaceChanges = false;
+    bool handlesChanged = false;
+
+    for (const auto& spec : m_blockSpecs) {
+        if (spec.id.trimmed().isEmpty())
+            continue;
+        if (!spec.gridRect.isValid())
+            continue;
+
+        const QRectF gridRect = rectForBlock(spec, cellSize);
+        const QSizeF size = spec.hasPreferredSize() ? spec.preferredSize : gridRect.size();
+        const QRectF bounds(gridRect.topLeft(), size);
+
+        CanvasBlockHandleImpl* handle = m_handles.value(spec.id, nullptr);
+        CanvasBlock* block = handle ? handle->block() : nullptr;
+        const bool isNewBlock = (block == nullptr);
+
+        if (!block) {
+            block = m_document->createBlock(bounds, spec.movable);
+            handlesChanged = true;
+        }
+        if (!block)
+            continue;
+
+        const ResolvedBlockStyle style = resolveStyle(spec, m_styleHost);
+        bool geometryChanged = false;
+        bool keepoutChanged = false;
+        const bool blockChanged = applyBlockSpec(block, spec, bounds, style,
+                                                 geometryChanged, keepoutChanged);
+
+        if (blockChanged && !isNewBlock)
+            hasInPlaceChanges = true;
+        if (geometryChanged || keepoutChanged)
+            geometryTouched.insert(block->id());
+
+        if (!handle)
+            handle = new CanvasBlockHandleImpl(spec.id, m_document, block, this);
+        else
+            handle->setBlock(block);
+
+        nextHandles.insert(spec.id, handle);
+    }
+
+    for (auto it = m_handles.begin(); it != m_handles.end(); ++it) {
+        if (!nextHandles.contains(it.key())) {
+            handlesChanged = true;
+            if (it.value()) {
+                if (auto* block = it.value()->block())
+                    m_document->removeItem(block->id());
+                it.value()->setBlock(nullptr);
+                it.value()->deleteLater();
+            }
+        }
+    }
+
+    m_handles = std::move(nextHandles);
+
+    if (!geometryTouched.isEmpty()) {
+        for (const auto& item : m_document->items()) {
+            if (!item)
+                continue;
+            auto* wire = dynamic_cast<CanvasWire*>(item.get());
+            if (!wire || !wire->hasRouteOverride())
+                continue;
+            for (const auto& id : geometryTouched) {
+                if (wire->attachesTo(id)) {
+                    wire->clearRouteOverride();
+                    break;
+                }
+            }
+        }
+    }
+
+    if (hasInPlaceChanges)
+        m_document->notifyChanged();
+
+    if (handlesChanged)
+        emit blocksChanged();
+}
+
+void CanvasGridHostImpl::removeAllBlocks()
+{
+    if (!m_document)
+        return;
+
+    for (auto it = m_handles.begin(); it != m_handles.end(); ++it) {
+        CanvasBlockHandleImpl* handle = it.value();
+        if (!handle)
+            continue;
+        if (auto* block = handle->block())
+            m_document->removeItem(block->id());
+        handle->setBlock(nullptr);
+    }
+}
+
+QSizeF CanvasGridHostImpl::resolveCellSize() const
+{
+    if (m_view) {
+        const QSizeF viewportSize = m_view->size();
+        return Utils::GridLayout::resolveCellSize(m_gridSpec, viewportSize, kFallbackCellSize);
+    }
+    return Utils::GridLayout::resolveCellSize(m_gridSpec, QSizeF(), kFallbackCellSize);
+}
+
+QRectF CanvasGridHostImpl::rectForBlock(const Canvas::Api::CanvasBlockSpec& spec,
+                                        const QSizeF& cellSize) const
+{
+    return Utils::GridLayout::rectForGrid(m_gridSpec, spec.gridRect, cellSize);
+}
+
+} // namespace Canvas::Internal

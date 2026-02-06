@@ -81,6 +81,8 @@ Utils::Result ProjectExplorerPlugin::initialize(const QStringList& arguments, Ex
                 m_fileSystem, &ProjectExplorerFileSystemService::setRootPath);
         connect(m_fileSystem, &ProjectExplorerFileSystemService::refreshRequested,
                 m_dataSource, &ProjectExplorerDataSource::refresh);
+    } else {
+        return Utils::Result::failure("ProjectExplorerPlugin: filesystem service is null");
     }
     m_service->setRootPath(m_dataSource->rootPath(), /*userInitiated=*/false);
     m_dataSource->refresh();

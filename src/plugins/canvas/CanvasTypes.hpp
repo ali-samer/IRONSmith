@@ -4,6 +4,7 @@
 
 #include "utils/StrongId.hpp"
 
+#include <QtCore/QMetaType>
 #include <QtCore/QString>
 #include <QtCore/QRect>
 #include <vector>
@@ -35,6 +36,12 @@ struct CANVAS_EXPORT FabricCoord final {
 	int y = 0;
 };
 
+enum class CANVAS_EXPORT WireArrowPolicy : uint8_t {
+    None,
+    Start,
+    End
+};
+
 // struct Port final {
 // 	PortId   id{};
 // 	BlockId  owner{};
@@ -63,3 +70,8 @@ struct CANVAS_EXPORT FabricCoord final {
 //
 
 } // namespace Canvas
+
+Q_DECLARE_METATYPE(Canvas::BlockId)
+Q_DECLARE_METATYPE(Canvas::PortId)
+Q_DECLARE_METATYPE(Canvas::LinkId)
+Q_DECLARE_METATYPE(Canvas::ObjectId)
