@@ -187,8 +187,19 @@ class BuilderWrapper:
             return error_response("PYTHON_EXCEPTION", str(e))
 
     def add_fifo_split(self, name: str, source_id: str, num_outputs: int, output_type_id: str,
-                       output_ids: list, offsets: list, placement_id: str, metadata: dict = None, provided_id: str = None) -> str:
-        """Add or update a FIFO split operation with ID-based references.
+                       output_names: list, offsets: list, placement_id: str, metadata: dict = None, provided_id: str = None) -> str:
+        """Add or update a FIFO split operation.
+
+        Args:
+            name: Split operation name
+            source_id: Source FIFO component ID
+            num_outputs: Number of outputs
+            output_type_id: Output type component ID
+            output_names: List of names for each output (strings, not IDs)
+            offsets: List of offsets for each output
+            placement_id: Placement tile component ID
+            metadata: Additional metadata
+            provided_id: Optional ID for update operation
 
         If provided_id is given, updates an existing component instead of creating a new one.
         """
@@ -198,12 +209,9 @@ class BuilderWrapper:
             # Look up components
             source = self._lookup_component(source_id)
             output_type = self._lookup_component(output_type_id)
-            outputs = self._lookup_components(output_ids)
             placement = self._lookup_component(placement_id)
 
-            # The builder expects output names, not objects, so get names
-            output_names = [o.name if o else "" for o in outputs]
-
+            # output_names are already strings - pass directly to builder
             result = self.builder.add_fifo_split(
                 name, source, num_outputs, output_type, output_names, offsets, placement, provided_id=provided_id, **metadata
             )
@@ -220,8 +228,19 @@ class BuilderWrapper:
             return error_response("PYTHON_EXCEPTION", str(e))
 
     def add_fifo_join(self, name: str, dest_id: str, num_inputs: int, input_type_id: str,
-                      input_ids: list, offsets: list, placement_id: str, metadata: dict = None, provided_id: str = None) -> str:
-        """Add or update a FIFO join operation with ID-based references.
+                      input_names: list, offsets: list, placement_id: str, metadata: dict = None, provided_id: str = None) -> str:
+        """Add or update a FIFO join operation.
+
+        Args:
+            name: Join operation name
+            dest_id: Destination FIFO component ID
+            num_inputs: Number of inputs
+            input_type_id: Input type component ID
+            input_names: List of names for each input (strings, not IDs)
+            offsets: List of offsets for each input
+            placement_id: Placement tile component ID
+            metadata: Additional metadata
+            provided_id: Optional ID for update operation
 
         If provided_id is given, updates an existing component instead of creating a new one.
         """
@@ -231,12 +250,9 @@ class BuilderWrapper:
             # Look up components
             dest = self._lookup_component(dest_id)
             input_type = self._lookup_component(input_type_id)
-            inputs = self._lookup_components(input_ids)
             placement = self._lookup_component(placement_id)
 
-            # The builder expects input names, not objects
-            input_names = [i.name if i else "" for i in inputs]
-
+            # input_names are already strings - pass directly to builder
             result = self.builder.add_fifo_join(
                 name, dest, num_inputs, input_type, input_names, offsets, placement, provided_id=provided_id, **metadata
             )
