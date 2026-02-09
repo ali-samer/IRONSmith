@@ -101,6 +101,7 @@ Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& o
         ddr.movable = false;
         ddr.showPorts = false;
         ddr.deletable = false;
+        ddr.allowMultiplePorts = true;
         ddr.styleKey = QStringLiteral("ddr");
         blocks.push_back(std::move(ddr));
     }

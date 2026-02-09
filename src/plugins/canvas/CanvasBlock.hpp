@@ -52,6 +52,9 @@ public:
     static void setGlobalShowPorts(bool v) { s_globalShowPorts = v; }
     static bool globalShowPorts() { return s_globalShowPorts; }
 
+    bool allowMultiplePorts() const { return m_allowMultiplePorts; }
+    void setAllowMultiplePorts(bool v) { m_allowMultiplePorts = v; }
+
     bool autoPortLayout() const { return m_autoPortLayout; }
     void setAutoPortLayout(bool v) { m_autoPortLayout = v; }
     double portSnapStep() const { return m_portSnapStep; }
@@ -94,6 +97,7 @@ private:
     QString m_label;
     std::vector<CanvasPort> m_ports;
     bool m_showPorts = true;
+    bool m_allowMultiplePorts = false;
     bool m_autoPortLayout = false;
     double m_portSnapStep = Constants::kGridStep;
     bool m_isLinkHub = false;

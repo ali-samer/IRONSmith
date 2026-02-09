@@ -255,12 +255,57 @@ std::optional<Canvas::PortRef> ensureEdgePort(Canvas::CanvasDocument* doc,
         return std::nullopt;
 
     const double tol = 0.05;
+    const double baseT = Canvas::Utils::clampT(candidate.t);
+
+    auto isPortNear = [&](const Canvas::CanvasPort& port, double t) {
+        return port.side == candidate.side && std::abs(port.t - t) <= tol;
+    };
+
     for (const auto& port : block->ports()) {
-        if (port.side == candidate.side && std::abs(port.t - candidate.t) <= tol)
+        if (!isPortNear(port, baseT))
+            continue;
+        if (Canvas::Utils::isPortAvailable(*doc, block->id(), port.id))
             return Canvas::PortRef{block->id(), port.id};
+        if (!block->allowMultiplePorts())
+            return Canvas::PortRef{block->id(), port.id};
+        break;
     }
 
-    const Canvas::PortId portId = block->addPort(candidate.side, candidate.t, Canvas::PortRole::Dynamic);
+    double chosenT = baseT;
+    if (block->allowMultiplePorts()) {
+        const double step = 0.08;
+        const double minT = 0.05;
+        const double maxT = 0.95;
+
+        auto isFreeT = [&](double t) {
+            for (const auto& port : block->ports()) {
+                if (isPortNear(port, t))
+                    return false;
+            }
+            return true;
+        };
+
+        if (!isFreeT(chosenT)) {
+            bool found = false;
+            for (int i = 1; i <= 8 && !found; ++i) {
+                const double offset = step * i;
+                const double tPlus = chosenT + offset;
+                if (tPlus <= maxT && isFreeT(tPlus)) {
+                    chosenT = tPlus;
+                    found = true;
+                    break;
+                }
+                const double tMinus = chosenT - offset;
+                if (tMinus >= minT && isFreeT(tMinus)) {
+                    chosenT = tMinus;
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    const Canvas::PortId portId = block->addPort(candidate.side, chosenT, Canvas::PortRole::Dynamic);
     if (portId.isNull())
         return std::nullopt;
 
@@ -626,7 +671,18 @@ bool CanvasController::handleLinkingPress(const QPointF& scenePos)
     }
 
     if (resolvedPort && !Utils::isPortAvailable(*m_doc, resolvedPort->itemId, resolvedPort->portId)) {
-        return true;
+        CanvasPort meta;
+        auto* block = dynamic_cast<CanvasBlock*>(m_doc->findItem(resolvedPort->itemId));
+        if (block && block->allowMultiplePorts() && m_doc->getPort(resolvedPort->itemId, resolvedPort->portId, meta)) {
+            Canvas::EdgeCandidate candidate;
+            candidate.itemId = resolvedPort->itemId;
+            candidate.side = meta.side;
+            candidate.t = meta.t;
+            candidate.anchorScene = block->portAnchorScene(meta.id);
+            resolvedPort = ensureEdgePort(m_doc, candidate);
+        } else {
+            return true;
+        }
     }
 
     if (!resolvedPort) {

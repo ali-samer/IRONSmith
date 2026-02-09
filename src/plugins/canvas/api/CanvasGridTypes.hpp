@@ -22,6 +22,7 @@ struct CANVAS_EXPORT CanvasBlockSpec final {
     bool movable = false;
     bool showPorts = true;
     bool deletable = true;
+    bool allowMultiplePorts = false;
 
     double keepoutMargin = -1.0;
     bool hasCustomPadding = false;

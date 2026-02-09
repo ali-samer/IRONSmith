@@ -102,6 +102,11 @@ bool applyBlockSpec(Canvas::CanvasBlock* block,
         changed = true;
     }
 
+    if (block->allowMultiplePorts() != spec.allowMultiplePorts) {
+        block->setAllowMultiplePorts(spec.allowMultiplePorts);
+        changed = true;
+    }
+
     const double keepoutMargin = (spec.keepoutMargin >= 0.0) ? spec.keepoutMargin : -1.0;
     if (!qFuzzyCompare(block->keepoutMargin(), keepoutMargin)) {
         block->setKeepoutMargin(keepoutMargin);

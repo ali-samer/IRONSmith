@@ -18,6 +18,7 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
     auto blk = std::make_unique<CanvasBlock>(m_boundsScene, m_movable, m_label);
     blk->setPorts(m_ports);
     blk->m_showPorts = m_showPorts;
+    blk->m_allowMultiplePorts = m_allowMultiplePorts;
     blk->m_autoPortLayout = m_autoPortLayout;
     blk->m_portSnapStep = m_portSnapStep;
     blk->m_isLinkHub = m_isLinkHub;
