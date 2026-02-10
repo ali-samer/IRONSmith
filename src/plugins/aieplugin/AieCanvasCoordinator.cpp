@@ -8,7 +8,6 @@
 #include "canvas/CanvasController.hpp"
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasBlock.hpp"
-#include "canvas/CanvasCommands.hpp"
 
 #include <QtCore/QMarginsF>
 #include <QtCore/QtGlobal>
@@ -16,7 +15,6 @@
 
 #include <algorithm>
 #include <limits>
-#include <numeric>
 
 namespace Aie {
 
@@ -26,7 +24,9 @@ constexpr int kApplyDebounceMs = 50;
 
 struct SelectionBlockInfo final {
     Canvas::ObjectId id{};
+    QString specId;
     QRectF bounds;
+    QPointF baseOffset;
 
     QPointF topLeft() const { return bounds.topLeft(); }
     QSizeF size() const { return bounds.size(); }
@@ -48,7 +48,9 @@ struct AieCanvasCoordinator::SelectionSnapshot final {
 
 namespace {
 
-SelectionLayout buildSelectionLayout(Canvas::CanvasDocument* doc, const QSet<Canvas::ObjectId>& ids)
+SelectionLayout buildSelectionLayout(Canvas::CanvasDocument* doc,
+                                     const QSet<Canvas::ObjectId>& ids,
+                                     const QHash<QString, QPointF>& offsets)
 {
     SelectionLayout layout;
     if (!doc)
@@ -57,12 +59,17 @@ SelectionLayout buildSelectionLayout(Canvas::CanvasDocument* doc, const QSet<Can
     for (const auto& id : ids) {
         auto* item = doc->findItem(id);
         auto* block = dynamic_cast<Canvas::CanvasBlock*>(item);
-        if (!block || !block->isMovable())
+        if (!block)
+            continue;
+        const QString specId = block->specId();
+        if (specId.isEmpty())
             continue;
 
         SelectionBlockInfo info;
         info.id = id;
+        info.specId = specId;
         info.bounds = block->boundsScene();
+        info.baseOffset = offsets.value(specId);
         layout.blocks.push_back(info);
         if (layout.bounds.isNull())
             layout.bounds = info.bounds;
@@ -225,6 +232,15 @@ QHash<Canvas::ObjectId, QPointF> computeOutwardSpread(const SelectionLayout& lay
     return targets;
 }
 
+const SelectionBlockInfo* findBlockInfo(const SelectionLayout& layout, Canvas::ObjectId id)
+{
+    for (const auto& block : layout.blocks) {
+        if (block.id == id)
+            return &block;
+    }
+    return nullptr;
+}
+
 } // namespace
 
 AieCanvasCoordinator::AieCanvasCoordinator(QObject* parent)
@@ -275,6 +291,7 @@ void AieCanvasCoordinator::setStyleHost(Canvas::Api::ICanvasStyleHost* host)
 void AieCanvasCoordinator::setBaseModel(const CanvasGridModel& model)
 {
     m_baseModel = model;
+    m_blockOffsets.clear();
     requestApply();
 }
 
@@ -427,8 +444,8 @@ void AieCanvasCoordinator::apply()
         return;
 
     Utils::GridSpec spec = m_baseModel.gridSpec;
-    spec.cellSpacing = QSizeF(m_horizontalSpacing, m_verticalSpacing);
-    spec.outerMargin = QMarginsF(m_outwardSpread, m_outwardSpread, m_outwardSpread, m_outwardSpread);
+    const double spread = m_outwardSpread;
+    spec.cellSpacing = QSizeF(m_horizontalSpacing + spread, m_verticalSpacing + spread);
     spec.autoCellSize = m_autoCellSize;
     spec.cellSize = m_autoCellSize ? QSizeF() : QSizeF(m_cellSize, m_cellSize);
 
@@ -436,6 +453,7 @@ void AieCanvasCoordinator::apply()
     for (auto& block : blocks) {
         block.showPorts = m_showPorts;
         block.label = m_showLabels ? block.label : QString();
+        block.positionOffset = m_blockOffsets.value(block.id);
         if (m_keepoutMargin >= 0.0)
             block.keepoutMargin = m_keepoutMargin;
         else
@@ -477,7 +495,7 @@ void AieCanvasCoordinator::beginSelectionSpacing(SelectionSpacingAxis axis)
     if (!doc || !controller)
         return;
 
-    SelectionLayout layout = buildSelectionLayout(doc, controller->selectedItems());
+    SelectionLayout layout = buildSelectionLayout(doc, controller->selectedItems(), m_blockOffsets);
     if (layout.blocks.isEmpty())
         return;
 
@@ -495,12 +513,7 @@ void AieCanvasCoordinator::updateSelectionSpacing(SelectionSpacingAxis axis, dou
     if (!m_selectionSnapshot || m_selectionSnapshot->axis != axis)
         return;
 
-    auto* host = m_canvasHost.data();
-    auto* doc = host ? host->document() : nullptr;
-    if (!doc)
-        return;
-
-    const double spacing = std::max(0.0, value);
+    const double spacing = std::max(0.0, value) * Canvas::Constants::kWorldScale;
     QHash<Canvas::ObjectId, QPointF> targets;
     switch (axis) {
         case SelectionSpacingAxis::Horizontal:
@@ -514,8 +527,17 @@ void AieCanvasCoordinator::updateSelectionSpacing(SelectionSpacingAxis axis, dou
             break;
     }
 
-    for (auto it = targets.constBegin(); it != targets.constEnd(); ++it)
-        doc->previewSetItemTopLeft(it.key(), it.value());
+    bool updated = false;
+    for (auto it = targets.constBegin(); it != targets.constEnd(); ++it) {
+        const SelectionBlockInfo* info = findBlockInfo(m_selectionSnapshot->layout, it.key());
+        if (!info)
+            continue;
+        const QPointF delta = it.value() - info->topLeft();
+        m_blockOffsets[info->specId] = info->baseOffset + delta;
+        updated = true;
+    }
+    if (updated)
+        requestApply();
 }
 
 void AieCanvasCoordinator::endSelectionSpacing(SelectionSpacingAxis axis)
@@ -523,28 +545,41 @@ void AieCanvasCoordinator::endSelectionSpacing(SelectionSpacingAxis axis)
     if (!m_selectionSnapshot || m_selectionSnapshot->axis != axis)
         return;
 
+    m_selectionSnapshot.reset();
+    requestApply();
+}
+
+void AieCanvasCoordinator::nudgeSelection(double dx, double dy)
+{
+    if (qFuzzyIsNull(dx) && qFuzzyIsNull(dy))
+        return;
+
     auto* host = m_canvasHost.data();
     auto* doc = host ? host->document() : nullptr;
-    if (!doc) {
-        m_selectionSnapshot.reset();
+    auto* controller = host ? host->controller() : nullptr;
+    if (!doc || !controller)
         return;
-    }
 
-    auto batch = std::make_unique<Canvas::CompositeCommand>(QStringLiteral("Move Items"));
-    for (const auto& block : m_selectionSnapshot->layout.blocks) {
-        auto* item = doc->findItem(block.id);
-        auto* blk = dynamic_cast<Canvas::CanvasBlock*>(item);
-        if (!blk)
-            continue;
-        const QPointF finalTopLeft = blk->boundsScene().topLeft();
-        if (finalTopLeft == block.topLeft())
-            continue;
-        batch->add(std::make_unique<Canvas::MoveItemCommand>(block.id, block.topLeft(), finalTopLeft));
-    }
-    if (!batch->empty())
-        doc->commands().execute(std::move(batch));
+    const QPointF delta(dx * Canvas::Constants::kWorldScale,
+                        dy * Canvas::Constants::kWorldScale);
+    if (qFuzzyIsNull(delta.x()) && qFuzzyIsNull(delta.y()))
+        return;
 
-    m_selectionSnapshot.reset();
+    bool updated = false;
+    const auto selected = controller->selectedItems();
+    for (const auto& id : selected) {
+        auto* item = doc->findItem(id);
+        auto* block = dynamic_cast<Canvas::CanvasBlock*>(item);
+        if (!block)
+            continue;
+        const QString specId = block->specId();
+        if (specId.isEmpty())
+            continue;
+        m_blockOffsets[specId] += delta;
+        updated = true;
+    }
+    if (updated)
+        requestApply();
 }
 
 void AieCanvasCoordinator::requestApply()

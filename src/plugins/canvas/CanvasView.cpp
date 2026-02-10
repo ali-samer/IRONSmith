@@ -1,209 +1,215 @@
 #include "canvas/CanvasView.hpp"
 
-#include "canvas/CanvasDocument.hpp"
-#include "canvas/CanvasController.hpp"
-#include "canvas/CanvasConstants.hpp"
-#include "canvas/CanvasPorts.hpp"
-#include "canvas/CanvasStyle.hpp"
-#include "canvas/Tools.hpp"
-
-#include "canvas/CanvasRenderContext.hpp"
-#include "canvas/CanvasItem.hpp"
+#include "canvas/CanvasScene.hpp"
+#include "canvas/CanvasViewport.hpp"
 
 #include <QtGui/QPainter>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QWheelEvent>
+#include <QtGui/QResizeEvent>
+#include <QtCore/QtGlobal>
 
-#include <algorithm>
+#include <cmath>
 
 namespace Canvas {
 
-static bool isSelectedThunk(void* user, ObjectId id)
-{
-    const auto* view = static_cast<const CanvasView*>(user);
-    return view && view->isSelected(id);
-}
-
 CanvasView::CanvasView(QWidget* parent)
 	: QWidget(parent)
+    , m_scene(new CanvasScene(this))
+    , m_viewport(new CanvasViewport(this))
 {
 	setObjectName("CanvasView");
 	setMouseTracking(true);
 	setFocusPolicy(Qt::StrongFocus);
 	setAttribute(Qt::WA_OpaquePaintEvent, true);
+
+    connect(m_scene, &CanvasScene::requestUpdate,
+            this, QOverload<>::of(&CanvasView::update));
+    connect(m_scene, &CanvasScene::selectedItemsChanged,
+            this, &CanvasView::selectedItemsChanged);
+    connect(m_scene, &CanvasScene::selectedItemChanged,
+            this, &CanvasView::selectedItemChanged);
+    connect(m_scene, &CanvasScene::hoveredPortChanged,
+            this, &CanvasView::hoveredPortChanged);
+    connect(m_scene, &CanvasScene::hoveredPortCleared,
+            this, &CanvasView::hoveredPortCleared);
+
+    connect(m_viewport, &CanvasViewport::zoomChanged,
+            this, [this](double zoom) {
+                update();
+                emit zoomChanged(zoom);
+            });
+    connect(m_viewport, &CanvasViewport::panChanged,
+            this, [this](const QPointF& pan) { emit panChanged(pan); });
+    connect(m_viewport, &CanvasViewport::panDeltaView,
+            this, [this](const QPointF& deltaView) {
+                const int dx = qRound(deltaView.x());
+                const int dy = qRound(deltaView.y());
+                if (dx == 0 && dy == 0) {
+                    update();
+                    return;
+                }
+                if (std::abs(dx) >= width() || std::abs(dy) >= height()) {
+                    update();
+                    return;
+                }
+                scroll(dx, dy);
+            });
+    connect(m_viewport, &CanvasViewport::displayZoomBaselineChanged,
+            this, [this](double) {
+                update();
+                emit zoomChanged(zoom());
+            });
+    connect(m_viewport, &CanvasViewport::sizeChanged,
+            this, [this]() { update(); });
+
+    m_viewport->setSize(QSizeF(size()));
 }
 
 void CanvasView::setDocument(CanvasDocument* doc)
 {
-	if (m_document == doc)
-		return;
-
-	if (m_document)
-		disconnect(m_document, nullptr, this, nullptr);
-
-	m_document = doc;
-
-	if (m_document) {
-		connect(m_document, &CanvasDocument::changed, this, QOverload<>::of(&CanvasView::update));
-	}
-
-	update();
+    m_scene->setDocument(doc);
 }
 
 void CanvasView::setController(CanvasController* controller)
 {
-	m_controller = controller;
+    m_scene->setController(controller);
+}
+
+void CanvasView::setSelectionModel(CanvasSelectionModel* model)
+{
+    m_scene->setSelectionModel(model);
 }
 
 ObjectId CanvasView::selectedItem() const noexcept
 {
-    if (m_selectedItems.size() != 1)
-        return ObjectId{};
-    return *m_selectedItems.constBegin();
+    return m_scene ? m_scene->selectedItem() : ObjectId{};
+}
+
+const QSet<ObjectId>& CanvasView::selectedItems() const noexcept
+{
+    static const QSet<ObjectId> kEmpty;
+    return m_scene ? m_scene->selectedItems() : kEmpty;
+}
+
+bool CanvasView::isSelected(ObjectId id) const noexcept
+{
+    return m_scene ? m_scene->isSelected(id) : false;
 }
 
 void CanvasView::setSelectedItem(ObjectId id)
 {
-    if (!id) {
-        clearSelectedItems();
-        return;
-    }
-    QSet<ObjectId> next;
-    next.insert(id);
-    setSelectedItems(next);
+    if (m_scene)
+        m_scene->setSelectedItem(id);
 }
 
 void CanvasView::setSelectedItems(const QSet<ObjectId>& items)
 {
-    if (m_selectedItems == items)
-        return;
-    m_selectedItems = items;
-    update();
-    emit selectedItemsChanged();
-    emit selectedItemChanged(selectedItem());
+    if (m_scene)
+        m_scene->setSelectedItems(items);
 }
 
 void CanvasView::clearSelectedItems()
 {
-    if (m_selectedItems.isEmpty())
-        return;
-    m_selectedItems.clear();
-    update();
-    emit selectedItemsChanged();
-    emit selectedItemChanged(ObjectId{});
+    if (m_scene)
+        m_scene->clearSelectedItems();
 }
 
 void CanvasView::setSelectedPort(ObjectId itemId, PortId portId)
 {
-    if (m_hasSelectedPort && m_selectedPortItem == itemId && m_selectedPortId == portId)
-        return;
-    m_hasSelectedPort = true;
-    m_selectedPortItem = itemId;
-    m_selectedPortId = portId;
-    update();
+    if (m_scene)
+        m_scene->setSelectedPort(itemId, portId);
 }
 
 void CanvasView::clearSelectedPort()
 {
-    if (!m_hasSelectedPort)
-        return;
-    m_hasSelectedPort = false;
-    m_selectedPortItem = ObjectId{};
-    m_selectedPortId = PortId{};
-    update();
+    if (m_scene)
+        m_scene->clearSelectedPort();
 }
 
 void CanvasView::setHoveredPort(ObjectId itemId, PortId portId)
 {
-	if (m_hasHoveredPort && m_hoveredItem == itemId && m_hoveredPort == portId)
-		return;
-	m_hasHoveredPort = true;
-	m_hoveredItem = itemId;
-	m_hoveredPort = portId;
-	update();
-	emit hoveredPortChanged(m_hoveredItem, m_hoveredPort);
+    if (m_scene)
+        m_scene->setHoveredPort(itemId, portId);
 }
 
 void CanvasView::clearHoveredPort()
 {
-	if (!m_hasHoveredPort)
-		return;
-	m_hasHoveredPort = false;
-	m_hoveredItem = ObjectId{};
-	m_hoveredPort = PortId{};
-	update();
-	emit hoveredPortCleared();
+    if (m_scene)
+        m_scene->clearHoveredPort();
 }
 
 void CanvasView::setHoveredEdge(ObjectId itemId, PortSide side, const QPointF& anchorScene)
 {
-	if (m_hasHoveredEdge && m_hoveredEdgeItem == itemId && m_hoveredEdgeSide == side && m_hoveredEdgeAnchor == anchorScene)
-		return;
-	m_hasHoveredEdge = true;
-	m_hoveredEdgeItem = itemId;
-	m_hoveredEdgeSide = side;
-	m_hoveredEdgeAnchor = anchorScene;
-	update();
+    if (m_scene)
+        m_scene->setHoveredEdge(itemId, side, anchorScene);
 }
 
 void CanvasView::clearHoveredEdge()
 {
-	if (!m_hasHoveredEdge)
-		return;
-	m_hasHoveredEdge = false;
-	m_hoveredEdgeItem = ObjectId{};
-	m_hoveredEdgeSide = PortSide::Left;
-	m_hoveredEdgeAnchor = QPointF();
-	update();
+    if (m_scene)
+        m_scene->clearHoveredEdge();
 }
 
 void CanvasView::setMarqueeRect(const QRectF& sceneRect)
 {
-    const QRectF normalized = sceneRect.normalized();
-    if (m_hasMarquee && m_marqueeSceneRect == normalized)
-        return;
-    m_hasMarquee = true;
-    m_marqueeSceneRect = normalized;
-    update();
+    if (m_scene)
+        m_scene->setMarqueeRect(sceneRect);
 }
 
 void CanvasView::clearMarqueeRect()
 {
-    if (!m_hasMarquee)
-        return;
-    m_hasMarquee = false;
-    m_marqueeSceneRect = QRectF();
-    update();
+    if (m_scene)
+        m_scene->clearMarqueeRect();
+}
+
+double CanvasView::zoom() const noexcept
+{
+    return m_viewport ? m_viewport->zoom() : 1.0;
+}
+
+double CanvasView::displayZoom() const noexcept
+{
+    return m_viewport ? m_viewport->displayZoom() : zoom();
+}
+
+double CanvasView::displayZoomBaseline() const noexcept
+{
+    return m_viewport ? m_viewport->displayZoomBaseline() : 1.0;
+}
+
+void CanvasView::setDisplayZoomBaseline(double baseline)
+{
+    if (m_viewport)
+        m_viewport->setDisplayZoomBaseline(baseline);
 }
 
 void CanvasView::setZoom(double zoom)
 {
-	const double clamped = std::clamp(zoom, Canvas::Constants::kMinZoom, Canvas::Constants::kMaxZoom);
-	if (qFuzzyCompare(m_zoom, clamped))
-		return;
+    if (m_viewport)
+        m_viewport->setZoom(zoom);
+}
 
-	m_zoom = clamped;
-	update();
+QPointF CanvasView::pan() const noexcept
+{
+    return m_viewport ? m_viewport->pan() : QPointF();
 }
 
 void CanvasView::setPan(const QPointF& pan)
 {
-	if (m_pan == pan)
-		return;
-
-	m_pan = pan;
-	update();
+    if (m_viewport)
+        m_viewport->setPan(pan);
 }
 
 QPointF CanvasView::viewToScene(const QPointF& viewPos) const
 {
-	return Tools::viewToScene(viewPos, m_pan, m_zoom);
+    return m_viewport ? m_viewport->viewToScene(viewPos) : QPointF();
 }
 
 QPointF CanvasView::sceneToView(const QPointF& scenePos) const
 {
-	return Tools::sceneToView(scenePos, m_pan, m_zoom);
+    return m_viewport ? m_viewport->sceneToView(scenePos) : QPointF();
 }
 
 void CanvasView::paintEvent(QPaintEvent* e)
@@ -213,131 +219,20 @@ void CanvasView::paintEvent(QPaintEvent* e)
 	QPainter p(this);
 	p.setRenderHints(QPainter::Antialiasing, true);
 
-	drawBackgroundLayer(p);
-
-	p.save();
-	applyViewTransform(p);
-	drawGridFabric(p);
-	drawContentLayer(p);
-	drawOverlayLayer(p);
-	p.restore();
+    if (!m_scene)
+        return;
+    CanvasScene::ViewState viewState;
+    viewState.size = m_viewport ? m_viewport->size() : QSizeF(width(), height());
+    viewState.pan = m_viewport ? m_viewport->pan() : QPointF();
+    viewState.zoom = m_viewport ? m_viewport->zoom() : 1.0;
+    m_scene->paint(p, viewState);
 }
 
-void CanvasView::drawBackgroundLayer(QPainter &p) const {
-	p.fillRect(rect(), QColor(Constants::CANVAS_BACKGROUND_COLOR));
-}
-
-void CanvasView::applyViewTransform(QPainter &p) const {
-	p.scale(m_zoom, m_zoom);
-	p.translate(m_pan.x(), m_pan.y());
-}
-
-void CanvasView::drawGridFabric(QPainter& p) const
+void CanvasView::resizeEvent(QResizeEvent* event)
 {
-	if (!m_document)
-		return;
-
-	m_document->fabric().draw(p, sceneRect(), &CanvasDocument::isFabricPointBlockedThunk, m_document);
-}
-
-void CanvasView::drawContentLayer(QPainter &p) const {
-	if (!m_document)
-		return;
-
-	const QRectF scene = sceneRect();
-	CanvasRenderContext ctx = buildRenderContext(scene, true);
-
-	for (const auto& item : m_document->items()) {
-		if (item)
-			item->draw(p, ctx);
-	}
-}
-
-void CanvasView::drawOverlayLayer(QPainter &p) const {
-	if (!m_document || !m_controller)
-		return;
-
-	if (m_hasHoveredEdge && (m_controller->mode() == CanvasController::Mode::Linking ||
-	                         m_controller->isEndpointDragActive())) {
-		p.save();
-		CanvasStyle::drawPort(p, m_hoveredEdgeAnchor, m_hoveredEdgeSide, PortRole::Dynamic, m_zoom, true);
-		p.restore();
-	}
-
-	if (m_hasMarquee) {
-		QColor stroke(Constants::kBlockSelectionColor);
-		stroke.setAlphaF(0.8);
-		QColor fill(Constants::kBlockSelectionColor);
-		fill.setAlphaF(0.15);
-
-		QPen pen(stroke);
-		pen.setWidthF(1.0 / std::clamp(m_zoom, 0.25, 8.0));
-		pen.setStyle(Qt::DashLine);
-		p.setPen(pen);
-		p.setBrush(fill);
-		p.drawRect(m_marqueeSceneRect);
-	}
-
-	if (m_controller->mode() != CanvasController::Mode::Linking || !m_controller->isLinkingInProgress())
-		return;
-
-	const QRectF scene = sceneRect();
-	CanvasRenderContext ctx = buildRenderContext(scene, false);
-
-	QPointF aAnchor, aBorder, aFabric;
-	QPointF start = m_controller->linkPreviewScene();
-	if (ctx.portTerminal(m_controller->linkStartItem(), m_controller->linkStartPort(),
-	                     aAnchor, aBorder, aFabric)) {
-		start = aAnchor;
-	}
-
-	const QPointF end = m_controller->linkPreviewScene();
-
-	p.save();
-	QPen pen{QColor(Constants::kWireColor)};
-	pen.setWidthF(1.5 / std::clamp(m_zoom, 0.25, 8.0));
-	pen.setStyle(Qt::DashLine);
-	pen.setCapStyle(Qt::RoundCap);
-	p.setPen(pen);
-	p.setBrush(Qt::NoBrush);
-	p.setOpacity(0.55);
-	p.drawLine(start, end);
-	p.restore();
-}
-
-QRectF CanvasView::sceneRect() const
-{
-	const QPointF tl = viewToScene(QPointF(0.0, 0.0));
-	const QPointF br = viewToScene(QPointF(width(), height()));
-	const double left   = std::min(tl.x(), br.x());
-	const double right  = std::max(tl.x(), br.x());
-	const double top    = std::min(tl.y(), br.y());
-	const double bottom = std::max(tl.y(), br.y());
-	return QRectF(QPointF(left, top), QPointF(right, bottom));
-}
-
-CanvasRenderContext CanvasView::buildRenderContext(const QRectF& sceneRect, bool includeHover) const
-{
-	CanvasRenderContext ctx;
-	ctx.zoom = m_zoom;
-	ctx.visibleSceneRect = sceneRect;
-	ctx.isSelected = &isSelectedThunk;
-	ctx.isSelectedUser = const_cast<CanvasView*>(this);
-	ctx.computePortTerminal = &CanvasDocument::computePortTerminalThunk;
-	ctx.computePortTerminalUser = m_document;
-	ctx.isFabricBlocked = &CanvasDocument::isFabricPointBlockedThunk;
-	ctx.isFabricBlockedUser = m_document;
-	ctx.fabricStep = m_document ? m_document->fabric().config().step : 0.0;
-
-	if (includeHover) {
-		ctx.hasHoveredPort = m_hasHoveredPort;
-		ctx.hoveredPortItem = m_hoveredItem;
-		ctx.hoveredPortId = m_hoveredPort;
-	}
-	ctx.hasSelectedPort = m_hasSelectedPort;
-	ctx.selectedPortItem = m_selectedPortItem;
-	ctx.selectedPortId = m_selectedPortId;
-	return ctx;
+    QWidget::resizeEvent(event);
+    if (m_viewport)
+        m_viewport->setSize(QSizeF(event->size()));
 }
 
 void CanvasView::mousePressEvent(QMouseEvent* event)

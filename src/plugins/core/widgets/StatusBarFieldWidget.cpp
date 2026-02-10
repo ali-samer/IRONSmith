@@ -68,14 +68,15 @@ void StatusBarFieldWidget::syncFromModel()
 	}
 
 	const QString lbl = m_field->label().isEmpty() ? QString() : (m_field->label() + ":");
+	const bool showLabel = !lbl.isEmpty() && (!isModeField || !lbl.isEmpty());
 	m_label->setText(lbl);
 	m_value->setText(isModeField ? modeValue : m_field->value());
 
-	m_label->setVisible(!isModeField);
+	m_label->setVisible(showLabel);
 	m_value->setSizePolicy(isModeField ? QSizePolicy::Minimum : QSizePolicy::MinimumExpanding,
 	                       QSizePolicy::Preferred);
 	if (m_row)
-		m_row->setSpacing(isModeField ? 0 : 6);
+		m_row->setSpacing((isModeField && !showLabel) ? 0 : 6);
 
 	const QVariant newModeProp = isModeField ? QVariant(modeValue) : QVariant();
 	if (m_value->property("mode") != newModeProp) {

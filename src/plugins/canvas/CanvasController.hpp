@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas/CanvasGlobal.hpp"
+#include "canvas/CanvasInteractionTypes.hpp"
 #include "canvas/CanvasTypes.hpp"
 #include "canvas/CanvasPorts.hpp"
 #include "canvas/CanvasWire.hpp"
@@ -9,22 +10,21 @@
 #include <QtCore/QPointF>
 #include <QtCore/QPoint>
 #include <QtCore/QSet>
-#include <vector>
-#include <optional>
+#include <memory>
 
 namespace Canvas {
 
 class CanvasDocument;
 class CanvasView;
 class CanvasBlock;
+class CanvasSelectionModel;
 struct PortRef;
 
-struct EdgeCandidate final {
-	ObjectId itemId{};
-	PortSide side = PortSide::Left;
-	double t = 0.5;
-	QPointF anchorScene;
-};
+namespace Controllers {
+class CanvasSelectionController;
+class CanvasLinkingController;
+class CanvasDragController;
+}
 
 class CANVAS_EXPORT CanvasController final : public QObject
 {
@@ -37,16 +37,17 @@ public:
 	enum class LinkingMode { Normal, Split, Join, Broadcast };
 	Q_ENUM(LinkingMode)
 
-	CanvasController(CanvasDocument* doc, CanvasView* view, QObject* parent = nullptr);
+	CanvasController(CanvasDocument* doc, CanvasView* view, CanvasSelectionModel* selection, QObject* parent = nullptr);
+	~CanvasController() override;
 
 	Mode mode() const noexcept { return m_mode; }
-	LinkingMode linkingMode() const noexcept { return m_linkingMode; }
-	bool isLinkingInProgress() const noexcept { return m_wiring; }
-	bool isEndpointDragActive() const noexcept { return m_dragEndpoint; }
-	ObjectId linkStartItem() const noexcept { return m_wireStartItem; }
-	PortId linkStartPort() const noexcept { return m_wireStartPort; }
-	QPointF linkPreviewScene() const noexcept { return m_wirePreviewScene; }
-	const QSet<ObjectId>& selectedItems() const noexcept { return m_selectedItems; }
+	LinkingMode linkingMode() const noexcept;
+	bool isLinkingInProgress() const noexcept;
+	bool isEndpointDragActive() const noexcept;
+	ObjectId linkStartItem() const noexcept;
+	PortId linkStartPort() const noexcept;
+	QPointF linkPreviewScene() const noexcept;
+	const QSet<ObjectId>& selectedItems() const noexcept;
 
 public slots:
 	void onCanvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
@@ -62,111 +63,24 @@ signals:
 	void linkingModeChanged(CanvasController::LinkingMode mode);
 
 private:
-	void resetLinkingSession();
-	bool handleLinkingHubPress(const QPointF& scenePos, const PortRef& hitPort);
-	bool beginLinkingFromPort(const PortRef& hitPort, const QPointF& scenePos);
-	bool resolvePortTerminal(const PortRef& port,
-	                         QPointF& outAnchor,
-	                         QPointF& outBorder,
-	                         QPointF& outFabric) const;
-	std::unique_ptr<CanvasWire> buildWire(const PortRef& a, const PortRef& b) const;
-	CanvasBlock* findLinkHub() const;
-	bool connectToExistingHub(const QPointF& scenePos, const PortRef& hitPort);
-	bool createHubAndWires(const QPointF& scenePos, const PortRef& hitPort);
-
 	QPointF sceneToView(const QPointF& scenePos) const;
 	void beginPanning(const QPointF& viewPos);
 	void updatePanning(const QPointF& viewPos);
 	void endPanning();
 
-	bool handleLinkingPress(const QPointF& scenePos);
-	void updateLinkingHoverAndPreview(const QPointF& scenePos);
-
-	void selectItem(ObjectId id);
-	void selectPort(const PortRef& port);
-	void clearSelectedPort();
 	void clearTransientDragState();
-	void beginWireSegmentDrag(CanvasWire* wire, const QPointF& scenePos);
-	void updateWireSegmentDrag(const QPointF& scenePos);
-	void endWireSegmentDrag(const QPointF& scenePos);
-	bool beginEndpointDrag(CanvasWire* wire, const QPointF& scenePos);
-	void updateEndpointDrag(const QPointF& scenePos);
-	void endEndpointDrag(const QPointF& scenePos);
-
-	void beginBlockDrag(CanvasBlock* blk, const QPointF& scenePos);
-	void updateBlockDrag(const QPointF& scenePos);
-	void endBlockDrag();
-	void beginMarqueeSelection(const QPointF& scenePos, Qt::KeyboardModifiers mods);
-	void updateMarqueeSelection(const QPointF& scenePos);
-	void endMarqueeSelection(const QPointF& scenePos);
-	void clearMarqueeSelection();
-	QSet<ObjectId> collectItemsInRect(const QRectF& sceneRect) const;
-	void setSelection(const QSet<ObjectId>& ids);
-	void clearSelection();
-	void addToSelection(ObjectId id);
-	void toggleSelection(ObjectId id);
-	bool isSelected(ObjectId id) const;
 
 	CanvasDocument* m_doc = nullptr;
 	CanvasView* m_view = nullptr;
+	std::unique_ptr<Controllers::CanvasSelectionController> m_selectionController;
+	std::unique_ptr<Controllers::CanvasLinkingController> m_linkingController;
+	std::unique_ptr<Controllers::CanvasDragController> m_dragController;
 
 	bool    m_panning = false;
 	QPointF m_lastViewPos;
 	QPointF m_panStart;
 	Mode m_mode = Mode::Normal;
 	Mode m_modeBeforePan = Mode::Normal;
-	LinkingMode m_linkingMode = LinkingMode::Normal;
-	ObjectId m_linkHubId{};
-
-	bool m_wiring = false;
-	ObjectId m_wireStartItem{};
-	PortId m_wireStartPort{};
-	QPointF m_wirePreviewScene{};
-
-	bool m_dragWire = false;
-	ObjectId m_dragWireId{};
-	int m_dragWireSeg = -1;
-	bool m_dragWireSegHorizontal = false;
-	double m_dragWireOffset = 0.0;
-	std::vector<FabricCoord> m_dragWirePath;
-
-	bool m_dragEndpoint = false;
-	ObjectId m_dragEndpointWireId{};
-	bool m_dragEndpointIsA = false;
-	CanvasWire::Endpoint m_dragEndpointOriginal;
-	bool m_dragEndpointPortDynamic = false;
-	bool m_dragEndpointPortShared = false;
-	PortRef m_dragEndpointPort{};
-	CanvasPort m_dragEndpointPortMeta{};
-	size_t m_dragEndpointPortIndex = 0;
-
-	bool m_pendingEndpoint = false;
-	ObjectId m_pendingEndpointWireId{};
-	std::optional<PortRef> m_pendingEndpointPort;
-	QPointF m_pendingEndpointPressScene;
-	QPointF m_pendingEndpointPressView;
-
-	struct DragBlockState final {
-		CanvasBlock* block = nullptr;
-		QPointF startTopLeft;
-	};
-
-	std::vector<DragBlockState> m_dragBlocks;
-	CanvasBlock* m_dragPrimary = nullptr;
-	QPointF m_dragOffset;
-	QPointF m_dragPrimaryStartTopLeft;
-	QSet<ObjectId> m_selectedItems;
-	bool m_hasSelectedPort = false;
-	PortRef m_selectedPort{};
-
-	std::optional<EdgeCandidate> m_hoverEdge;
-
-	bool m_marqueeActive = false;
-	QPointF m_marqueeStartScene;
-	QPointF m_marqueeStartView;
-	QRectF m_marqueeRectScene;
-	Qt::KeyboardModifiers m_marqueeMods;
-	QSet<ObjectId> m_marqueeBaseSelection;
 };
 
 } // namespace Canvas

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QtWidgets/QWidget>
+#include <qnamespace.h>
 
 namespace Utils {
 class SidebarPanelFrame;
@@ -8,8 +9,11 @@ class ColorSwatchButton;
 class LabeledSlider;
 }
 
+QT_BEGIN_NAMESPACE
 class QCheckBox;
 class QGroupBox;
+class QPushButton;
+QT_END_NAMESPACE
 
 namespace Aie {
 class AieCanvasCoordinator;
@@ -33,6 +37,11 @@ private:
     Utils::LabeledSlider* m_horizontalSpacingSlider = nullptr;
     Utils::LabeledSlider* m_verticalSpacingSlider = nullptr;
     Utils::LabeledSlider* m_outwardSpreadSlider = nullptr;
+    Utils::LabeledSlider* m_nudgeStepSlider = nullptr;
+    QPushButton* m_nudgeUpButton = nullptr;
+    QPushButton* m_nudgeDownButton = nullptr;
+    QPushButton* m_nudgeLeftButton = nullptr;
+    QPushButton* m_nudgeRightButton = nullptr;
     class QCheckBox* m_autoCellCheck = nullptr;
     Utils::LabeledSlider* m_cellSizeSlider = nullptr;
     class QCheckBox* m_showPortsCheck = nullptr;

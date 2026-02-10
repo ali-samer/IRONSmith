@@ -348,6 +348,7 @@ void CanvasPlugin::zoomToFit(CanvasView* view, CanvasDocument* doc)
     const QPointF pan = (viewCenter / targetZoom) - center;
     view->setZoom(targetZoom);
     view->setPan(pan);
+    view->setDisplayZoomBaseline(targetZoom);
 }
 
 void CanvasPlugin::clearWireOverrides(CanvasDocument* doc)

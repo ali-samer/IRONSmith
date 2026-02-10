@@ -30,7 +30,7 @@ void cleanupOrphanDynamicPorts(CanvasDocument& doc,
             return;
         if (meta.role != PortRole::Dynamic)
             return;
-        if (Utils::countPortAttachments(doc, ref.itemId, ref.portId) != 0)
+        if (Support::countPortAttachments(doc, ref.itemId, ref.portId) != 0)
             return;
         auto* block = dynamic_cast<CanvasBlock*>(doc.findItem(ref.itemId));
         if (!block)

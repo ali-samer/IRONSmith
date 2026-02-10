@@ -1,24 +1,28 @@
 #pragma once
 
 #include "canvas/CanvasGlobal.hpp"
-#include "canvas/CanvasRenderContext.hpp"
 #include "canvas/CanvasTypes.hpp"
 #include "canvas/CanvasPorts.hpp"
 
-#include <QtCore/QPointer>
 #include <QtCore/QPointF>
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
 #include <QtCore/QSet>
 
 #include <QtWidgets/QWidget>
+#include <qnamespace.h>
 
+QT_BEGIN_NAMESPACE
 class QPainter;
+QT_END_NAMESPACE
 
 namespace Canvas {
 
 class CanvasDocument;
 class CanvasController;
+class CanvasSelectionModel;
+class CanvasScene;
+class CanvasViewport;
 
 class CANVAS_EXPORT CanvasView final : public QWidget
 {
@@ -32,19 +36,25 @@ public:
 
 	void setDocument(CanvasDocument* doc);
 	void setController(CanvasController* controller);
+	void setSelectionModel(CanvasSelectionModel* model);
 
-	double zoom() const { return m_zoom; }
+	double zoom() const noexcept;
+	double displayZoom() const noexcept;
+	double displayZoomBaseline() const noexcept;
+	void setDisplayZoomBaseline(double baseline);
 	void setZoom(double zoom);
 
-	QPointF pan() const { return m_pan; }
+	QPointF pan() const noexcept;
 	void setPan(const QPointF& pan);
 
 	QPointF viewToScene(const QPointF& viewPos) const;
 	QPointF sceneToView(const QPointF& scenePos) const;
 
+	CanvasViewport* viewport() const noexcept { return m_viewport; }
+
 	ObjectId selectedItem() const noexcept;
-	const QSet<ObjectId>& selectedItems() const noexcept { return m_selectedItems; }
-	bool isSelected(ObjectId id) const noexcept { return m_selectedItems.contains(id); }
+	const QSet<ObjectId>& selectedItems() const noexcept;
+	bool isSelected(ObjectId id) const noexcept;
 	void setSelectedItem(ObjectId id);
 	void setSelectedItems(const QSet<ObjectId>& items);
 	void clearSelectedItems();
@@ -73,6 +83,7 @@ signals:
 
 protected:
 	void paintEvent(QPaintEvent* event) override;
+	void resizeEvent(QResizeEvent* event) override;
 
 	void mousePressEvent(QMouseEvent* event) override;
 	void mouseMoveEvent(QMouseEvent* event) override;
@@ -81,32 +92,8 @@ protected:
 	void keyPressEvent(QKeyEvent* event) override;
 
 private:
-	void drawBackgroundLayer(QPainter& p) const;
-	void applyViewTransform(QPainter& p) const;
-	void drawGridFabric(QPainter& p) const;
-	void drawContentLayer(QPainter& p) const;
-	void drawOverlayLayer(QPainter& p) const;
-	QRectF sceneRect() const;
-	CanvasRenderContext buildRenderContext(const QRectF& sceneRect, bool includeHover) const;
-
-	QPointer<CanvasDocument> m_document;
-	QPointer<CanvasController> m_controller;
-
-	double  m_zoom = 1.0;
-	QPointF m_pan = {0.0, 0.0};
-	QSet<ObjectId> m_selectedItems;
-	bool m_hasHoveredPort = false;
-	ObjectId m_hoveredItem{};
-	PortId m_hoveredPort{};
-	bool m_hasSelectedPort = false;
-	ObjectId m_selectedPortItem{};
-	PortId m_selectedPortId{};
-	bool m_hasHoveredEdge = false;
-	ObjectId m_hoveredEdgeItem{};
-	PortSide m_hoveredEdgeSide = PortSide::Left;
-	QPointF m_hoveredEdgeAnchor{};
-	bool m_hasMarquee = false;
-	QRectF m_marqueeSceneRect;
+	CanvasScene* m_scene = nullptr;
+	CanvasViewport* m_viewport = nullptr;
 };
 
 } // namespace Canvas

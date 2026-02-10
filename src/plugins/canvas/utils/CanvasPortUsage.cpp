@@ -3,7 +3,7 @@
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasWire.hpp"
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 int countPortAttachments(const CanvasDocument& doc,
                          ObjectId itemId,
@@ -35,4 +35,4 @@ bool isPortAvailable(const CanvasDocument& doc,
     return countPortAttachments(doc, itemId, portId, excludeWireId) == 0;
 }
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

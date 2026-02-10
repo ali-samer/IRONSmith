@@ -77,7 +77,10 @@ void CanvasStyle::drawBlockLabel(QPainter& p,
 
     p.setPen(color);
 
-    const QRectF r = boundsScene.adjusted(6.0, 4.0, -6.0, -4.0);
+    const QRectF r = boundsScene.adjusted(Constants::kBlockLabelPadX,
+                                          Constants::kBlockLabelPadY,
+                                          -Constants::kBlockLabelPadX,
+                                          -Constants::kBlockLabelPadY);
     p.drawText(r, Qt::AlignLeft | Qt::AlignTop, text);
 }
 

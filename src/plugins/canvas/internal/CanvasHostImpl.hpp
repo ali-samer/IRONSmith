@@ -19,6 +19,7 @@ namespace Canvas {
 class CanvasDocument;
 class CanvasController;
 class CanvasView;
+class CanvasSelectionModel;
 
 namespace Internal {
 
@@ -38,10 +39,14 @@ public:
 private:
 	QPointer<Core::IUiHost> m_uiHost;
 	QPointer<Core::StatusBarField> m_modeField;
+	QPointer<Core::StatusBarField> m_zoomField;
+	QPointer<Core::StatusBarField> m_panField;
+	QPointer<Core::StatusBarField> m_selectionField;
 
 	QPointer<CanvasDocument> m_document;
 	QPointer<CanvasController> m_controller;
 	QPointer<CanvasView> m_view;
+	QPointer<CanvasSelectionModel> m_selection;
 };
 
 } // namespace Internal

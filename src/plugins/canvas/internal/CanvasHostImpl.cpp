@@ -2,6 +2,7 @@
 
 #include "canvas/CanvasController.hpp"
 #include "canvas/CanvasDocument.hpp"
+#include "canvas/CanvasSelectionModel.hpp"
 #include "canvas/CanvasView.hpp"
 
 #include <extensionsystem/PluginManager.hpp>
@@ -34,16 +35,39 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 	m_view = new CanvasView();
 	m_view->setDocument(m_document);
 
-	m_controller = new CanvasController(m_document, m_view, this);
+	m_selection = new CanvasSelectionModel(this);
+	m_view->setSelectionModel(m_selection);
+	m_controller = new CanvasController(m_document, m_view, m_selection, this);
 	m_view->setController(m_controller);
 
 	if (auto* bar = m_uiHost ? m_uiHost->playgroundBottomBar() : nullptr) {
 		auto* mode = bar->ensureField(QStringLiteral("mode"));
 		if (mode) {
-			mode->setLabel(QString());
+			mode->setLabel(QStringLiteral("MODE"));
 			mode->setSide(Core::StatusBarField::Side::Left);
 			mode->setValue(QStringLiteral("NORMAL"));
 			m_modeField = mode;
+		}
+
+		auto* zoom = bar->ensureField(QStringLiteral("canvas_zoom"));
+		if (zoom) {
+			zoom->setLabel(QStringLiteral("ZOOM"));
+			zoom->setSide(Core::StatusBarField::Side::Left);
+			m_zoomField = zoom;
+		}
+
+		auto* pan = bar->ensureField(QStringLiteral("canvas_pan"));
+		if (pan) {
+			pan->setLabel(QStringLiteral("PAN"));
+			pan->setSide(Core::StatusBarField::Side::Left);
+			m_panField = pan;
+		}
+
+		auto* sel = bar->ensureField(QStringLiteral("canvas_selection"));
+		if (sel) {
+			sel->setLabel(QStringLiteral("SEL"));
+			sel->setSide(Core::StatusBarField::Side::Left);
+			m_selectionField = sel;
 		}
 	}
 
@@ -85,6 +109,47 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 		connect(m_controller, &CanvasController::linkingModeChanged, this,
 		        [updateMode](CanvasController::LinkingMode) { updateMode(); });
 		updateMode();
+	}
+
+	if (m_view) {
+		auto formatZoom = [](double zoom) -> QString {
+			const double pct = zoom * 100.0;
+			return QString::number(pct, 'f', 0) + QLatin1String("%");
+		};
+		auto formatPan = [](const QPointF& pan) -> QString {
+			return QString::number(pan.x(), 'f', 1) + QLatin1String(", ")
+			       + QString::number(pan.y(), 'f', 1);
+		};
+
+		auto updateZoom = [this, formatZoom]() {
+			if (m_zoomField && m_view)
+				m_zoomField->setValue(formatZoom(m_view->displayZoom()));
+		};
+		auto updatePan = [this, formatPan]() {
+			if (m_panField && m_view)
+				m_panField->setValue(formatPan(m_view->pan()));
+		};
+
+		connect(m_view, &CanvasView::zoomChanged, this,
+		        [updateZoom](double) { updateZoom(); });
+		connect(m_view, &CanvasView::panChanged, this,
+		        [updatePan](const QPointF&) { updatePan(); });
+
+		updateZoom();
+		updatePan();
+	}
+
+	if (m_selection) {
+		auto updateSel = [this]() {
+			if (!m_selectionField || !m_selection)
+				return;
+			m_selectionField->setValue(QString::number(m_selection->selectedItems().size()));
+		};
+		connect(m_selection, &CanvasSelectionModel::selectedItemsChanged, this,
+		        [updateSel]() { updateSel(); });
+		connect(m_selection, &CanvasSelectionModel::selectedItemChanged, this,
+		        [updateSel](ObjectId) { updateSel(); });
+		updateSel();
 	}
 
 	connect(m_view, &CanvasView::canvasMousePressed, m_controller, &CanvasController::onCanvasMousePressed);

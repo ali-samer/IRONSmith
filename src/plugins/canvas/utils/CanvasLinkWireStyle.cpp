@@ -2,7 +2,7 @@
 
 #include "canvas/CanvasConstants.hpp"
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 LinkWireStyle linkWireStyle(LinkWireRole role)
 {
@@ -15,4 +15,4 @@ LinkWireStyle linkWireStyle(LinkWireRole role)
     return {QColor(Constants::kWireColor)};
 }
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

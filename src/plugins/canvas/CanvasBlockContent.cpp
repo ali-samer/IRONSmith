@@ -14,8 +14,8 @@ namespace Canvas {
 
 namespace {
 
-constexpr double kLabelPadX = 6.0;
-constexpr double kLabelPadY = 4.0;
+constexpr double kLabelPadX = Constants::kBlockLabelPadX;
+constexpr double kLabelPadY = Constants::kBlockLabelPadY;
 
 QFont blockLabelFont(const QPainter& p)
 {

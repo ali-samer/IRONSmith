@@ -31,6 +31,15 @@
       }
     },
     {
+      "name": "dev-relWithDeb",
+      "displayName": "IRONSmith Release with Debug information (RelWithDeb)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "BUILD_WITH_TESTS": "ON"
+      }
+    },
+    {
       "name": "dev-release",
       "displayName": "IRONSmith Dev (Release)",
       "inherits": "base",
@@ -52,6 +61,7 @@
   ],
   "buildPresets": [
     { "name": "build-dev-debug", "configurePreset": "dev-debug" },
+    { "name": "build-dev-relWithDeb", "configurePreset": "dev-relWithDeb" },
     { "name": "build-dev-release", "configurePreset": "dev-release" },
     { "name": "build-dev-asan", "configurePreset": "dev-asan" }
   ],
@@ -59,6 +69,11 @@
     {
       "name": "test-dev-debug",
       "configurePreset": "dev-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-dev-relWithDeb",
+      "configurePreset": "dev-relWithDeb",
       "output": { "outputOnFailure": true }
     },
     {

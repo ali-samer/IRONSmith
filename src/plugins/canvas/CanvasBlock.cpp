@@ -16,6 +16,7 @@ bool CanvasBlock::s_globalShowPorts = true;
 std::unique_ptr<CanvasItem> CanvasBlock::clone() const
 {
     auto blk = std::make_unique<CanvasBlock>(m_boundsScene, m_movable, m_label);
+    blk->setSpecId(m_specId);
     blk->setPorts(m_ports);
     blk->m_showPorts = m_showPorts;
     blk->m_allowMultiplePorts = m_allowMultiplePorts;
@@ -138,7 +139,7 @@ QPointF CanvasBlock::portAnchorScene(PortId id) const
     for (const auto& port : m_ports) {
         if (port.id != id) continue;
 
-        const double t = Utils::clampT(port.t);
+        const double t = Support::clampT(port.t);
         const QRectF r = m_boundsScene;
         const double step = m_portSnapStep;
 

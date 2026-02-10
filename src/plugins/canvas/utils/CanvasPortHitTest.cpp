@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 namespace {
 
@@ -56,4 +56,4 @@ bool hitTestPortGeometry(const QPointF& anchorScene,
     return box.contains(scenePos);
 }
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

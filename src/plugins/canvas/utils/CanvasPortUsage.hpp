@@ -7,7 +7,7 @@ namespace Canvas {
 
 class CanvasDocument;
 
-namespace Utils {
+namespace Support {
 
 int countPortAttachments(const CanvasDocument& doc,
                          ObjectId itemId,
@@ -19,5 +19,5 @@ bool isPortAvailable(const CanvasDocument& doc,
                      PortId portId,
                      ObjectId excludeWireId = {});
 
-} // namespace Utils
+} // namespace Support
 } // namespace Canvas

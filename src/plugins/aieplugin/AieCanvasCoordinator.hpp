@@ -105,6 +105,7 @@ public:
     void beginSelectionSpacing(SelectionSpacingAxis axis);
     void updateSelectionSpacing(SelectionSpacingAxis axis, double value);
     void endSelectionSpacing(SelectionSpacingAxis axis);
+    void nudgeSelection(double dx, double dy);
 
 signals:
     void tileSpacingChanged(double spacing);
@@ -132,6 +133,7 @@ private:
     QPointer<Canvas::Api::ICanvasStyleHost> m_styleHost;
     CanvasGridModel m_baseModel;
     QHash<QString, Canvas::Api::CanvasBlockStyle> m_baseStyles;
+    QHash<QString, QPointF> m_blockOffsets;
 
     bool m_dirty = false;
     Utils::Async::DebouncedInvoker m_applyDebounce;

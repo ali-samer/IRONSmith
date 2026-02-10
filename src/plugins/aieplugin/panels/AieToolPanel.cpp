@@ -9,9 +9,12 @@
 #include <QtCore/QSignalBlocker>
 #include <QtWidgets/QCheckBox>
 #include <QtWidgets/QFormLayout>
+#include <QtWidgets/QGridLayout>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
+#include <QtWidgets/QPushButton>
 #include <QtWidgets/QVBoxLayout>
 
 #include <cmath>
@@ -60,9 +63,9 @@ void AieToolPanel::buildUi()
     layoutForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     layoutForm->setFormAlignment(Qt::AlignTop | Qt::AlignLeft);
 
-    m_horizontalSpacingSlider = makeSlider(0, 128, 1);
-    m_verticalSpacingSlider = makeSlider(0, 128, 1);
-    m_outwardSpreadSlider = makeSlider(0, 128, 1);
+    m_horizontalSpacingSlider = makeSlider(0, 512, 1);
+    m_verticalSpacingSlider = makeSlider(0, 512, 1);
+    m_outwardSpreadSlider = makeSlider(0, 512, 1);
     m_autoCellCheck = new QCheckBox(QStringLiteral("Auto size"), layoutGroup);
     m_cellSizeSlider = makeSlider(24, 200, 2);
 
@@ -71,6 +74,32 @@ void AieToolPanel::buildUi()
     layoutForm->addRow(QStringLiteral("Outward spread"), m_outwardSpreadSlider);
     layoutForm->addRow(QString(), m_autoCellCheck);
     layoutForm->addRow(QStringLiteral("Cell size"), m_cellSizeSlider);
+
+    auto* selectionGroup = new QGroupBox(QStringLiteral("Selection"), content);
+    auto* selectionLayout = new QVBoxLayout(selectionGroup);
+    selectionLayout->setSpacing(6);
+    auto* selectionForm = new QFormLayout();
+    selectionForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    selectionForm->setFormAlignment(Qt::AlignTop | Qt::AlignLeft);
+
+    m_nudgeStepSlider = makeSlider(1, 64, 1);
+    m_nudgeStepSlider->setValue(8);
+    selectionForm->addRow(QStringLiteral("Nudge step"), m_nudgeStepSlider);
+
+    auto* nudgeGrid = new QGridLayout();
+    nudgeGrid->setHorizontalSpacing(6);
+    nudgeGrid->setVerticalSpacing(6);
+    m_nudgeUpButton = new QPushButton(QStringLiteral("Up"), selectionGroup);
+    m_nudgeDownButton = new QPushButton(QStringLiteral("Down"), selectionGroup);
+    m_nudgeLeftButton = new QPushButton(QStringLiteral("Left"), selectionGroup);
+    m_nudgeRightButton = new QPushButton(QStringLiteral("Right"), selectionGroup);
+    nudgeGrid->addWidget(m_nudgeUpButton, 0, 1);
+    nudgeGrid->addWidget(m_nudgeLeftButton, 1, 0);
+    nudgeGrid->addWidget(m_nudgeRightButton, 1, 2);
+    nudgeGrid->addWidget(m_nudgeDownButton, 2, 1);
+
+    selectionLayout->addLayout(selectionForm);
+    selectionLayout->addLayout(nudgeGrid);
 
     auto* displayGroup = new QGroupBox(QStringLiteral("Display"), content);
     auto* displayForm = new QFormLayout(displayGroup);
@@ -103,6 +132,7 @@ void AieToolPanel::buildUi()
     styleForm->addRow(QStringLiteral("Label"), m_labelColorButton);
 
     layout->addWidget(layoutGroup);
+    layout->addWidget(selectionGroup);
     layout->addWidget(displayGroup);
     layout->addWidget(styleGroup);
     layout->addStretch(1);
@@ -176,6 +206,30 @@ void AieToolPanel::buildUi()
                 if (m_coordinator)
                     m_coordinator->endSelectionSpacing(AieCanvasCoordinator::SelectionSpacingAxis::Outward);
             });
+    connect(m_nudgeUpButton, &QPushButton::clicked, this, [this]() {
+        if (!m_coordinator)
+            return;
+        const double step = static_cast<double>(m_nudgeStepSlider->value());
+        m_coordinator->nudgeSelection(0.0, -step);
+    });
+    connect(m_nudgeDownButton, &QPushButton::clicked, this, [this]() {
+        if (!m_coordinator)
+            return;
+        const double step = static_cast<double>(m_nudgeStepSlider->value());
+        m_coordinator->nudgeSelection(0.0, step);
+    });
+    connect(m_nudgeLeftButton, &QPushButton::clicked, this, [this]() {
+        if (!m_coordinator)
+            return;
+        const double step = static_cast<double>(m_nudgeStepSlider->value());
+        m_coordinator->nudgeSelection(-step, 0.0);
+    });
+    connect(m_nudgeRightButton, &QPushButton::clicked, this, [this]() {
+        if (!m_coordinator)
+            return;
+        const double step = static_cast<double>(m_nudgeStepSlider->value());
+        m_coordinator->nudgeSelection(step, 0.0);
+    });
     connect(m_autoCellCheck, &QCheckBox::toggled,
             m_coordinator, &AieCanvasCoordinator::setAutoCellSize);
     connect(m_cellSizeSlider, &Utils::LabeledSlider::valueChanged,

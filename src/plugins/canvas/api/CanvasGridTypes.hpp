@@ -5,6 +5,7 @@
 
 #include <QtCore/QMarginsF>
 #include <QtGui/QColor>
+#include <QtCore/QPointF>
 #include <QtCore/QMetaType>
 #include <QtCore/QSizeF>
 #include <QtCore/QString>
@@ -23,6 +24,8 @@ struct CANVAS_EXPORT CanvasBlockSpec final {
     bool showPorts = true;
     bool deletable = true;
     bool allowMultiplePorts = false;
+
+    QPointF positionOffset{};
 
     double keepoutMargin = -1.0;
     bool hasCustomPadding = false;

@@ -37,6 +37,9 @@ public:
     const QString& label() const { return m_label; }
     void setLabel(QString s) { m_label = std::move(s); }
 
+    const QString& specId() const { return m_specId; }
+    void setSpecId(QString id) { m_specId = std::move(id); }
+
     void setPorts(std::vector<CanvasPort> ports);
     PortId addPort(PortSide side, double t, PortRole role = PortRole::Dynamic, QString name = {});
     PortId addPortToward(const QPointF& targetScene, PortRole role = PortRole::Dynamic, QString name = {});
@@ -95,6 +98,7 @@ private:
     QRectF m_boundsScene;
     bool m_movable = false;
     QString m_label;
+    QString m_specId;
     std::vector<CanvasPort> m_ports;
     bool m_showPorts = true;
     bool m_allowMultiplePorts = false;
