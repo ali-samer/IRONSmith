@@ -11,7 +11,7 @@
 
 namespace ProjectExplorer::Internal {
 
-class ProjectExplorerSearchIndex final : public QObject
+class PROJECTEXPLORER_EXPORT ProjectExplorerSearchIndex final : public QObject
 {
     Q_OBJECT
 

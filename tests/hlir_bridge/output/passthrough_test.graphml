@@ -14,7 +14,7 @@
 <key id="d1" for="node" attr.name="kind" attr.type="string"/>
 <key id="d0" for="node" attr.name="label" attr.type="string"/>
 <graph edgedefault="directed"><node id="Module_1">
-  <data key="d0">passthrough_hlir_example</data>
+  <data key="d0">passthrough_test</data>
   <data key="d1">Module</data>
 </node>
 <node id="Section_2">
@@ -251,7 +251,7 @@
   <data key="d9">SequentialPlacer</data>
 </node>
 <node id="Function_55">
-  <data key="d0">passthrough_hlir_example_jit</data>
+  <data key="d0">passthrough_test_jit</data>
   <data key="d1">Function</data>
   <data key="d10">iron.jit</data>
 </node>
@@ -388,7 +388,7 @@
   <data key="d1">Call</data>
 </node>
 <node id="FunctionCall_86">
-  <data key="d0">passthrough_hlir_example_jit</data>
+  <data key="d0">passthrough_test_jit</data>
   <data key="d1">FunctionCall</data>
 </node>
 <node id="VarRef_87">

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aieplugin/AieGlobal.hpp"
 #include "aieplugin/NpuProfile.hpp"
 
 #include "canvas/api/CanvasGridTypes.hpp"
@@ -16,6 +17,6 @@ struct CanvasGridModel final {
     QVector<Canvas::Api::CanvasBlockSpec> blocks;
 };
 
-Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& out);
+AIEPLUGIN_EXPORT Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& out);
 
 } // namespace Aie

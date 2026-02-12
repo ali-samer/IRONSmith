@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Module name="passthrough_hlir_example">
+<Module name="passthrough_test">
   <Symbols>
     <Import name="numpy" alias="np"/>
     <Import name="ml_dtypes" alias="ml_dtypes"/>
@@ -163,7 +163,7 @@
       </returns>
     </ResolveProgram>
   </DataFlow>
-  <Function name="passthrough_hlir_example_jit" decorator="iron.jit">
+  <Function name="passthrough_test_jit" decorator="iron.jit">
     <parameters>
       <param name="inputA" type_ref="vector_ty"/>
       <param name="outputC" type_ref="vector_ty"/>
@@ -226,7 +226,7 @@
         </source>
       </Assign>
       <Call>
-        <function ref="passthrough_hlir_example_jit">
+        <function ref="passthrough_test_jit">
           <arg>
             <var>inputA</var>
           </arg>

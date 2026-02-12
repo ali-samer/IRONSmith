@@ -13,7 +13,7 @@ struct ProjectExplorerMatchResult {
     int length = 0;
 };
 
-class ProjectExplorerSearchMatcher
+class PROJECTEXPLORER_EXPORT ProjectExplorerSearchMatcher
 {
 public:
     static ProjectExplorerMatchResult match(const QString& text,

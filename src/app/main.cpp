@@ -11,6 +11,10 @@
 #include "extensionsystem/PluginManager.hpp"
 #include "extensionsystem/PluginSpec.hpp"
 
+#ifdef IRONSMITH_WITH_BRIDGE_TESTS
+#include "BridgeTests.hpp"
+#endif
+
 using namespace ExtensionSystem;
 
 static constexpr char corePluginIdC[] = "Core";
@@ -80,6 +84,11 @@ int main(int argc, char** argv)
 
 #ifdef Q_OS_WIN
 	addLibrarySearchPaths();
+#endif
+
+#ifdef IRONSMITH_WITH_BRIDGE_TESTS
+	if (app.arguments().contains("--test-bridges"))
+		return BridgeTests::runBridgeTests() ? EXIT_SUCCESS : EXIT_FAILURE;
 #endif
 
 	const QString pluginDir = defaultPluginDir();

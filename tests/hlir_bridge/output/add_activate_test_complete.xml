@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Module name="add_activate_hlir_example">
+<Module name="add_activate_test">
   <Symbols>
     <Import name="numpy" alias="np"/>
     <Import name="ml_dtypes" alias="ml_dtypes"/>
@@ -219,18 +219,12 @@
     <ExternalFunction name="externalfunc1">
       <attributes>
         <kwarg name="name" value="eltwise_add_bf16_scalar"/>
-        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/add.cc"/>
+        <kwarg name="source_file" value="../../../aie_kernels/aie2/add.cc"/>
         <kwarg name="arg_types">
           <list>
             <type_ref>worker_chunk_ty</type_ref>
             <type_ref>worker_chunk_ty</type_ref>
             <type_ref>worker_chunk_ty</type_ref>
-          </list>
-        </kwarg>
-        <kwarg name="include_dirs">
-          <list>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_kernels</string>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</string>
           </list>
         </kwarg>
       </attributes>
@@ -238,17 +232,11 @@
     <ExternalFunction name="externalfunc2">
       <attributes>
         <kwarg name="name" value="bf16_relu"/>
-        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/relu.cc"/>
+        <kwarg name="source_file" value="../../../aie_kernels/aie2/relu.cc"/>
         <kwarg name="arg_types">
           <list>
             <type_ref>worker_chunk_ty</type_ref>
             <type_ref>worker_chunk_ty</type_ref>
-          </list>
-        </kwarg>
-        <kwarg name="include_dirs">
-          <list>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_kernels</string>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</string>
           </list>
         </kwarg>
       </attributes>
@@ -1742,7 +1730,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_1"/>
+              <index>
+                <base>
+                  <var ref="of_inter_1"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -1787,7 +1782,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_2"/>
+              <index>
+                <base>
+                  <var ref="of_inter_2"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -1832,7 +1834,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_3"/>
+              <index>
+                <base>
+                  <var ref="of_inter_3"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -1877,7 +1886,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_4"/>
+              <index>
+                <base>
+                  <var ref="of_inter_4"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -1922,7 +1938,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_5"/>
+              <index>
+                <base>
+                  <var ref="of_inter_5"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -1967,7 +1990,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_6"/>
+              <index>
+                <base>
+                  <var ref="of_inter_6"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -2012,7 +2042,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_7"/>
+              <index>
+                <base>
+                  <var ref="of_inter_7"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -2057,7 +2094,14 @@
         <arg>
           <method_chain>
             <base>
-              <var ref="of_inter_8"/>
+              <index>
+                <base>
+                  <var ref="of_inter_8"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
             </base>
             <call>
               <method name="cons"/>
@@ -3007,7 +3051,7 @@
       </returns>
     </ResolveProgram>
   </DataFlow>
-  <Function name="add_activate_hlir_example_jit" decorator="iron.jit">
+  <Function name="add_activate_test_jit" decorator="iron.jit">
     <parameters>
       <param name="A" type_ref="data_ty"/>
       <param name="B" type_ref="data_ty"/>
@@ -3090,7 +3134,7 @@
         </source>
       </Assign>
       <Call>
-        <function ref="add_activate_hlir_example_jit">
+        <function ref="add_activate_test_jit">
           <arg>
             <var>A</var>
           </arg>

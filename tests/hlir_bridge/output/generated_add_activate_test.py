@@ -1,4 +1,4 @@
-# add_activate_hlir_example.py -*- Python -*-
+# add_activate_test.py -*- Python -*-
 
 
 import numpy as np
@@ -17,7 +17,7 @@ from aie.helpers.taplib import TensorAccessPattern
 
 
 @iron.jit(is_placed=False)
-def add_activate_hlir_example_jit(A, B, D):
+def add_activate_test_jit(A, B, D):
     # Define tensor types
     data_ty = np.ndarray[(A.numel(),), np.dtype[bfloat16]]
     chunk_ty = np.ndarray[(A.numel() // 4,), np.dtype[bfloat16]]
@@ -68,11 +68,11 @@ def add_activate_hlir_example_jit(A, B, D):
 
     #Define kernels here... ------------------------------------------------\/
     externalfunc1 = ExternalFunction(
-        name="eltwise_add_bf16_scalar", source_file="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/add.cc", arg_types=[worker_chunk_ty, worker_chunk_ty, worker_chunk_ty], include_dirs=["/scratch/IRONSmithTesting/mlir-aie/aie_kernels", "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"]
+        name="eltwise_add_bf16_scalar", source_file="../../../aie_kernels/aie2/add.cc", arg_types=[worker_chunk_ty, worker_chunk_ty, worker_chunk_ty]
     )
 
     externalfunc2 = ExternalFunction(
-        name="bf16_relu", source_file="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/relu.cc", arg_types=[worker_chunk_ty, worker_chunk_ty], include_dirs=["/scratch/IRONSmithTesting/mlir-aie/aie_kernels", "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"]
+        name="bf16_relu", source_file="../../../aie_kernels/aie2/relu.cc", arg_types=[worker_chunk_ty, worker_chunk_ty]
     )
 
     # core_fn here:
@@ -102,14 +102,14 @@ def add_activate_hlir_example_jit(A, B, D):
     worker_add_col2_w1 = Worker(core_fn=corefunc1, fn_args=[externalfunc1, MEM_L2_L1_A5A6_col2[1].cons(), MEM_L2_L1_B5B6_col2[1].cons(), of_inter_6.prod()], placement=Tile(2, 3))
     worker_add_col3_w0 = Worker(core_fn=corefunc1, fn_args=[externalfunc1, MEM_L2_L1_A7A8_col3[0].cons(), MEM_L2_L1_B7B8_col3[0].cons(), of_inter_7.prod()], placement=Tile(3, 5))
     worker_add_col3_w1 = Worker(core_fn=corefunc1, fn_args=[externalfunc1, MEM_L2_L1_A7A8_col3[1].cons(), MEM_L2_L1_B7B8_col3[1].cons(), of_inter_8.prod()], placement=Tile(3, 3))
-    worker_relu_col0_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_1.cons(), MEM_L1_L2_D1D2_col0[0].prod()], placement=Tile(0, 4))
-    worker_relu_col0_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_2.cons(), MEM_L1_L2_D1D2_col0[1].prod()], placement=Tile(0, 2))
-    worker_relu_col1_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_3.cons(), MEM_L1_L2_D3D4_col1[0].prod()], placement=Tile(1, 4))
-    worker_relu_col1_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_4.cons(), MEM_L1_L2_D3D4_col1[1].prod()], placement=Tile(1, 2))
-    worker_relu_col2_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_5.cons(), MEM_L1_L2_D5D6_col2[0].prod()], placement=Tile(2, 4))
-    worker_relu_col2_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_6.cons(), MEM_L1_L2_D5D6_col2[1].prod()], placement=Tile(2, 2))
-    worker_relu_col3_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_7.cons(), MEM_L1_L2_D7D8_col3[0].prod()], placement=Tile(3, 4))
-    worker_relu_col3_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_8.cons(), MEM_L1_L2_D7D8_col3[1].prod()], placement=Tile(3, 2))
+    worker_relu_col0_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_1[0].cons(), MEM_L1_L2_D1D2_col0[0].prod()], placement=Tile(0, 4))
+    worker_relu_col0_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_2[0].cons(), MEM_L1_L2_D1D2_col0[1].prod()], placement=Tile(0, 2))
+    worker_relu_col1_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_3[0].cons(), MEM_L1_L2_D3D4_col1[0].prod()], placement=Tile(1, 4))
+    worker_relu_col1_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_4[0].cons(), MEM_L1_L2_D3D4_col1[1].prod()], placement=Tile(1, 2))
+    worker_relu_col2_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_5[0].cons(), MEM_L1_L2_D5D6_col2[0].prod()], placement=Tile(2, 4))
+    worker_relu_col2_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_6[0].cons(), MEM_L1_L2_D5D6_col2[1].prod()], placement=Tile(2, 2))
+    worker_relu_col3_w0 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_7[0].cons(), MEM_L1_L2_D7D8_col3[0].prod()], placement=Tile(3, 4))
+    worker_relu_col3_w1 = Worker(core_fn=corefunc2, fn_args=[externalfunc2, of_inter_8[0].cons(), MEM_L1_L2_D7D8_col3[1].prod()], placement=Tile(3, 2))
 
     Workers = [worker_add_col0_w0, worker_add_col0_w1, worker_add_col1_w0, worker_add_col1_w1, worker_add_col2_w0, worker_add_col2_w1, worker_add_col3_w0, worker_add_col3_w1, worker_relu_col0_w0, worker_relu_col0_w1, worker_relu_col1_w0, worker_relu_col1_w1, worker_relu_col2_w0, worker_relu_col2_w1, worker_relu_col3_w0, worker_relu_col3_w1]
 
@@ -142,7 +142,7 @@ def main():
     A = iron.arange(data_size, dtype=bfloat16, device="npu")
     B = iron.arange(data_size, dtype=bfloat16, device="npu")
     D = iron.zeros(data_size, dtype=bfloat16, device="npu")
-    add_activate_hlir_example_jit(A, B, D)
+    add_activate_test_jit(A, B, D)
 
 
 

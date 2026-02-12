@@ -44,6 +44,53 @@ class GUIXMLSerializer:
         """
         self.pretty_print = pretty_print
 
+    def _get_type_name(self, type_ref: Any) -> str:
+        """
+        Extract the type name from various type representations.
+
+        Handles Symbol objects, TensorType objects, and strings.
+
+        Args:
+            type_ref: Type reference (Symbol, TensorType, str, etc.)
+
+        Returns:
+            String name of the type
+        """
+        if isinstance(type_ref, str):
+            return type_ref
+        elif isinstance(type_ref, Symbol):
+            # Symbol wraps a type - return the symbol's name
+            return type_ref.name
+        elif isinstance(type_ref, TensorType):
+            # TensorType directly - this shouldn't happen normally
+            # as types are usually wrapped in Symbols
+            return str(type_ref)
+        elif hasattr(type_ref, 'name'):
+            return type_ref.name
+        else:
+            return str(type_ref)
+
+    def _get_kernel_name(self, kernel_ref: Any) -> str:
+        """
+        Extract the kernel name from various kernel representations.
+
+        Handles ExternalKernel objects and strings.
+
+        Args:
+            kernel_ref: Kernel reference (ExternalKernel, str, etc.)
+
+        Returns:
+            String name of the kernel
+        """
+        if isinstance(kernel_ref, str):
+            return kernel_ref
+        elif isinstance(kernel_ref, ExternalKernel):
+            return kernel_ref.name
+        elif hasattr(kernel_ref, 'name'):
+            return kernel_ref.name
+        else:
+            return str(kernel_ref)
+
     def serialize(self, program: Program) -> str:
         """
         Serialize a Program to GUI XML string.
@@ -229,8 +276,18 @@ class GUIXMLSerializer:
 
         for arg_type in kernel.arg_types:
             type_elem = SubElement(arg_types_elem, 'type')
-            type_elem.text = str(arg_type)
+            type_elem.text = self._get_type_name(arg_type)
             type_elem.tail = '\n'
+
+        # Include dirs (if present)
+        if kernel.include_dirs:
+            inc_dirs_elem = SubElement(ext_elem, 'include_dirs')
+            inc_dirs_elem.text = '\n'
+            inc_dirs_elem.tail = '\n'
+            for inc_dir in kernel.include_dirs:
+                dir_elem = SubElement(inc_dirs_elem, 'dir')
+                dir_elem.text = inc_dir
+                dir_elem.tail = '\n'
 
     def _add_gui_core_function(self, parent: Element, func: CoreFunction):
         """Add CoreFunction in GUI XML format."""
@@ -356,7 +413,7 @@ class GUIXMLSerializer:
 
         # Output type
         type_elem = SubElement(split_elem, 'output_type')
-        type_elem.text = str(split_op.output_type)
+        type_elem.text = self._get_type_name(split_op.output_type)
         type_elem.tail = '\n'
 
         # Placement
@@ -389,7 +446,7 @@ class GUIXMLSerializer:
 
         # Input type
         type_elem = SubElement(join_elem, 'input_type')
-        type_elem.text = str(join_op.input_type)
+        type_elem.text = self._get_type_name(join_op.input_type)
         type_elem.tail = '\n'
 
         # Placement
@@ -433,11 +490,14 @@ class GUIXMLSerializer:
                 mode_str = 'consumer' if arg.mode.value == 'cons' else 'producer'
                 arg_elem.set('mode', mode_str)
             elif isinstance(arg, str):
-                # It's a reference (e.g., to external kernel)
+                # It's a reference (e.g., to external kernel name)
                 arg_elem.set('ref', arg)
+            elif isinstance(arg, ExternalKernel):
+                # It's an external kernel object - extract name
+                arg_elem.set('ref', arg.name)
             else:
-                # Other types
-                arg_elem.set('ref', str(arg))
+                # Other types - try to get name attribute
+                arg_elem.set('ref', self._get_kernel_name(arg))
             arg_elem.tail = '\n'
 
         # Placement
@@ -462,8 +522,18 @@ class GUIXMLSerializer:
             seq_elem.set('inputs', types_str)
 
         # Parameter names as comma-separated string
+        # Use distinct binding names to avoid shadowing function parameters
+        # This allows TAP expressions to still reference the original tensors
         if runtime.param_names:
-            params_str = ', '.join(runtime.param_names)
+            # Create binding names that don't shadow function params
+            binding_names = []
+            for i, name in enumerate(runtime.param_names):
+                # Use lowercase with suffix to distinguish from function params
+                if i < len(runtime.input_types):
+                    binding_names.append(f"{name.lower()}_in")
+                else:
+                    binding_names.append(f"{name.lower()}_out")
+            params_str = ', '.join(binding_names)
             seq_elem.set('as', params_str)
 
         seq_elem.text = '\n'
@@ -471,7 +541,7 @@ class GUIXMLSerializer:
 
         # Start workers (if any)
         if runtime.workers:
-            start_elem = SubElement(seq_elem, 'StartWorkers')
+            start_elem = SubElement(seq_elem, 'Start')
             worker_names = []
             for w in runtime.workers:
                 name = w if isinstance(w, str) else w.name
@@ -494,8 +564,14 @@ class GUIXMLSerializer:
         fifo_name = fill_op.fifo if isinstance(fill_op.fifo, str) else fill_op.fifo.name
         fill_elem.set('target', fifo_name)
 
-        # Source parameter
-        fill_elem.set('source', fill_op.source_param)
+        # Source parameter - use binding name (lowercase with _in suffix)
+        # to match the sequence binding names and avoid shadowing
+        source_binding = f"{fill_op.source_param.lower()}_in"
+        fill_elem.set('source', source_binding)
+
+        # Preserve original data reference for TAP calculations
+        # TAP needs to reference the original function parameter (A, B, etc.)
+        fill_elem.set('data_ref', fill_op.source_param)
 
         # Column attribute from metadata
         if fill_op.metadata and 'column' in fill_op.metadata:
@@ -525,8 +601,14 @@ class GUIXMLSerializer:
         fifo_name = drain_op.fifo if isinstance(drain_op.fifo, str) else drain_op.fifo.name
         drain_elem.set('source', fifo_name)
 
-        # Target parameter
-        drain_elem.set('target', drain_op.dest_param)
+        # Target parameter - use binding name (lowercase with _out suffix)
+        # to match the sequence binding names and avoid shadowing
+        target_binding = f"{drain_op.dest_param.lower()}_out"
+        drain_elem.set('target', target_binding)
+
+        # Preserve original data reference for TAP calculations
+        # TAP needs to reference the original function parameter (D, etc.)
+        drain_elem.set('data_ref', drain_op.dest_param)
 
         # Column attribute from metadata
         if drain_op.metadata and 'column' in drain_op.metadata:
@@ -659,21 +741,45 @@ class GUIXMLSerializer:
         body_elem.text = '\n'
         body_elem.tail = '\n'
 
-        # Extract tensor size and dtype from runtime input types
+        # Extract tensor size and dtype
+        # Use data_ty (full tensor size) if available, otherwise fall back to constant N
         size_expr = None
         dtype_value = None
 
-        if program.runtime and len(program.runtime.input_types) > 0:
-            # Get first input type to determine size and dtype
+        # First, look for data_ty which represents the full tensor size
+        if "data_ty" in program.symbols:
+            data_type = program.symbols["data_ty"].value
+            if isinstance(data_type, TensorType):
+                if data_type.shape and len(data_type.shape) > 0:
+                    size_expr = str(data_type.shape[0])
+                if data_type.dtype:
+                    dtype_value = str(data_type.dtype.value)
+
+        # If no data_ty, try vector_ty (common in passthrough examples)
+        if size_expr is None and "vector_ty" in program.symbols:
+            vector_type = program.symbols["vector_ty"].value
+            if isinstance(vector_type, TensorType):
+                if vector_type.shape and len(vector_type.shape) > 0:
+                    size_expr = str(vector_type.shape[0])
+                if vector_type.dtype:
+                    dtype_value = str(vector_type.dtype.value)
+
+        # If no data_ty or vector_ty, try to find a constant N for size
+        if size_expr is None:
+            for name, symbol in program.symbols.items():
+                if symbol.is_constant and name == "N":
+                    size_expr = "N"
+                    break
+
+        # Fall back to runtime input type if still no size or dtype found
+        if (size_expr is None or dtype_value is None) and program.runtime and len(program.runtime.input_types) > 0:
             first_type_ref = program.runtime.input_types[0]
             if isinstance(first_type_ref, str) and first_type_ref in program.symbols:
                 tensor_type = program.symbols[first_type_ref].value
                 if isinstance(tensor_type, TensorType):
-                    # Extract size from shape
                     if tensor_type.shape and len(tensor_type.shape) > 0:
                         size_expr = str(tensor_type.shape[0])
-                    # Extract dtype
-                    if tensor_type.dtype:
+                    if dtype_value is None and tensor_type.dtype:
                         dtype_value = str(tensor_type.dtype.value)
 
         # Add variable assignments for constants used in size expression
@@ -683,12 +789,7 @@ class GUIXMLSerializer:
             if symbol.is_constant and not isinstance(symbol.value, TensorType):
                 constants_to_assign[name] = symbol.value
 
-        # Add datatype variable if we found a dtype
-        if dtype_value:
-            assign_elem = SubElement(body_elem, 'Assign')
-            assign_elem.set('name', 'datatype')
-            assign_elem.set('value', dtype_value)
-            assign_elem.tail = '\n'
+        # Don't create a datatype variable - we'll use np.dtype directly in the init expressions
 
         # Add constant assignments
         for const_name, const_value in constants_to_assign.items():
@@ -711,7 +812,15 @@ class GUIXMLSerializer:
                 init_elem = SubElement(tensor_elem, 'init')
                 # Use extracted size and dtype, or defaults
                 size_arg = size_expr if size_expr else 'data_size'
-                dtype_arg = 'datatype' if dtype_value else 'bfloat16'
+                # Use dtype directly - bfloat16 comes from ml_dtypes, not numpy
+                # For numpy types like int32, float32, add np. prefix
+                if dtype_value:
+                    if dtype_value == 'bfloat16':
+                        dtype_arg = 'bfloat16'  # From ml_dtypes
+                    else:
+                        dtype_arg = f'np.{dtype_value}'  # numpy types
+                else:
+                    dtype_arg = 'bfloat16'
 
                 # Determine if input or output
                 if i < len(program.runtime.input_types):

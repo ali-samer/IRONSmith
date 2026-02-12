@@ -32,6 +32,12 @@ ironsmith_add_plugin(AiePlugin
             IRONSmith::ExtensionSystem
             IRONSmith::CorePlugin
             IRONSmith::CanvasPlugin
+
+        PRIVATE_DEFINES
+            AIEPLUGIN_LIBRARY
+
+        PUBLIC_DEFINES
+            AIEPLUGIN_BUILD_SHARED=1
 )
 
 if (BUILD_WITH_TESTS)

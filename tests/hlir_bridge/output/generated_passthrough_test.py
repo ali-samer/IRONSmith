@@ -1,4 +1,4 @@
-# passthrough_hlir_example.py -*- Python -*-
+# passthrough_test.py -*- Python -*-
 
 
 import numpy as np
@@ -17,7 +17,7 @@ from aie.helpers.taplib import TensorAccessPattern
 
 
 @iron.jit(is_placed=False)
-def passthrough_hlir_example_jit(inputA, outputC):
+def passthrough_test_jit(inputA, outputC):
     # Define tensor types
     vector_ty = np.ndarray[(inputA.numel(),), np.dtype[np.int32]]
     line_ty = np.ndarray[(inputA.numel() // 4,), np.dtype[np.int32]]
@@ -45,7 +45,7 @@ def main():
     N = 4096
     inputA = iron.arange(N, dtype=np.int32, device="npu")
     outputC = iron.zeros(N, dtype=np.int32, device="npu")
-    passthrough_hlir_example_jit(inputA, outputC)
+    passthrough_test_jit(inputA, outputC)
 
 
 
