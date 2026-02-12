@@ -17,6 +17,18 @@ set_target_properties(ironsmith PROPERTIES
         CXX_EXTENSIONS OFF
 )
 
+if (WIN32)
+    # Copy DLL dependencies to bin/ so the Windows loader can find them at startup.
+    # Plugins loaded at runtime are handled by addLibrarySearchPaths() in main.cpp.
+    add_custom_command(TARGET ironsmith POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:ExtensionSystem>
+            $<TARGET_FILE:Utils>
+            $<TARGET_FILE:CorePlugin>
+            $<TARGET_FILE_DIR:ironsmith>
+    )
+endif()
+
 if (TARGET iron_sanitize_flags)
     target_link_libraries(ironsmith PRIVATE iron_sanitize_flags)
 endif()

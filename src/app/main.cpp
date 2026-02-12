@@ -15,6 +15,25 @@ using namespace ExtensionSystem;
 
 static constexpr char corePluginIdC[] = "Core";
 
+#ifdef Q_OS_WIN
+static void addLibrarySearchPaths()
+{
+	const QDir appDir(QCoreApplication::applicationDirPath());
+
+	// Prepend lib/ironsmith/ and lib/ironsmith/plugins/ to PATH so the
+	// Windows loader can resolve DLL dependencies when plugins are loaded.
+	const QString libDir = QDir::cleanPath(appDir.absoluteFilePath("../lib/ironsmith"));
+	const QString pluginDir = QDir::cleanPath(appDir.absoluteFilePath("../lib/ironsmith/plugins"));
+
+	QByteArray path = qgetenv("PATH");
+	if (QDir(pluginDir).exists())
+		path.prepend(pluginDir.toLocal8Bit() + ";");
+	if (QDir(libDir).exists())
+		path.prepend(libDir.toLocal8Bit() + ";");
+	qputenv("PATH", path);
+}
+#endif
+
 static QString defaultPluginDir()
 {
 	QDir d(QCoreApplication::applicationDirPath());
@@ -58,6 +77,10 @@ int main(int argc, char** argv)
 	QCoreApplication::setAttribute(Qt::AA_DontUseNativeMenuBar);
 
 	QApplication app(argc, argv);
+
+#ifdef Q_OS_WIN
+	addLibrarySearchPaths();
+#endif
 
 	const QString pluginDir = defaultPluginDir();
 	if (pluginDir.isEmpty() || !registerSystemPluginsFromDir(pluginDir)) {
