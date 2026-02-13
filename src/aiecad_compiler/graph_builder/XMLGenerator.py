@@ -1244,6 +1244,21 @@ class XMLTransformer:
             arg2 = etree.SubElement(args, "arg")
             var = etree.SubElement(arg2, "var", ref=source)
 
+            # placement kwarg (if present)
+            placement_elem = simple_fill.find("placement")
+            if placement_elem is not None:
+                placement = placement_elem.text.strip()
+                kwarg_placement = etree.SubElement(args, "kwarg", name="placement")
+                match = re.match(r'Tile\((\d+),\s*(\d+)\)', placement)
+                if match:
+                    constructor = etree.SubElement(kwarg_placement, "constructor", ref="Tile")
+                    arg_x = etree.SubElement(constructor, "arg")
+                    const_x = etree.SubElement(arg_x, "const")
+                    const_x.text = match.group(1)
+                    arg_y = etree.SubElement(constructor, "arg")
+                    const_y = etree.SubElement(arg_y, "const")
+                    const_y.text = match.group(2)
+
     def _transform_drain(self, simple_drain: etree.Element, parent: etree.Element):
         """Transform Drain operation with or without TensorAccessPattern."""
         source = simple_drain.get("source")
@@ -1313,6 +1328,21 @@ class XMLTransformer:
             wait = simple_drain.find("wait")
             if wait is not None:
                 kwarg_wait = etree.SubElement(args, "kwarg", name="wait", value=wait.text.strip().capitalize())
+
+            # placement kwarg (if present)
+            placement_elem = simple_drain.find("placement")
+            if placement_elem is not None:
+                placement = placement_elem.text.strip()
+                kwarg_placement = etree.SubElement(args, "kwarg", name="placement")
+                match = re.match(r'Tile\((\d+),\s*(\d+)\)', placement)
+                if match:
+                    constructor = etree.SubElement(kwarg_placement, "constructor", ref="Tile")
+                    arg_x = etree.SubElement(constructor, "arg")
+                    const_x = etree.SubElement(arg_x, "const")
+                    const_x.text = match.group(1)
+                    arg_y = etree.SubElement(constructor, "arg")
+                    const_y = etree.SubElement(arg_y, "const")
+                    const_y.text = match.group(2)
 
     def _build_tensor_access_pattern(self, parent: etree.Element, tensor: str, column: str):
         """Build TensorAccessPattern constructor."""

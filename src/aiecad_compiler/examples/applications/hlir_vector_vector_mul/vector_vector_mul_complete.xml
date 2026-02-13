@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Module name="vector_exp_test">
+<Module name="vector_vector_mul_hlir_example">
   <Symbols>
     <Import name="numpy" alias="np"/>
     <Import name="ml_dtypes" alias="ml_dtypes"/>
@@ -87,6 +87,20 @@
         </dtype>
       </ndarray>
     </TypeAbstraction>
+    <TypeAbstraction name="data_b_ty">
+      <ndarray>
+        <shape>
+          <tuple>
+            <expr>
+              <method ref="inputB" name="numel"/>
+            </expr>
+          </tuple>
+        </shape>
+        <dtype>
+          <numpy_dtype>bfloat16</numpy_dtype>
+        </dtype>
+      </ndarray>
+    </TypeAbstraction>
     <TypeAbstraction name="data_c_ty">
       <ndarray>
         <shape>
@@ -103,12 +117,13 @@
     </TypeAbstraction>
   </Symbols>
   <DataFlow>
-    <ExternalFunction name="exp_bf16_1024">
+    <ExternalFunction name="eltwise_mul_bf16_vector">
       <attributes>
-        <kwarg name="name" value="exp_bf16_1024"/>
-        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/bf16_exp.cc"/>
+        <kwarg name="name" value="eltwise_mul_bf16_vector"/>
+        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/mul.cc"/>
         <kwarg name="arg_types">
           <list>
+            <type_ref>tile_ty</type_ref>
             <type_ref>tile_ty</type_ref>
             <type_ref>tile_ty</type_ref>
           </list>
@@ -121,10 +136,11 @@
         </kwarg>
       </attributes>
     </ExternalFunction>
-    <CoreFunction name="corefunc_exp">
+    <CoreFunction name="corefunc_mul">
       <parameters>
         <param name="kernel"/>
         <param name="inputA"/>
+        <param name="inputB"/>
         <param name="outputC"/>
       </parameters>
       <body>
@@ -138,9 +154,18 @@
               </method>
             </call>
           </Acquire>
-          <Acquire name="elem_in">
+          <Acquire name="elem_in_a">
             <call>
               <method ref="inputA" name="acquire">
+                <arg>
+                  <const>1</const>
+                </arg>
+              </method>
+            </call>
+          </Acquire>
+          <Acquire name="elem_in_b">
+            <call>
+              <method ref="inputB" name="acquire">
                 <arg>
                   <const>1</const>
                 </arg>
@@ -150,7 +175,10 @@
           <Call>
             <function ref="kernel">
               <arg>
-                <var ref="elem_in"/>
+                <var ref="elem_in_a"/>
+              </arg>
+              <arg>
+                <var ref="elem_in_b"/>
               </arg>
               <arg>
                 <var ref="elem_out"/>
@@ -160,6 +188,15 @@
           <Release>
             <call>
               <method ref="inputA" name="release">
+                <arg>
+                  <const>1</const>
+                </arg>
+              </method>
+            </call>
+          </Release>
+          <Release>
+            <call>
+              <method ref="inputB" name="release">
                 <arg>
                   <const>1</const>
                 </arg>
@@ -185,6 +222,15 @@
       <attributes>
         <kwarg name="depth" value="2"/>
         <kwarg name="name" value="of_in_a"/>
+      </attributes>
+    </ObjectFifo>
+    <ObjectFifo name="of_in_b">
+      <obj_type>
+        <type_ref>memtile_ty</type_ref>
+      </obj_type>
+      <attributes>
+        <kwarg name="depth" value="2"/>
+        <kwarg name="name" value="of_in_b"/>
       </attributes>
     </ObjectFifo>
     <ObjectFifo name="of_out_c">
@@ -270,7 +316,81 @@
         </method_chain>
       </source>
     </ObjectFifo>
-    <ObjectFifo name="MEM_L1_L2_C1C2C3C4_col0">
+    <ObjectFifo name="MEM_L2_L1_B5B6B7B8_col1">
+      <source>
+        <method_chain>
+          <base>
+            <var ref="of_in_b"/>
+          </base>
+          <call>
+            <method name="cons"/>
+          </call>
+          <call>
+            <method name="split">
+              <kwarg name="obj_types">
+                <list>
+                  <type_ref>tile_ty</type_ref>
+                  <type_ref>tile_ty</type_ref>
+                  <type_ref>tile_ty</type_ref>
+                  <type_ref>tile_ty</type_ref>
+                </list>
+              </kwarg>
+              <kwarg name="offsets">
+                <list>
+                  <binary_op op="*">
+                    <binary_op op="//">
+                      <method ref="inputB" name="numel"/>
+                      <const>64</const>
+                    </binary_op>
+                    <const>0</const>
+                  </binary_op>
+                  <binary_op op="*">
+                    <binary_op op="//">
+                      <method ref="inputB" name="numel"/>
+                      <const>64</const>
+                    </binary_op>
+                    <const>1</const>
+                  </binary_op>
+                  <binary_op op="*">
+                    <binary_op op="//">
+                      <method ref="inputB" name="numel"/>
+                      <const>64</const>
+                    </binary_op>
+                    <const>2</const>
+                  </binary_op>
+                  <binary_op op="*">
+                    <binary_op op="//">
+                      <method ref="inputB" name="numel"/>
+                      <const>64</const>
+                    </binary_op>
+                    <const>3</const>
+                  </binary_op>
+                </list>
+              </kwarg>
+              <kwarg name="names">
+                <list>
+                  <string>MEM_L2_L1_B5_col1</string>
+                  <string>MEM_L2_L1_B6_col1</string>
+                  <string>MEM_L2_L1_B7_col1</string>
+                  <string>MEM_L2_L1_B8_col1</string>
+                </list>
+              </kwarg>
+              <kwarg name="placement">
+                <constructor ref="Tile">
+                  <arg>
+                    <const>1</const>
+                  </arg>
+                  <arg>
+                    <const>1</const>
+                  </arg>
+                </constructor>
+              </kwarg>
+            </method>
+          </call>
+        </method_chain>
+      </source>
+    </ObjectFifo>
+    <ObjectFifo name="MEM_L1_L2_C9C10C11C12_col2">
       <source>
         <method_chain>
           <base>
@@ -291,16 +411,16 @@
               </kwarg>
               <kwarg name="names">
                 <list>
-                  <string>MEM_L1_L2_C1_col0</string>
-                  <string>MEM_L1_L2_C2_col0</string>
-                  <string>MEM_L1_L2_C3_col0</string>
-                  <string>MEM_L1_L2_C4_col0</string>
+                  <string>MEM_L1_L2_C9_col2</string>
+                  <string>MEM_L1_L2_C10_col2</string>
+                  <string>MEM_L1_L2_C11_col2</string>
+                  <string>MEM_L1_L2_C12_col2</string>
                 </list>
               </kwarg>
               <kwarg name="placement">
                 <constructor ref="Tile">
                   <arg>
-                    <const>0</const>
+                    <const>2</const>
                   </arg>
                   <arg>
                     <const>1</const>
@@ -345,10 +465,10 @@
       </source>
     </ObjectFifo>
     <Worker name="worker0">
-      <core_fn ref="corefunc_exp"/>
+      <core_fn ref="corefunc_mul"/>
       <fn_args>
         <arg>
-          <var ref="exp_bf16_1024"/>
+          <var ref="eltwise_mul_bf16_vector"/>
         </arg>
         <arg>
           <method_chain>
@@ -372,7 +492,24 @@
             <base>
               <index>
                 <base>
-                  <var ref="MEM_L1_L2_C1C2C3C4_col0"/>
+                  <var ref="MEM_L2_L1_B5B6B7B8_col1"/>
+                </base>
+                <index_value>
+                  <const>0</const>
+                </index_value>
+              </index>
+            </base>
+            <call>
+              <method name="cons"/>
+            </call>
+          </method_chain>
+        </arg>
+        <arg>
+          <method_chain>
+            <base>
+              <index>
+                <base>
+                  <var ref="MEM_L1_L2_C9C10C11C12_col2"/>
                 </base>
                 <index_value>
                   <const>0</const>
@@ -391,16 +528,16 @@
             <const>0</const>
           </arg>
           <arg>
-            <const>2</const>
+            <const>5</const>
           </arg>
         </constructor>
       </placement>
     </Worker>
     <Worker name="worker1">
-      <core_fn ref="corefunc_exp"/>
+      <core_fn ref="corefunc_mul"/>
       <fn_args>
         <arg>
-          <var ref="exp_bf16_1024"/>
+          <var ref="eltwise_mul_bf16_vector"/>
         </arg>
         <arg>
           <method_chain>
@@ -424,45 +561,10 @@
             <base>
               <index>
                 <base>
-                  <var ref="MEM_L1_L2_C1C2C3C4_col0"/>
+                  <var ref="MEM_L2_L1_B5B6B7B8_col1"/>
                 </base>
                 <index_value>
                   <const>1</const>
-                </index_value>
-              </index>
-            </base>
-            <call>
-              <method name="prod"/>
-            </call>
-          </method_chain>
-        </arg>
-      </fn_args>
-      <placement>
-        <constructor ref="Tile">
-          <arg>
-            <const>0</const>
-          </arg>
-          <arg>
-            <const>3</const>
-          </arg>
-        </constructor>
-      </placement>
-    </Worker>
-    <Worker name="worker2">
-      <core_fn ref="corefunc_exp"/>
-      <fn_args>
-        <arg>
-          <var ref="exp_bf16_1024"/>
-        </arg>
-        <arg>
-          <method_chain>
-            <base>
-              <index>
-                <base>
-                  <var ref="MEM_L2_L1_A1A2A3A4_col0"/>
-                </base>
-                <index_value>
-                  <const>2</const>
                 </index_value>
               </index>
             </base>
@@ -476,10 +578,10 @@
             <base>
               <index>
                 <base>
-                  <var ref="MEM_L1_L2_C1C2C3C4_col0"/>
+                  <var ref="MEM_L1_L2_C9C10C11C12_col2"/>
                 </base>
                 <index_value>
-                  <const>2</const>
+                  <const>1</const>
                 </index_value>
               </index>
             </base>
@@ -500,11 +602,80 @@
         </constructor>
       </placement>
     </Worker>
-    <Worker name="worker3">
-      <core_fn ref="corefunc_exp"/>
+    <Worker name="worker2">
+      <core_fn ref="corefunc_mul"/>
       <fn_args>
         <arg>
-          <var ref="exp_bf16_1024"/>
+          <var ref="eltwise_mul_bf16_vector"/>
+        </arg>
+        <arg>
+          <method_chain>
+            <base>
+              <index>
+                <base>
+                  <var ref="MEM_L2_L1_A1A2A3A4_col0"/>
+                </base>
+                <index_value>
+                  <const>2</const>
+                </index_value>
+              </index>
+            </base>
+            <call>
+              <method name="cons"/>
+            </call>
+          </method_chain>
+        </arg>
+        <arg>
+          <method_chain>
+            <base>
+              <index>
+                <base>
+                  <var ref="MEM_L2_L1_B5B6B7B8_col1"/>
+                </base>
+                <index_value>
+                  <const>2</const>
+                </index_value>
+              </index>
+            </base>
+            <call>
+              <method name="cons"/>
+            </call>
+          </method_chain>
+        </arg>
+        <arg>
+          <method_chain>
+            <base>
+              <index>
+                <base>
+                  <var ref="MEM_L1_L2_C9C10C11C12_col2"/>
+                </base>
+                <index_value>
+                  <const>2</const>
+                </index_value>
+              </index>
+            </base>
+            <call>
+              <method name="prod"/>
+            </call>
+          </method_chain>
+        </arg>
+      </fn_args>
+      <placement>
+        <constructor ref="Tile">
+          <arg>
+            <const>0</const>
+          </arg>
+          <arg>
+            <const>3</const>
+          </arg>
+        </constructor>
+      </placement>
+    </Worker>
+    <Worker name="worker3">
+      <core_fn ref="corefunc_mul"/>
+      <fn_args>
+        <arg>
+          <var ref="eltwise_mul_bf16_vector"/>
         </arg>
         <arg>
           <method_chain>
@@ -528,7 +699,24 @@
             <base>
               <index>
                 <base>
-                  <var ref="MEM_L1_L2_C1C2C3C4_col0"/>
+                  <var ref="MEM_L2_L1_B5B6B7B8_col1"/>
+                </base>
+                <index_value>
+                  <const>3</const>
+                </index_value>
+              </index>
+            </base>
+            <call>
+              <method name="cons"/>
+            </call>
+          </method_chain>
+        </arg>
+        <arg>
+          <method_chain>
+            <base>
+              <index>
+                <base>
+                  <var ref="MEM_L1_L2_C9C10C11C12_col2"/>
                 </base>
                 <index_value>
                   <const>3</const>
@@ -547,7 +735,7 @@
             <const>0</const>
           </arg>
           <arg>
-            <const>5</const>
+            <const>2</const>
           </arg>
         </constructor>
       </placement>
@@ -571,11 +759,13 @@
           <method ref="rt" name="sequence">
             <arg type_ref="memtile_ty"/>
             <arg type_ref="memtile_ty"/>
+            <arg type_ref="memtile_ty"/>
           </method>
         </call>
       </context>
       <bindings>
         <bind name="inputa_in" type_ref="memtile_ty"/>
+        <bind name="inputb_in" type_ref="memtile_ty"/>
         <bind name="outputc_out" type_ref="memtile_ty"/>
       </bindings>
       <body>
@@ -614,7 +804,32 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_outputc_out_col0">
+        <Operation name="fill_inputb_in_col0">
+          <target>
+            <method ref="rt" name="fill"/>
+          </target>
+          <args>
+            <arg>
+              <call>
+                <method ref="of_in_b" name="prod"/>
+              </call>
+            </arg>
+            <arg>
+              <var ref="inputb_in"/>
+            </arg>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>0</const>
+                </arg>
+                <arg>
+                  <const>0</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </args>
+        </Operation>
+        <Operation name="drain_outputc_out_col1">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -631,7 +846,7 @@
             <kwarg name="placement">
               <constructor ref="Tile">
                 <arg>
-                  <const>0</const>
+                  <const>1</const>
                 </arg>
                 <arg>
                   <const>0</const>
@@ -671,9 +886,10 @@
       </returns>
     </ResolveProgram>
   </DataFlow>
-  <Function name="vector_exp_test_jit" decorator="iron.jit">
+  <Function name="vector_vector_mul_hlir_example_jit" decorator="iron.jit">
     <parameters>
       <param name="inputA" type_ref="memtile_ty"/>
+      <param name="inputB" type_ref="memtile_ty"/>
       <param name="outputC" type_ref="memtile_ty"/>
     </parameters>
     <attributes>
@@ -717,6 +933,24 @@
         </source>
       </Assign>
       <Assign>
+        <target>inputB</target>
+        <source>
+          <call>
+            <function ref="iron.arange">
+              <arg>
+                <var>N</var>
+              </arg>
+              <kwarg name="dtype">
+                <var>bfloat16</var>
+              </kwarg>
+              <kwarg name="device">
+                <string>npu</string>
+              </kwarg>
+            </function>
+          </call>
+        </source>
+      </Assign>
+      <Assign>
         <target>outputC</target>
         <source>
           <call>
@@ -735,9 +969,12 @@
         </source>
       </Assign>
       <Call>
-        <function ref="vector_exp_test_jit">
+        <function ref="vector_vector_mul_hlir_example_jit">
           <arg>
             <var>inputA</var>
+          </arg>
+          <arg>
+            <var>inputB</var>
           </arg>
           <arg>
             <var>outputC</var>

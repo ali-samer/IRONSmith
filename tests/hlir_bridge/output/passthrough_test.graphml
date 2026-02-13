@@ -206,209 +206,247 @@
   <data key="d0">prod</data>
   <data key="d1">MethodCall</data>
 </node>
-<node id="Operation_45">
+<node id="Kwarg_45">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d7">placement</data>
+</node>
+<node id="Constructor_46">
+  <data key="d0">Tile</data>
+  <data key="d1">Constructor</data>
+</node>
+<node id="ConstExpr_47">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="ConstExpr_48">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Operation_49">
   <data key="d0">drain_outputc_out_col0</data>
   <data key="d1">Operation</data>
 </node>
-<node id="MethodCall_46">
+<node id="MethodCall_50">
   <data key="d0">drain</data>
   <data key="d1">MethodCall</data>
   <data key="d4">rt</data>
-</node>
-<node id="Call_47">
-  <data key="d0">call</data>
-  <data key="d1">Call</data>
-</node>
-<node id="MethodCall_48">
-  <data key="d0">cons</data>
-  <data key="d1">MethodCall</data>
-</node>
-<node id="Kwarg_49">
-  <data key="d0">wait=True</data>
-  <data key="d1">Kwarg</data>
-  <data key="d7">wait</data>
-  <data key="d3">True</data>
-</node>
-<node id="Program_50">
-  <data key="d0">my_program</data>
-  <data key="d1">Program</data>
 </node>
 <node id="Call_51">
   <data key="d0">call</data>
   <data key="d1">Call</data>
 </node>
-<node id="ResolveProgram_52">
-  <data key="d0">resolve_program</data>
-  <data key="d1">ResolveProgram</data>
+<node id="MethodCall_52">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
 </node>
-<node id="Call_53">
+<node id="Kwarg_53">
+  <data key="d0">wait=True</data>
+  <data key="d1">Kwarg</data>
+  <data key="d7">wait</data>
+  <data key="d3">True</data>
+</node>
+<node id="Kwarg_54">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d7">placement</data>
+</node>
+<node id="Constructor_55">
+  <data key="d0">Tile</data>
+  <data key="d1">Constructor</data>
+</node>
+<node id="ConstExpr_56">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="ConstExpr_57">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Program_58">
+  <data key="d0">my_program</data>
+  <data key="d1">Program</data>
+</node>
+<node id="Call_59">
   <data key="d0">call</data>
   <data key="d1">Call</data>
 </node>
-<node id="ConstructorExpr_54">
+<node id="ResolveProgram_60">
+  <data key="d0">resolve_program</data>
+  <data key="d1">ResolveProgram</data>
+</node>
+<node id="Call_61">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="ConstructorExpr_62">
   <data key="d0">SequentialPlacer()</data>
   <data key="d1">ConstructorExpr</data>
   <data key="d9">SequentialPlacer</data>
 </node>
-<node id="Function_55">
+<node id="Function_63">
   <data key="d0">passthrough_test_jit</data>
   <data key="d1">Function</data>
   <data key="d10">iron.jit</data>
 </node>
-<node id="Parameter_56">
+<node id="Parameter_64">
   <data key="d0">inputA</data>
   <data key="d1">Parameter</data>
   <data key="d8">vector_ty</data>
 </node>
-<node id="Parameter_57">
+<node id="Parameter_65">
   <data key="d0">outputC</data>
   <data key="d1">Parameter</data>
   <data key="d8">vector_ty</data>
 </node>
-<node id="FunctionBodyElement_58">
+<node id="FunctionBodyElement_66">
   <data key="d0">UseDataFlow</data>
   <data key="d1">FunctionBodyElement</data>
 </node>
-<node id="FunctionBodyElement_59">
+<node id="FunctionBodyElement_67">
   <data key="d0">Return</data>
   <data key="d1">FunctionBodyElement</data>
 </node>
-<node id="Function_60">
+<node id="Function_68">
   <data key="d0">main</data>
   <data key="d1">Function</data>
 </node>
-<node id="Expr_61">
+<node id="Expr_69">
   <data key="d0">source</data>
   <data key="d1">Expr</data>
 </node>
-<node id="ConstExpr_62">
+<node id="ConstExpr_70">
   <data key="d0">4096</data>
   <data key="d1">ConstExpr</data>
   <data key="d3">4096</data>
 </node>
-<node id="Assign_63">
+<node id="Assign_71">
   <data key="d0">N=…</data>
   <data key="d1">Assign</data>
   <data key="d11">N</data>
 </node>
-<node id="Variable_64">
+<node id="Variable_72">
   <data key="d0">N</data>
   <data key="d1">Variable</data>
 </node>
-<node id="Expr_65">
+<node id="Expr_73">
   <data key="d0">source</data>
   <data key="d1">Expr</data>
 </node>
-<node id="Call_66">
+<node id="Call_74">
   <data key="d0">call</data>
   <data key="d1">Call</data>
 </node>
-<node id="FunctionCall_67">
+<node id="FunctionCall_75">
   <data key="d0">iron.arange</data>
   <data key="d1">FunctionCall</data>
 </node>
-<node id="VarRef_68">
+<node id="VarRef_76">
   <data key="d0">N</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="VarRef_69">
+<node id="VarRef_77">
   <data key="d0">np.int32</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="Kwarg_70">
+<node id="Kwarg_78">
   <data key="d0">dtype=...</data>
   <data key="d1">Kwarg</data>
   <data key="d7">dtype</data>
 </node>
-<node id="String_71">
+<node id="String_79">
   <data key="d0">npu</data>
   <data key="d1">String</data>
   <data key="d3">npu</data>
 </node>
-<node id="Kwarg_72">
+<node id="Kwarg_80">
   <data key="d0">device=...</data>
   <data key="d1">Kwarg</data>
   <data key="d7">device</data>
 </node>
-<node id="Assign_73">
+<node id="Assign_81">
   <data key="d0">inputA=…</data>
   <data key="d1">Assign</data>
   <data key="d11">inputA</data>
 </node>
-<node id="Variable_74">
+<node id="Variable_82">
   <data key="d0">inputA</data>
   <data key="d1">Variable</data>
 </node>
-<node id="Expr_75">
+<node id="Expr_83">
   <data key="d0">source</data>
   <data key="d1">Expr</data>
 </node>
-<node id="Call_76">
+<node id="Call_84">
   <data key="d0">call</data>
   <data key="d1">Call</data>
 </node>
-<node id="FunctionCall_77">
+<node id="FunctionCall_85">
   <data key="d0">iron.zeros</data>
   <data key="d1">FunctionCall</data>
 </node>
-<node id="VarRef_78">
+<node id="VarRef_86">
   <data key="d0">N</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="VarRef_79">
+<node id="VarRef_87">
   <data key="d0">np.int32</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="Kwarg_80">
+<node id="Kwarg_88">
   <data key="d0">dtype=...</data>
   <data key="d1">Kwarg</data>
   <data key="d7">dtype</data>
 </node>
-<node id="String_81">
+<node id="String_89">
   <data key="d0">npu</data>
   <data key="d1">String</data>
   <data key="d3">npu</data>
 </node>
-<node id="Kwarg_82">
+<node id="Kwarg_90">
   <data key="d0">device=...</data>
   <data key="d1">Kwarg</data>
   <data key="d7">device</data>
 </node>
-<node id="Assign_83">
+<node id="Assign_91">
   <data key="d0">outputC=…</data>
   <data key="d1">Assign</data>
   <data key="d11">outputC</data>
 </node>
-<node id="Variable_84">
+<node id="Variable_92">
   <data key="d0">outputC</data>
   <data key="d1">Variable</data>
 </node>
-<node id="Call_85">
+<node id="Call_93">
   <data key="d0">call</data>
   <data key="d1">Call</data>
 </node>
-<node id="FunctionCall_86">
+<node id="FunctionCall_94">
   <data key="d0">passthrough_test_jit</data>
   <data key="d1">FunctionCall</data>
 </node>
-<node id="VarRef_87">
+<node id="VarRef_95">
   <data key="d0">inputA</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="VarRef_88">
+<node id="VarRef_96">
   <data key="d0">outputC</data>
   <data key="d1">VarRef</data>
 </node>
-<node id="EntryPoint_89">
+<node id="EntryPoint_97">
   <data key="d0">EntryPoint</data>
   <data key="d1">EntryPoint</data>
 </node>
-<node id="ConditionExpr_90">
+<node id="ConditionExpr_98">
   <data key="d0">__name__ == '__main__'</data>
   <data key="d1">ConditionExpr</data>
   <data key="d12">__name__ == '__main__'</data>
 </node>
-<node id="If_91">
+<node id="If_99">
   <data key="d0">if</data>
   <data key="d1">If</data>
   <data key="d12">__name__ == '__main__'</data>
@@ -419,13 +457,13 @@
 <edge source="Module_1" target="Section_26">
   <data key="d13">contains</data>
 </edge>
-<edge source="Module_1" target="Function_55">
+<edge source="Module_1" target="Function_63">
   <data key="d13">contains</data>
 </edge>
-<edge source="Module_1" target="Function_60">
+<edge source="Module_1" target="Function_68">
   <data key="d13">contains</data>
 </edge>
-<edge source="Module_1" target="EntryPoint_89">
+<edge source="Module_1" target="EntryPoint_97">
   <data key="d13">contains</data>
 </edge>
 <edge source="Section_2" target="Import_3">
@@ -512,10 +550,10 @@
 <edge source="Section_26" target="SequenceBlock_36">
   <data key="d13">contains</data>
 </edge>
-<edge source="Section_26" target="Program_50">
+<edge source="Section_26" target="Program_58">
   <data key="d13">contains</data>
 </edge>
-<edge source="Section_26" target="ResolveProgram_52">
+<edge source="Section_26" target="ResolveProgram_60">
   <data key="d13">contains</data>
 </edge>
 <edge source="ObjectFifo_27" target="TypeAbstraction_16">
@@ -560,7 +598,7 @@
 <edge source="SequenceBlock_36" target="Operation_41">
   <data key="d13">contains</data>
 </edge>
-<edge source="SequenceBlock_36" target="Operation_45">
+<edge source="SequenceBlock_36" target="Operation_49">
   <data key="d13">contains</data>
 </edge>
 <edge source="Call_37" target="MethodCall_38">
@@ -578,148 +616,172 @@
 <edge source="Operation_41" target="Binding_39">
   <data key="d13">has_arg</data>
 </edge>
+<edge source="Operation_41" target="Kwarg_45">
+  <data key="d13">has_kwarg</data>
+</edge>
 <edge source="Call_43" target="MethodCall_44">
   <data key="d13">calls</data>
 </edge>
 <edge source="MethodCall_44" target="ObjectFifo_27">
   <data key="d13">object</data>
 </edge>
-<edge source="Operation_45" target="MethodCall_46">
+<edge source="Kwarg_45" target="Constructor_46">
+  <data key="d13">contains</data>
+</edge>
+<edge source="Constructor_46" target="ConstExpr_47">
+  <data key="d13">has_arg</data>
+</edge>
+<edge source="Constructor_46" target="ConstExpr_48">
+  <data key="d13">has_arg</data>
+</edge>
+<edge source="Operation_49" target="MethodCall_50">
   <data key="d13">target</data>
 </edge>
-<edge source="Operation_45" target="Call_47">
+<edge source="Operation_49" target="Call_51">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Operation_45" target="Binding_40">
+<edge source="Operation_49" target="Binding_40">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Operation_45" target="Kwarg_49">
+<edge source="Operation_49" target="Kwarg_53">
   <data key="d13">has_kwarg</data>
 </edge>
-<edge source="Call_47" target="MethodCall_48">
+<edge source="Operation_49" target="Kwarg_54">
+  <data key="d13">has_kwarg</data>
+</edge>
+<edge source="Call_51" target="MethodCall_52">
   <data key="d13">calls</data>
 </edge>
-<edge source="MethodCall_48" target="ObjectFifo_30">
+<edge source="MethodCall_52" target="ObjectFifo_30">
   <data key="d13">object</data>
 </edge>
-<edge source="Program_50" target="Call_51">
+<edge source="Kwarg_54" target="Constructor_55">
+  <data key="d13">contains</data>
+</edge>
+<edge source="Constructor_55" target="ConstExpr_56">
+  <data key="d13">has_arg</data>
+</edge>
+<edge source="Constructor_55" target="ConstExpr_57">
+  <data key="d13">has_arg</data>
+</edge>
+<edge source="Program_58" target="Call_59">
   <data key="d13">constructed_by</data>
 </edge>
-<edge source="ResolveProgram_52" target="Call_53">
+<edge source="ResolveProgram_60" target="Call_61">
   <data key="d13">target</data>
 </edge>
-<edge source="Call_53" target="ConstructorExpr_54">
+<edge source="Call_61" target="ConstructorExpr_62">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Function_55" target="Parameter_56">
+<edge source="Function_63" target="Parameter_64">
   <data key="d13">has_param</data>
 </edge>
-<edge source="Function_55" target="Parameter_57">
+<edge source="Function_63" target="Parameter_65">
   <data key="d13">has_param</data>
 </edge>
-<edge source="Function_55" target="FunctionBodyElement_58">
+<edge source="Function_63" target="FunctionBodyElement_66">
   <data key="d13">contains</data>
 </edge>
-<edge source="Function_55" target="FunctionBodyElement_59">
+<edge source="Function_63" target="FunctionBodyElement_67">
   <data key="d13">contains</data>
 </edge>
-<edge source="Function_60" target="Assign_63">
+<edge source="Function_68" target="Assign_71">
   <data key="d13">contains</data>
 </edge>
-<edge source="Function_60" target="Assign_73">
+<edge source="Function_68" target="Assign_81">
   <data key="d13">contains</data>
 </edge>
-<edge source="Function_60" target="Assign_83">
+<edge source="Function_68" target="Assign_91">
   <data key="d13">contains</data>
 </edge>
-<edge source="Function_60" target="Call_85">
+<edge source="Function_68" target="Call_93">
   <data key="d13">contains</data>
 </edge>
-<edge source="Expr_61" target="ConstExpr_62">
+<edge source="Expr_69" target="ConstExpr_70">
   <data key="d13">contains</data>
 </edge>
-<edge source="Assign_63" target="Expr_61">
+<edge source="Assign_71" target="Expr_69">
   <data key="d13">source</data>
 </edge>
-<edge source="Assign_63" target="Variable_64">
+<edge source="Assign_71" target="Variable_72">
   <data key="d13">assigns</data>
 </edge>
-<edge source="Variable_64" target="Const_7">
+<edge source="Variable_72" target="Const_7">
   <data key="d13">refers_to</data>
 </edge>
-<edge source="Expr_65" target="Call_66">
+<edge source="Expr_73" target="Call_74">
   <data key="d13">contains</data>
 </edge>
-<edge source="Call_66" target="FunctionCall_67">
+<edge source="Call_74" target="FunctionCall_75">
   <data key="d13">calls</data>
 </edge>
-<edge source="Call_66" target="VarRef_68">
+<edge source="Call_74" target="VarRef_76">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Call_66" target="Kwarg_70">
+<edge source="Call_74" target="Kwarg_78">
   <data key="d13">has_kwarg</data>
 </edge>
-<edge source="Call_66" target="Kwarg_72">
+<edge source="Call_74" target="Kwarg_80">
   <data key="d13">has_kwarg</data>
 </edge>
-<edge source="Kwarg_70" target="VarRef_69">
+<edge source="Kwarg_78" target="VarRef_77">
   <data key="d13">contains</data>
 </edge>
-<edge source="Kwarg_72" target="String_71">
+<edge source="Kwarg_80" target="String_79">
   <data key="d13">contains</data>
 </edge>
-<edge source="Assign_73" target="Expr_65">
+<edge source="Assign_81" target="Expr_73">
   <data key="d13">source</data>
 </edge>
-<edge source="Assign_73" target="Variable_74">
+<edge source="Assign_81" target="Variable_82">
   <data key="d13">assigns</data>
 </edge>
-<edge source="Variable_74" target="Variable_74">
+<edge source="Variable_82" target="Variable_82">
   <data key="d13">defines</data>
 </edge>
-<edge source="Expr_75" target="Call_76">
+<edge source="Expr_83" target="Call_84">
   <data key="d13">contains</data>
 </edge>
-<edge source="Call_76" target="FunctionCall_77">
+<edge source="Call_84" target="FunctionCall_85">
   <data key="d13">calls</data>
 </edge>
-<edge source="Call_76" target="VarRef_78">
+<edge source="Call_84" target="VarRef_86">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Call_76" target="Kwarg_80">
+<edge source="Call_84" target="Kwarg_88">
   <data key="d13">has_kwarg</data>
 </edge>
-<edge source="Call_76" target="Kwarg_82">
+<edge source="Call_84" target="Kwarg_90">
   <data key="d13">has_kwarg</data>
 </edge>
-<edge source="Kwarg_80" target="VarRef_79">
+<edge source="Kwarg_88" target="VarRef_87">
   <data key="d13">contains</data>
 </edge>
-<edge source="Kwarg_82" target="String_81">
+<edge source="Kwarg_90" target="String_89">
   <data key="d13">contains</data>
 </edge>
-<edge source="Assign_83" target="Expr_75">
+<edge source="Assign_91" target="Expr_83">
   <data key="d13">source</data>
 </edge>
-<edge source="Assign_83" target="Variable_84">
+<edge source="Assign_91" target="Variable_92">
   <data key="d13">assigns</data>
 </edge>
-<edge source="Variable_84" target="Variable_84">
+<edge source="Variable_92" target="Variable_92">
   <data key="d13">defines</data>
 </edge>
-<edge source="Call_85" target="FunctionCall_86">
+<edge source="Call_93" target="FunctionCall_94">
   <data key="d13">calls</data>
 </edge>
-<edge source="Call_85" target="VarRef_87">
+<edge source="Call_93" target="VarRef_95">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="Call_85" target="VarRef_88">
+<edge source="Call_93" target="VarRef_96">
   <data key="d13">has_arg</data>
 </edge>
-<edge source="EntryPoint_89" target="If_91">
+<edge source="EntryPoint_97" target="If_99">
   <data key="d13">contains</data>
 </edge>
-<edge source="If_91" target="ConditionExpr_90">
+<edge source="If_99" target="ConditionExpr_98">
   <data key="d13">condition</data>
 </edge>
 </graph></graphml>

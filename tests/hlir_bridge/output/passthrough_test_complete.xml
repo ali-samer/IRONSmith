@@ -114,6 +114,16 @@
             <arg>
               <var ref="inputa_in"/>
             </arg>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>0</const>
+                </arg>
+                <arg>
+                  <const>0</const>
+                </arg>
+              </constructor>
+            </kwarg>
           </args>
         </Operation>
         <Operation name="drain_outputc_out_col0">
@@ -130,6 +140,16 @@
               <var ref="outputc_out"/>
             </arg>
             <kwarg name="wait" value="True"/>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>0</const>
+                </arg>
+                <arg>
+                  <const>0</const>
+                </arg>
+              </constructor>
+            </kwarg>
           </args>
         </Operation>
       </body>

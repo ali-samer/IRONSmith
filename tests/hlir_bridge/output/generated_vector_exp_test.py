@@ -59,8 +59,8 @@ def vector_exp_test_jit(inputA, outputC):
     rt = Runtime()
     with rt.sequence(memtile_ty, memtile_ty) as (inputa_in, outputc_out):
         rt.start(*Workers)
-        rt.fill(of_in_a.prod(), inputa_in)
-        rt.drain(of_out_c.cons(), outputc_out, wait=True)
+        rt.fill(of_in_a.prod(), inputa_in, placement=Tile(0, 0))
+        rt.drain(of_out_c.cons(), outputc_out, wait=True, placement=Tile(0, 0))
 
     # Create the program from the current device and runtime
     my_program = Program(iron.get_current_device(), rt)
