@@ -20,6 +20,8 @@ public:
     explicit AiePanelState(AieCanvasCoordinator* coordinator = nullptr, QObject* parent = nullptr);
 
     void setCoordinator(AieCanvasCoordinator* coordinator);
+    void setDefaultsPersistenceEnabled(bool enabled);
+    bool defaultsPersistenceEnabled() const { return m_persistDefaults; }
 
     static Utils::Environment makeEnvironment();
 
@@ -35,6 +37,7 @@ private:
     Utils::Environment m_env;
     QTimer m_saveTimer;
     bool m_applying = false;
+    bool m_persistDefaults = true;
 };
 
 } // namespace Aie::Internal

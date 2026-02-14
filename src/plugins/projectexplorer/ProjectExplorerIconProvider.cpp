@@ -127,6 +127,8 @@ const QMap<QString, QString>& ProjectExplorerIconProvider::extensionIconMap()
         { QStringLiteral("json"), QStringLiteral(":/ui/icons/svg/json_icon.svg") },
         { QStringLiteral("xml"), QStringLiteral(":/ui/icons/svg/xml_icon.svg") },
         { QStringLiteral("py"), QStringLiteral(":/ui/icons/svg/python_icon.svg") },
+        { QStringLiteral("ironsmith"), QStringLiteral(":/ui/icons/svg/hammer_icon.svg") },
+        { QStringLiteral("irondesign"), QStringLiteral(":/ui/icons/svg/hammer_icon.svg") },
         { QStringLiteral("graphml"), QStringLiteral(":/ui/icons/svg/graphml_icon.svg") },
         { QStringLiteral("md"), QStringLiteral(":/ui/icons/svg/markdown_icon.svg") },
         { QStringLiteral("markdown"), QStringLiteral(":/ui/icons/svg/markdown_icon.svg") },

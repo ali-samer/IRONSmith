@@ -8,6 +8,7 @@
 #include <QtCore/QPoint>
 #include <QtCore/QRectF>
 #include <QtCore/QSet>
+#include <QtCore/QString>
 
 #include <QtWidgets/QWidget>
 #include <qnamespace.h>
@@ -68,6 +69,10 @@ public:
 	void setMarqueeRect(const QRectF& sceneRect);
 	void clearMarqueeRect();
 
+    void setEmptyStateVisible(bool visible);
+    bool emptyStateVisible() const noexcept { return m_emptyStateVisible; }
+    void setEmptyStateText(QString title, QString message);
+
 signals:
 	void zoomChanged(double zoom);
 	void panChanged(QPointF pan);
@@ -92,8 +97,13 @@ protected:
 	void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    void drawEmptyState(QPainter& painter);
+
 	CanvasScene* m_scene = nullptr;
 	CanvasViewport* m_viewport = nullptr;
+    bool m_emptyStateVisible = false;
+    QString m_emptyTitle;
+    QString m_emptyMessage;
 };
 
 } // namespace Canvas

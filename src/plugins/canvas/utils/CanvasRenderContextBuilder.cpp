@@ -36,6 +36,8 @@ CanvasRenderContext buildRenderContext(const CanvasDocument* doc,
     ctx.hasSelectedPort = ports.hasSelectedPort;
     ctx.selectedPortItem = ports.selectedPortItem;
     ctx.selectedPortId = ports.selectedPortId;
+    ctx.isPortSelected = ports.isPortSelected;
+    ctx.isPortSelectedUser = ports.isPortSelectedUser;
 
     return ctx;
 }

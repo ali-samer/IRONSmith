@@ -79,6 +79,7 @@ private:
     CanvasWire::Endpoint m_dragEndpointOriginal;
     bool m_dragEndpointPortDynamic = false;
     bool m_dragEndpointPortShared = false;
+    bool m_dragEndpointPortPaired = false;
     PortRef m_dragEndpointPort{};
     CanvasPort m_dragEndpointPortMeta{};
     size_t m_dragEndpointPortIndex = 0;

@@ -11,6 +11,7 @@ ironsmith_define_tests(
                 ProjectExplorerModelTests.cpp
                 ProjectExplorerFilterModelTests.cpp
                 ProjectExplorerDataSourceTests.cpp
+                ProjectExplorerFileSystemServiceTests.cpp
                 ProjectExplorerSearchIndexTests.cpp
                 ProjectExplorerSearchMatcherTests.cpp
                 ProjectExplorerTreeStateTests.cpp

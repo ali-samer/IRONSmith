@@ -355,6 +355,11 @@ void UiHostImpl::setPlaygroundBottomBar(QWidget* w)
     replaceSingleChild(m_playground->bottomBar(), w);
 }
 
+InfoBarWidget* UiHostImpl::playgroundTopBar() const
+{
+    return m_playground ? m_playground->topBar() : nullptr;
+}
+
 InfoBarWidget* UiHostImpl::playgroundBottomBar() const
 {
     return m_playground ? m_playground->bottomBar() : nullptr;

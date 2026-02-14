@@ -21,8 +21,27 @@ ironsmith_add_plugin(AiePlugin
             api/IAieHost.hpp
             state/AiePanelState.hpp
             state/AiePanelState.cpp
+            state/AieLayoutSettings.hpp
+            state/AieLayoutSettings.cpp
             panels/AieToolPanel.hpp
             panels/AieToolPanel.cpp
+            panels/AieNewDesignDialog.hpp
+            panels/AieNewDesignDialog.cpp
+            design/DesignModel.hpp
+            design/DesignModel.cpp
+            design/DesignBundleLoader.hpp
+            design/DesignBundleLoader.cpp
+            design/DesignState.hpp
+            design/DesignStateJson.hpp
+            design/DesignStateJson.cpp
+            design/DesignStateCanvas.hpp
+            design/DesignStateCanvas.cpp
+            design/DesignPersistenceController.hpp
+            design/DesignPersistenceController.cpp
+            design/CanvasDocumentImporter.hpp
+            design/CanvasDocumentImporter.cpp
+            design/DesignOpenController.hpp
+            design/DesignOpenController.cpp
 
         PUBLIC_DEPENDS
             ${QT6_REQUIRED_COMPONENTS}
@@ -32,6 +51,7 @@ ironsmith_add_plugin(AiePlugin
             IRONSmith::ExtensionSystem
             IRONSmith::CorePlugin
             IRONSmith::CanvasPlugin
+            IRONSmith::ProjectExplorerPlugin
 )
 
 if (BUILD_WITH_TESTS)

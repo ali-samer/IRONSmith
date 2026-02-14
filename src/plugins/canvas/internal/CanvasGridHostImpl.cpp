@@ -123,6 +123,26 @@ bool applyBlockSpec(Canvas::CanvasBlock* block,
         changed = true;
     }
 
+    if (spec.hasAutoPortRole) {
+        if (!block->hasAutoPortRole() || block->autoPortRole() != spec.autoPortRole) {
+            block->setAutoPortRole(spec.autoPortRole);
+            changed = true;
+        }
+    } else if (block->hasAutoPortRole()) {
+        block->clearAutoPortRole();
+        changed = true;
+    }
+
+    if (block->autoOppositeProducerPort() != spec.autoOppositeProducerPort) {
+        block->setAutoOppositeProducerPort(spec.autoOppositeProducerPort);
+        changed = true;
+    }
+
+    if (block->showPortLabels() != spec.showPortLabels) {
+        block->setShowPortLabels(spec.showPortLabels);
+        changed = true;
+    }
+
     const double keepoutMargin = (spec.keepoutMargin >= 0.0)
                                      ? spec.keepoutMargin * kWorldScale
                                      : -1.0;

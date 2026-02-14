@@ -3,63 +3,38 @@
 #include <QtWidgets/QDialogButtonBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QStyle>
+#include <QtWidgets/QVBoxLayout>
 
 namespace Utils {
 
 ConfirmationDialog::ConfirmationDialog(QWidget* parent)
-    : QDialog(parent)
+    : BaseDialog(parent)
 {
-    setObjectName(QStringLiteral("ConfirmationDialog"));
-    setAttribute(Qt::WA_StyledBackground, true);
-    setModal(true);
-    setWindowFlag(Qt::WindowContextHelpButtonHint, false);
-
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->setSpacing(10);
-
-    m_titleLabel = new QLabel(this);
-    m_titleLabel->setObjectName(QStringLiteral("ConfirmationDialogTitle"));
-    QFont titleFont = m_titleLabel->font();
-    titleFont.setWeight(QFont::DemiBold);
-    m_titleLabel->setFont(titleFont);
-    m_titleLabel->setVisible(false);
-
-    m_messageLabel = new QLabel(this);
-    m_messageLabel->setObjectName(QStringLiteral("ConfirmationDialogMessage"));
-    m_messageLabel->setWordWrap(true);
-    m_messageLabel->setVisible(false);
-
-    m_informativeLabel = new QLabel(this);
-    m_informativeLabel->setObjectName(QStringLiteral("ConfirmationDialogInformative"));
+    m_informativeLabel = new QLabel(contentWidget());
+    m_informativeLabel->setObjectName(QStringLiteral("DialogInformative"));
     m_informativeLabel->setWordWrap(true);
     m_informativeLabel->setVisible(false);
 
-    m_detailsLabel = new QLabel(this);
-    m_detailsLabel->setObjectName(QStringLiteral("ConfirmationDialogDetails"));
+    m_detailsLabel = new QLabel(contentWidget());
+    m_detailsLabel->setObjectName(QStringLiteral("DialogDetails"));
     m_detailsLabel->setWordWrap(true);
     m_detailsLabel->setVisible(false);
 
-    layout->addWidget(m_titleLabel);
-    layout->addWidget(m_messageLabel);
-    layout->addWidget(m_informativeLabel);
-    layout->addWidget(m_detailsLabel);
+    contentLayout()->addWidget(m_informativeLabel);
+    contentLayout()->addWidget(m_detailsLabel);
 
-    m_buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    m_buttons->setObjectName(QStringLiteral("ConfirmationDialogButtons"));
-    m_confirmButton = m_buttons->button(QDialogButtonBox::Ok);
-    m_cancelButton = m_buttons->button(QDialogButtonBox::Cancel);
+    auto* buttons = buttonBox();
+    buttons->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_confirmButton = buttons->button(QDialogButtonBox::Ok);
+    m_cancelButton = buttons->button(QDialogButtonBox::Cancel);
     if (m_confirmButton)
-        m_confirmButton->setObjectName(QStringLiteral("ConfirmationDialogConfirmButton"));
+        m_confirmButton->setObjectName(QStringLiteral("DialogConfirmButton"));
     if (m_cancelButton)
-        m_cancelButton->setObjectName(QStringLiteral("ConfirmationDialogCancelButton"));
+        m_cancelButton->setObjectName(QStringLiteral("DialogCancelButton"));
 
-    connect(m_buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(m_buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-    layout->addWidget(m_buttons);
+    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     updateButtons();
 }
@@ -92,33 +67,30 @@ bool ConfirmationDialog::confirmDelete(QWidget* parent, const QString& targetNam
 
 QString ConfirmationDialog::title() const
 {
-    return m_title;
+    return titleText();
 }
 
 void ConfirmationDialog::setTitle(const QString& title)
 {
     const QString cleaned = title.trimmed();
-    if (m_title == cleaned)
+    if (titleText() == cleaned)
         return;
-    m_title = cleaned;
-    setWindowTitle(m_title);
-    updateLabels();
-    emit titleChanged(m_title);
+    setTitleText(cleaned);
+    emit titleChanged(cleaned);
 }
 
 QString ConfirmationDialog::message() const
 {
-    return m_message;
+    return messageText();
 }
 
 void ConfirmationDialog::setMessage(const QString& message)
 {
     const QString cleaned = message.trimmed();
-    if (m_message == cleaned)
+    if (messageText() == cleaned)
         return;
-    m_message = cleaned;
-    updateLabels();
-    emit messageChanged(m_message);
+    setMessageText(cleaned);
+    emit messageChanged(cleaned);
 }
 
 QString ConfirmationDialog::informativeText() const
@@ -179,16 +151,6 @@ void ConfirmationDialog::setCancelButtonText(const QString& text)
 
 void ConfirmationDialog::updateLabels()
 {
-    if (m_titleLabel) {
-        m_titleLabel->setVisible(!m_title.isEmpty());
-        m_titleLabel->setText(m_title);
-    }
-
-    if (m_messageLabel) {
-        m_messageLabel->setVisible(!m_message.isEmpty());
-        m_messageLabel->setText(m_message);
-    }
-
     if (m_informativeLabel) {
         m_informativeLabel->setVisible(!m_informativeText.isEmpty());
         m_informativeLabel->setText(m_informativeText);

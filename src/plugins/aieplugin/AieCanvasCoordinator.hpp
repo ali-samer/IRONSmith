@@ -29,6 +29,7 @@ class AieCanvasCoordinator final : public QObject
     Q_PROPERTY(double cellSize READ cellSize WRITE setCellSize NOTIFY cellSizeChanged)
     Q_PROPERTY(bool showPorts READ showPorts WRITE setShowPorts NOTIFY showPortsChanged)
     Q_PROPERTY(bool showLabels READ showLabels WRITE setShowLabels NOTIFY showLabelsChanged)
+    Q_PROPERTY(bool showAnnotations READ showAnnotations WRITE setShowAnnotations NOTIFY showAnnotationsChanged)
     Q_PROPERTY(double keepoutMargin READ keepoutMargin WRITE setKeepoutMargin NOTIFY keepoutMarginChanged)
     Q_PROPERTY(bool useCustomColors READ useCustomColors WRITE setUseCustomColors NOTIFY useCustomColorsChanged)
     Q_PROPERTY(QColor fillColor READ fillColor WRITE setFillColor NOTIFY fillColorChanged)
@@ -86,6 +87,9 @@ public:
     bool showLabels() const { return m_showLabels; }
     void setShowLabels(bool enabled);
 
+    bool showAnnotations() const { return m_showAnnotations; }
+    void setShowAnnotations(bool enabled);
+
     double keepoutMargin() const { return m_keepoutMargin; }
     void setKeepoutMargin(double margin);
 
@@ -102,6 +106,7 @@ public:
     void setLabelColor(const QColor& color);
 
     void apply();
+    void flushApply();
     void beginSelectionSpacing(SelectionSpacingAxis axis);
     void updateSelectionSpacing(SelectionSpacingAxis axis, double value);
     void endSelectionSpacing(SelectionSpacingAxis axis);
@@ -117,6 +122,7 @@ signals:
     void cellSizeChanged(double size);
     void showPortsChanged(bool enabled);
     void showLabelsChanged(bool enabled);
+    void showAnnotationsChanged(bool enabled);
     void keepoutMarginChanged(double margin);
     void useCustomColorsChanged(bool enabled);
     void fillColorChanged(const QColor& color);
@@ -145,6 +151,7 @@ private:
     double m_cellSize = 0.0;
     bool m_showPorts = true;
     bool m_showLabels = true;
+    bool m_showAnnotations = false;
     double m_keepoutMargin = -1.0;
 
     bool m_useCustomColors = false;

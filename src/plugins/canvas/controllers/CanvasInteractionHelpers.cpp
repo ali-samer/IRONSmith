@@ -182,7 +182,10 @@ std::optional<PortRef> ensureEdgePort(CanvasDocument* doc,
         }
     }
 
-    const Canvas::PortId portId = block->addPort(candidate.side, chosenT, Canvas::PortRole::Dynamic);
+    const Canvas::PortRole role = block->hasAutoPortRole()
+        ? block->autoPortRole()
+        : Canvas::PortRole::Dynamic;
+    const Canvas::PortId portId = block->addPort(candidate.side, chosenT, role);
     if (portId.isNull())
         return std::nullopt;
 

@@ -1,0 +1,33 @@
+#pragma once
+
+#include <QtCore/QJsonObject>
+#include <QtCore/QString>
+
+namespace Aie::Internal {
+
+struct TileCounts final {
+    int columns = 0;
+    int shimRows = 0;
+    int memRows = 0;
+    int aieRows = 0;
+
+    int totalRows() const { return shimRows + memRows + aieRows; }
+};
+
+struct DesignModel final {
+    QString bundlePath;
+    QString name;
+    QString deviceFamily;
+    QString aieArch;
+    QString deviceId;
+
+    TileCounts tiles;
+
+    QJsonObject manifest;
+    QJsonObject program;
+    QJsonObject design;
+
+    bool hasDesignState() const;
+};
+
+} // namespace Aie::Internal

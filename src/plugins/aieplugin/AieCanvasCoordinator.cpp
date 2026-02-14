@@ -9,12 +9,15 @@
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasBlock.hpp"
 
+#include <QtCore/QLoggingCategory>
 #include <QtCore/QMarginsF>
 #include <QtCore/QtGlobal>
 #include <QtCore/QSet>
 
 #include <algorithm>
 #include <limits>
+
+Q_LOGGING_CATEGORY(aiecanvaslog, "ironsmith.aie.canvas")
 
 namespace Aie {
 
@@ -253,6 +256,7 @@ AieCanvasCoordinator::AieCanvasCoordinator(QObject* parent)
     , m_cellSize(Aie::kDefaultCellSize)
     , m_showPorts(true)
     , m_showLabels(true)
+    , m_showAnnotations(false)
     , m_keepoutMargin(Aie::kDefaultKeepoutMargin)
     , m_useCustomColors(false)
     , m_fillColor(QColor(Canvas::Constants::kBlockFillColor))
@@ -390,6 +394,15 @@ void AieCanvasCoordinator::setShowLabels(bool enabled)
     requestApply();
 }
 
+void AieCanvasCoordinator::setShowAnnotations(bool enabled)
+{
+    if (m_showAnnotations == enabled)
+        return;
+    m_showAnnotations = enabled;
+    emit showAnnotationsChanged(m_showAnnotations);
+    requestApply();
+}
+
 void AieCanvasCoordinator::setKeepoutMargin(double margin)
 {
     if (qFuzzyCompare(m_keepoutMargin, margin))
@@ -443,6 +456,9 @@ void AieCanvasCoordinator::apply()
     if (!m_gridHost || !m_baseModel.gridSpec.isValid())
         return;
 
+    qCDebug(aiecanvaslog) << "AIE apply(): blocks=" << m_baseModel.blocks.size()
+                          << "gridValid=" << m_baseModel.gridSpec.isValid();
+
     Utils::GridSpec spec = m_baseModel.gridSpec;
     const double spread = m_outwardSpread;
     spec.cellSpacing = QSizeF(m_horizontalSpacing + spread, m_verticalSpacing + spread);
@@ -451,8 +467,10 @@ void AieCanvasCoordinator::apply()
 
     QVector<Canvas::Api::CanvasBlockSpec> blocks = m_baseModel.blocks;
     for (auto& block : blocks) {
+        const bool basePortLabels = block.showPortLabels;
         block.showPorts = m_showPorts;
         block.label = m_showLabels ? block.label : QString();
+        block.showPortLabels = m_showAnnotations && basePortLabels;
         block.positionOffset = m_blockOffsets.value(block.id);
         if (m_keepoutMargin >= 0.0)
             block.keepoutMargin = m_keepoutMargin;
@@ -485,6 +503,11 @@ void AieCanvasCoordinator::apply()
             m_styleHost->setBlockStyle(it.key(), style);
         }
     }
+}
+
+void AieCanvasCoordinator::flushApply()
+{
+    applyNow();
 }
 
 void AieCanvasCoordinator::beginSelectionSpacing(SelectionSpacingAxis axis)

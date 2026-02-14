@@ -25,6 +25,12 @@ bool isSelectedThunk(void* user, ObjectId id)
     return scene && scene->isSelected(id);
 }
 
+bool isPortSelectedThunk(void* user, ObjectId itemId, PortId portId)
+{
+    const auto* scene = static_cast<const CanvasScene*>(user);
+    return scene && scene->isPortSelected(itemId, portId);
+}
+
 } // namespace
 
 CanvasScene::CanvasScene(QObject* parent)
@@ -80,6 +86,8 @@ void CanvasScene::setSelectionModel(CanvasSelectionModel* model)
                 [this](ObjectId, PortId) { emit requestUpdate(); });
         connect(m_selectionModel, &CanvasSelectionModel::selectedPortCleared, this,
                 [this]() { emit requestUpdate(); });
+        connect(m_selectionModel, &CanvasSelectionModel::selectedPortsChanged, this,
+                [this]() { emit requestUpdate(); });
     }
     emit requestUpdate();
 }
@@ -98,6 +106,11 @@ const QSet<ObjectId>& CanvasScene::selectedItems() const noexcept
 bool CanvasScene::isSelected(ObjectId id) const noexcept
 {
     return m_selectionModel ? m_selectionModel->isSelected(id) : false;
+}
+
+bool CanvasScene::isPortSelected(ObjectId itemId, PortId portId) const noexcept
+{
+    return m_selectionModel ? m_selectionModel->isPortSelected(itemId, portId) : false;
 }
 
 void CanvasScene::setSelectedItem(ObjectId id)
@@ -322,6 +335,8 @@ CanvasRenderContext CanvasScene::buildRenderContext(const QRectF& sceneRect, boo
         ports.hasSelectedPort = true;
         ports.selectedPortItem = m_selectionModel->selectedPortItem();
         ports.selectedPortId = m_selectionModel->selectedPortId();
+        ports.isPortSelected = &isPortSelectedThunk;
+        ports.isPortSelectedUser = const_cast<CanvasScene*>(this);
     }
 
     return Support::buildRenderContext(m_document, sceneRect, zoom, selection, ports);

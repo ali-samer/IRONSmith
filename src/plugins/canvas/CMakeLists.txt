@@ -42,6 +42,8 @@ ironsmith_add_plugin(CanvasPlugin
             CanvasController.hpp
             CanvasController.cpp
             utils/CanvasGeometry.hpp
+            utils/CanvasAutoPorts.hpp
+            utils/CanvasAutoPorts.cpp
             utils/CanvasPortHitTest.hpp
             utils/CanvasPortHitTest.cpp
             utils/CanvasLinkHubStyle.hpp

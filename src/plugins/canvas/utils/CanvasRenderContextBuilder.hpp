@@ -24,6 +24,9 @@ struct RenderContextPortState final {
     bool hasSelectedPort = false;
     ObjectId selectedPortItem{};
     PortId selectedPortId{};
+
+    CanvasRenderContext::IsPortSelectedFn isPortSelected = nullptr;
+    void* isPortSelectedUser = nullptr;
 };
 
 CanvasRenderContext buildRenderContext(const CanvasDocument* doc,

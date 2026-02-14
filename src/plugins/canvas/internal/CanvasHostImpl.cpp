@@ -17,6 +17,8 @@ namespace Canvas::Internal {
 CanvasHostImpl::CanvasHostImpl(QObject* parent)
 	: Canvas::Api::ICanvasHost(parent)
 {
+    m_emptyTitle = QStringLiteral("No design open.");
+    m_emptyMessage = QStringLiteral("Create or open a design to start.");
 }
 
 
@@ -34,6 +36,7 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 
 	m_view = new CanvasView();
 	m_view->setDocument(m_document);
+    applyEmptyState();
 
 	m_selection = new CanvasSelectionModel(this);
 	m_view->setSelectionModel(m_selection);
@@ -175,6 +178,42 @@ CanvasDocument* CanvasHostImpl::document() const
 CanvasController* CanvasHostImpl::controller() const
 {
 	return m_controller;
+}
+
+void CanvasHostImpl::setCanvasActive(bool active)
+{
+    if (m_canvasActive == active)
+        return;
+    m_canvasActive = active;
+    applyEmptyState();
+    emit canvasActiveChanged(m_canvasActive);
+}
+
+bool CanvasHostImpl::canvasActive() const
+{
+    return m_canvasActive;
+}
+
+void CanvasHostImpl::setEmptyStateText(const QString& title, const QString& message)
+{
+    const QString cleanedTitle = title.trimmed();
+    const QString cleanedMessage = message.trimmed();
+    if (m_emptyTitle == cleanedTitle && m_emptyMessage == cleanedMessage)
+        return;
+    m_emptyTitle = cleanedTitle;
+    m_emptyMessage = cleanedMessage;
+    applyEmptyState();
+}
+
+void CanvasHostImpl::applyEmptyState()
+{
+    if (!m_view)
+        return;
+    const bool showEmpty = !m_canvasActive;
+    m_view->setEmptyStateVisible(showEmpty);
+    if (showEmpty)
+        m_view->setEmptyStateText(m_emptyTitle, m_emptyMessage);
+    m_view->update();
 }
 
 } // namespace Canvas::Internal

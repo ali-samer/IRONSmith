@@ -1,5 +1,11 @@
 #include "aieplugin/AieGlobal.hpp"
 #include "aieplugin/AieConstants.hpp"
+#include "aieplugin/NpuProfileLoader.hpp"
+#include "aieplugin/design/CanvasDocumentImporter.hpp"
+#include "aieplugin/design/DesignBundleLoader.hpp"
+#include "aieplugin/design/DesignOpenController.hpp"
+#include "aieplugin/design/DesignPersistenceController.hpp"
+#include "aieplugin/panels/AieNewDesignDialog.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
 #include "aieplugin/AieService.hpp"
 #include "aieplugin/state/AiePanelState.hpp"
@@ -7,17 +13,22 @@
 #include <extensionsystem/IPlugin.hpp>
 #include <utils/Result.hpp>
 
+#include <QtWidgets/QApplication>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QStringList>
+#include <memory>
 
 #include "core/api/ISidebarRegistry.hpp"
 #include "core/api/SidebarToolSpec.hpp"
+#include "core/api/IHeaderInfo.hpp"
+#include "core/CoreConstants.hpp"
 #include "core/ui/IUiHost.hpp"
 #include "canvas/api/ICanvasHost.hpp"
 #include "canvas/api/ICanvasGridHost.hpp"
 #include "canvas/api/ICanvasStyleHost.hpp"
 #include "canvas/api/CanvasStyleTypes.hpp"
 #include "extensionsystem/PluginManager.hpp"
+#include "projectexplorer/api/IProjectExplorer.hpp"
 
 Q_LOGGING_CATEGORY(aiepluginlog, "ironsmith.aie")
 
@@ -37,9 +48,15 @@ public:
     ShutdownFlag aboutToShutdown() override;
 
 private:
+    void connectRibbonActions(Core::IUiHost* uiHost, ExtensionSystem::PluginManager& manager);
+
     QPointer<Core::ISidebarRegistry> m_sidebarRegistry;
     QPointer<AieService> m_service;
     QPointer<AiePanelState> m_panelState;
+    QPointer<DesignOpenController> m_designOpenController;
+    QPointer<DesignPersistenceController> m_persistenceController;
+    std::unique_ptr<DesignBundleLoader> m_bundleLoader;
+    std::unique_ptr<CanvasDocumentImporter> m_canvasImporter;
     bool m_toolRegistered = false;
 };
 
@@ -52,6 +69,26 @@ void logResultErrors(const QString& context, const Utils::Result& result)
     qCWarning(aiepluginlog).noquote() << context;
     for (const auto& error : result.errors)
         qCWarning(aiepluginlog).noquote() << "  " << error;
+}
+
+QString formatDeviceLabel(const Aie::NpuProfileCatalog& catalog, const QString& deviceId)
+{
+    const auto* profile = findProfileById(catalog, deviceId);
+    if (!profile) {
+        if (deviceId.isEmpty())
+            return QStringLiteral("PHOENIX-XDNA1");
+        return deviceId.toUpper();
+    }
+
+    const QString name = profile->name.trimmed().toUpper();
+    const QString family = profile->family.trimmed().toUpper();
+    if (!name.isEmpty() && !family.isEmpty())
+        return QStringLiteral("%1-%2").arg(name, family);
+    if (!name.isEmpty())
+        return name;
+    if (!family.isEmpty())
+        return family;
+    return profile->id.trimmed().toUpper();
 }
 
 } // namespace
@@ -96,13 +133,6 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
         return;
     }
 
-    const QString profileId = QString::fromLatin1(Aie::kDefaultProfileId);
-    const Utils::Result buildResult = m_service->setProfileId(profileId);
-    if (!buildResult) {
-        logResultErrors(QStringLiteral("AiePlugin: Failed to build canvas grid model."), buildResult);
-        return;
-    }
-
     QHash<QString, Canvas::Api::CanvasBlockStyle> baseStyles;
     Canvas::Api::CanvasBlockStyle aieStyle;
     aieStyle.fillColor = QColor(QStringLiteral("#0B1B16"));
@@ -133,6 +163,46 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
     baseStyles.insert(QStringLiteral("ddr"), ddrStyle);
 
     m_service->setBaseStyles(baseStyles);
+
+    if (canvasHost) {
+        canvasHost->setEmptyStateText(QStringLiteral("No design open."),
+                                      QStringLiteral("Create or open a design to start."));
+        canvasHost->setCanvasActive(false);
+    }
+
+    if (!m_bundleLoader)
+        m_bundleLoader = std::make_unique<DesignBundleLoader>(&m_service->catalog());
+    if (!m_canvasImporter)
+        m_canvasImporter = std::make_unique<CanvasDocumentImporter>(m_service);
+    if (!m_persistenceController)
+        m_persistenceController = new DesignPersistenceController(this);
+    if (m_persistenceController)
+        m_persistenceController->setCanvasHost(canvasHost);
+    if (m_persistenceController && m_service)
+        m_persistenceController->setCoordinator(m_service->coordinator());
+    if (!m_designOpenController) {
+        m_designOpenController = new DesignOpenController(m_bundleLoader.get(),
+                                                          m_canvasImporter.get(),
+                                                          m_persistenceController,
+                                                          this);
+    }
+    if (m_designOpenController) {
+        m_designOpenController->setUiHost(uiHost);
+        if (auto* explorer = manager.getObject<ProjectExplorer::IProjectExplorer>())
+            m_designOpenController->setProjectExplorer(explorer);
+    }
+    if (m_designOpenController) {
+        if (auto* header = manager.getObject<Core::IHeaderInfo>()) {
+            connect(m_designOpenController, &DesignOpenController::designOpened,
+                    this, [this, header](const QString&, const QString& displayName, const QString& deviceId) {
+                        header->setDesignLabel(displayName);
+                        if (m_service)
+                            header->setDeviceLabel(formatDeviceLabel(m_service->catalog(), deviceId));
+                        else
+                            header->setDeviceLabel(deviceId);
+                    });
+        }
+    }
 
     if (!m_panelState)
         m_panelState = new AiePanelState(m_service->coordinator(), this);
@@ -165,6 +235,8 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
             m_toolRegistered = true;
         }
     }
+
+    connectRibbonActions(uiHost, manager);
 }
 
 ExtensionSystem::IPlugin::ShutdownFlag AiePlugin::aboutToShutdown()
@@ -180,6 +252,41 @@ ExtensionSystem::IPlugin::ShutdownFlag AiePlugin::aboutToShutdown()
         m_service = nullptr;
     }
     return ShutdownFlag::SynchronousShutdown;
+}
+
+void AiePlugin::connectRibbonActions(Core::IUiHost* uiHost, ExtensionSystem::PluginManager& manager)
+{
+    if (!uiHost)
+        return;
+
+    QAction* newDesignAction = uiHost->ribbonCommand(Core::Constants::RIBBON_TAB_HOME,
+                                                     Core::Constants::RIBBON_TAB_HOME_PROJECT_GROUP,
+                                                     Core::Constants::PROJECT_NEW_ITEMID);
+    if (!newDesignAction) {
+        qCWarning(aiepluginlog) << "AiePlugin: New Design action not available.";
+        return;
+    }
+
+    auto* projectExplorer = manager.getObject<ProjectExplorer::IProjectExplorer>();
+
+    connect(newDesignAction, &QAction::triggered, this, [this, uiHost, projectExplorer]() {
+        QWidget* parent = uiHost ? uiHost->playgroundOverlayHost() : nullptr;
+        if (!parent)
+            parent = QApplication::activeWindow();
+
+        AieNewDesignDialog dialog(parent);
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+
+        const auto result = dialog.result();
+        if (!result.created)
+            return;
+
+        if (projectExplorer)
+            projectExplorer->refresh();
+        if (m_designOpenController)
+            m_designOpenController->openBundlePath(result.bundlePath);
+    });
 }
 
 } // namespace Aie::Internal

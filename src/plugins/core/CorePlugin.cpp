@@ -15,7 +15,9 @@
 #include "core/CoreImpl.hpp"
 #include "core/CoreConstants.hpp"
 #include "core/CommandRibbon.hpp"
+#include "core/HeaderInfoService.hpp"
 #include "core/ui/IUiHost.hpp"
+#include "core/widgets/InfoBarWidget.hpp"
 
 // Sidebar test wiring (Core-internal)
 #include "core/SidebarRegistryImpl.hpp"
@@ -33,6 +35,9 @@ CorePlugin::~CorePlugin()
 {
 	if (!m_core)
 		return;
+
+	if (m_headerInfo)
+		ExtensionSystem::PluginManager::removeObject(static_cast<Core::IHeaderInfo*>(m_headerInfo));
 
 	if (auto* ui = m_core->uiHost())
 		ExtensionSystem::PluginManager::removeObject(ui);
@@ -57,6 +62,11 @@ Utils::Result CorePlugin::initialize(const QStringList& arguments,
 	ExtensionSystem::PluginManager::addObject(ui);
 
 	setupCommandRibbonActions(ui);
+	if (auto* bar = ui->playgroundTopBar()) {
+		m_headerInfo = new Internal::HeaderInfoService(this);
+		m_headerInfo->bindInfoBar(bar);
+		ExtensionSystem::PluginManager::addObject(static_cast<Core::IHeaderInfo*>(m_headerInfo));
+	}
 
 	return Utils::Result::success();
 }
@@ -84,6 +94,7 @@ void CorePlugin::setupCommandRibbonActions(Core::IUiHost* uiHost)
 	setupViewPageCommands(uiHost);
 	setupOutputPageCommands(uiHost);
 }
+
 
 void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 {

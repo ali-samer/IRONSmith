@@ -56,8 +56,6 @@ signals:
 private:
     QString absolutePathFor(const QString& relPath) const;
     QString resolveTargetDirectory(const QString& relPath) const;
-    QString uniqueChildName(const QDir& dir, const QString& baseName, const QString& ext) const;
-    QString duplicateName(const QDir& dir, const QString& fileName) const;
 
     static Utils::Result copyRecursively(const QString& source, const QString& dest);
 

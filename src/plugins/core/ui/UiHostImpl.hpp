@@ -46,6 +46,7 @@ public:
 
 	void setPlaygroundTopBar(QWidget* w) override;
 	void setPlaygroundBottomBar(QWidget* w) override;
+	InfoBarWidget* playgroundTopBar() const override;
 	InfoBarWidget* playgroundBottomBar() const override;
 
 	void setPlaygroundCenterBase(QWidget* w) override;
