@@ -48,7 +48,13 @@ struct CANVAS_EXPORT CanvasRenderContext final {
     ObjectId selectedPortItem{};
     PortId selectedPortId{};
 
+    using IsPortSelectedFn = bool (*)(void*, ObjectId, PortId);
+    IsPortSelectedFn isPortSelected = nullptr;
+    void* isPortSelectedUser = nullptr;
+
     bool portSelected(ObjectId itemId, PortId portId) const {
+        if (isPortSelected)
+            return isPortSelected(isPortSelectedUser, itemId, portId);
         return hasSelectedPort && selectedPortItem == itemId && selectedPortId == portId;
     }
 };

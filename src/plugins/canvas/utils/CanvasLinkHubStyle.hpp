@@ -5,7 +5,7 @@
 #include <QtCore/QString>
 #include <QtGui/QColor>
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 enum class LinkHubKind : uint8_t {
     Split,
@@ -22,4 +22,4 @@ struct CANVAS_EXPORT LinkHubStyle final {
 
 LinkHubStyle linkHubStyle(LinkHubKind kind);
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

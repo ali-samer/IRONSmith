@@ -106,8 +106,11 @@ public:
 
 private:
     Layout m_layout = Layout::Vertical;
-    QMarginsF m_padding{6.0, 6.0, 6.0, 6.0};
-    double m_gap = 6.0;
+    QMarginsF m_padding{Constants::kContentPadding,
+                        Constants::kContentPadding,
+                        Constants::kContentPadding,
+                        Constants::kContentPadding};
+    double m_gap = Constants::kContentGap;
     int m_columns = 2;
     std::vector<std::unique_ptr<BlockContent>> m_children;
 };

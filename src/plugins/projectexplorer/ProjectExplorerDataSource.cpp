@@ -1,6 +1,7 @@
 #include "projectexplorer/ProjectExplorerDataSource.hpp"
 
 #include <utils/async/AsyncTask.hpp>
+#include <utils/DocumentBundle.hpp>
 #include <utils/VirtualPath.hpp>
 
 #include <QtCore/QDir>
@@ -154,11 +155,14 @@ Utils::Environment ProjectExplorerDataSource::makeEnvironment()
 
 ProjectExplorer::ProjectEntryKind ProjectExplorerDataSource::classifyPath(const QString& relPath, bool isDir)
 {
-    if (isDir)
+    if (isDir) {
+        if (Utils::DocumentBundle::hasBundleExtension(relPath))
+            return ProjectExplorer::ProjectEntryKind::Design;
         return ProjectExplorer::ProjectEntryKind::Folder;
+    }
 
     const QString ext = QFileInfo(relPath).suffix().toLower();
-    if (ext == "irondesign" || ext == "graphml")
+    if (ext == "irondesign" || ext == "graphml" || ext == "ironsmith")
         return ProjectExplorer::ProjectEntryKind::Design;
 
     return ProjectExplorer::ProjectEntryKind::Asset;
@@ -195,7 +199,7 @@ ProjectExplorer::ProjectEntryList ProjectExplorerDataSource::scanEntries(const Q
             entry.kind = classifyPath(rel, isDir);
             entries.push_back(entry);
 
-            if (isDir)
+            if (isDir && entry.kind == ProjectExplorer::ProjectEntryKind::Folder)
                 stack.push_back(fi);
         }
     }

@@ -21,7 +21,23 @@ namespace Canvas::Internal {
 namespace {
 
 constexpr double kFallbackCellSize = Canvas::Constants::kGridStep * 10.0;
-constexpr QMarginsF kDefaultContentPadding{8.0, 8.0, 8.0, 8.0};
+constexpr QMarginsF kDefaultContentPadding{Canvas::Constants::kContentPadding,
+                                           Canvas::Constants::kContentPadding,
+                                           Canvas::Constants::kContentPadding,
+                                           Canvas::Constants::kContentPadding};
+constexpr double kWorldScale = Canvas::Constants::kWorldScale;
+
+Utils::GridSpec scaledSpec(const Utils::GridSpec& spec)
+{
+    Utils::GridSpec out = spec;
+    out.cellSpacing = QSizeF(spec.cellSpacing.width() * kWorldScale,
+                             spec.cellSpacing.height() * kWorldScale);
+    out.outerMargin = QMarginsF(spec.outerMargin.left() * kWorldScale,
+                                spec.outerMargin.top() * kWorldScale,
+                                spec.outerMargin.right() * kWorldScale,
+                                spec.outerMargin.bottom() * kWorldScale);
+    return out;
+}
 
 struct ResolvedBlockStyle final {
     bool hasCustomColors = false;
@@ -55,9 +71,9 @@ ResolvedBlockStyle resolveStyle(const Canvas::Api::CanvasBlockSpec& spec,
     }
 
     if (spec.cornerRadius >= 0.0)
-        out.cornerRadius = spec.cornerRadius;
+        out.cornerRadius = spec.cornerRadius * kWorldScale;
     else if (hasStyle && style.cornerRadius >= 0.0)
-        out.cornerRadius = style.cornerRadius;
+        out.cornerRadius = style.cornerRadius * kWorldScale;
 
     return out;
 }
@@ -107,7 +123,29 @@ bool applyBlockSpec(Canvas::CanvasBlock* block,
         changed = true;
     }
 
-    const double keepoutMargin = (spec.keepoutMargin >= 0.0) ? spec.keepoutMargin : -1.0;
+    if (spec.hasAutoPortRole) {
+        if (!block->hasAutoPortRole() || block->autoPortRole() != spec.autoPortRole) {
+            block->setAutoPortRole(spec.autoPortRole);
+            changed = true;
+        }
+    } else if (block->hasAutoPortRole()) {
+        block->clearAutoPortRole();
+        changed = true;
+    }
+
+    if (block->autoOppositeProducerPort() != spec.autoOppositeProducerPort) {
+        block->setAutoOppositeProducerPort(spec.autoOppositeProducerPort);
+        changed = true;
+    }
+
+    if (block->showPortLabels() != spec.showPortLabels) {
+        block->setShowPortLabels(spec.showPortLabels);
+        changed = true;
+    }
+
+    const double keepoutMargin = (spec.keepoutMargin >= 0.0)
+                                     ? spec.keepoutMargin * kWorldScale
+                                     : -1.0;
     if (!qFuzzyCompare(block->keepoutMargin(), keepoutMargin)) {
         block->setKeepoutMargin(keepoutMargin);
         keepoutChanged = true;
@@ -115,8 +153,12 @@ bool applyBlockSpec(Canvas::CanvasBlock* block,
     }
 
     if (spec.hasCustomPadding) {
-        if (block->contentPadding() != spec.contentPadding) {
-            block->setContentPadding(spec.contentPadding);
+        const QMarginsF scaled(spec.contentPadding.left() * kWorldScale,
+                               spec.contentPadding.top() * kWorldScale,
+                               spec.contentPadding.right() * kWorldScale,
+                               spec.contentPadding.bottom() * kWorldScale);
+        if (block->contentPadding() != scaled) {
+            block->setContentPadding(scaled);
             changed = true;
         }
     } else if (block->contentPadding() != kDefaultContentPadding) {
@@ -252,9 +294,13 @@ void CanvasGridHostImpl::rebuildBlocks()
         if (!spec.gridRect.isValid())
             continue;
 
-        const QRectF gridRect = rectForBlock(spec, cellSize);
-        const QSizeF size = spec.hasPreferredSize() ? spec.preferredSize : gridRect.size();
-        const QRectF bounds(gridRect.topLeft(), size);
+    const QRectF gridRect = rectForBlock(spec, cellSize);
+    const QSizeF size = spec.hasPreferredSize()
+                            ? QSizeF(spec.preferredSize.width() * kWorldScale,
+                                     spec.preferredSize.height() * kWorldScale)
+                            : gridRect.size();
+        const QPointF topLeft = gridRect.topLeft() + spec.positionOffset;
+        const QRectF bounds(topLeft, size);
 
         CanvasBlockHandleImpl* handle = m_handles.value(spec.id, nullptr);
         CanvasBlock* block = handle ? handle->block() : nullptr;
@@ -266,6 +312,9 @@ void CanvasGridHostImpl::rebuildBlocks()
         }
         if (!block)
             continue;
+
+        if (block->specId() != spec.id)
+            block->setSpecId(spec.id);
 
         const ResolvedBlockStyle style = resolveStyle(spec, m_styleHost);
         bool geometryChanged = false;
@@ -342,15 +391,18 @@ QSizeF CanvasGridHostImpl::resolveCellSize() const
 {
     if (m_view) {
         const QSizeF viewportSize = m_view->size();
-        return Utils::GridLayout::resolveCellSize(m_gridSpec, viewportSize, kFallbackCellSize);
+        const QSizeF base = Utils::GridLayout::resolveCellSize(m_gridSpec, viewportSize, kFallbackCellSize);
+        return QSizeF(base.width() * kWorldScale, base.height() * kWorldScale);
     }
-    return Utils::GridLayout::resolveCellSize(m_gridSpec, QSizeF(), kFallbackCellSize);
+    const QSizeF base = Utils::GridLayout::resolveCellSize(m_gridSpec, QSizeF(), kFallbackCellSize);
+    return QSizeF(base.width() * kWorldScale, base.height() * kWorldScale);
 }
 
 QRectF CanvasGridHostImpl::rectForBlock(const Canvas::Api::CanvasBlockSpec& spec,
                                         const QSizeF& cellSize) const
 {
-    return Utils::GridLayout::rectForGrid(m_gridSpec, spec.gridRect, cellSize);
+    const Utils::GridSpec specScaled = scaledSpec(m_gridSpec);
+    return Utils::GridLayout::rectForGrid(specScaled, spec.gridRect, cellSize);
 }
 
 } // namespace Canvas::Internal

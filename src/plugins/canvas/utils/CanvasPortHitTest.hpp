@@ -5,11 +5,11 @@
 
 #include <QtCore/QPointF>
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 bool hitTestPortGeometry(const QPointF& anchorScene,
                          PortSide side,
                          const QPointF& scenePos,
                          double radiusScene);
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

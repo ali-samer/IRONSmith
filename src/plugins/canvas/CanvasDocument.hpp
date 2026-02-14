@@ -83,7 +83,6 @@ signals:
 private:
 	friend class CanvasCommandManager;
 	bool setItemTopLeftImpl(CanvasItem* item, const QPointF& newTopLeftScene, bool emitChanged);
-	bool arrangeAutoPorts(CanvasBlock& block) const;
 	void scheduleAutoPortLayout();
 	void applyAutoPortLayout();
 	void ensureAutoPortLayout() const;

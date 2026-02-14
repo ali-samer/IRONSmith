@@ -30,6 +30,12 @@ struct CANVAS_EXPORT CanvasStyle final
                                const QString& text,
                                const QColor& color);
     static void drawPort(QPainter& p, const QPointF& anchorScene, PortSide side, PortRole role, double zoom, bool hovered);
+    static void drawPortLabel(QPainter& p,
+                              const QPointF& anchorScene,
+                              PortSide side,
+                              double zoom,
+                              const QString& text,
+                              const QColor& color);
 
     static void drawWirePath(QPainter& p,
                              const QPointF& aAnchor, const QPointF& aBorder, const QPointF& aFabric,

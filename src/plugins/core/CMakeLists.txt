@@ -24,6 +24,8 @@ ironsmith_add_plugin(CorePlugin
         #-== Status Bar ==-#
             StatusBarField.hpp
             StatusBarField.cpp
+            HeaderInfoService.hpp
+            HeaderInfoService.cpp
 
         #-== Side Bar ==-#
             SidebarModel.hpp

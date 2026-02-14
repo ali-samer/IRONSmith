@@ -13,7 +13,9 @@ ironsmith_define_tests(
                 VirtualPathTests.cpp
                 PathUtilsTests.cpp
                 PathPatternMatcherTests.cpp
+                FileSystemUtilsTests.cpp
                 GridLayoutTests.cpp
                 TreeIndexTests.cpp
                 TreeChangeSetTests.cpp
+                DocumentBundleTests.cpp
 )

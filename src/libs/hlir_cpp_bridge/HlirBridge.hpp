@@ -127,7 +127,7 @@ public:
     /// @param sourceId Source FIFO ID
     /// @param numOutputs Number of output splits
     /// @param outputTypeId Output type ID
-    /// @param outputIds Output FIFO IDs
+    /// @param outputNames Names for each output (will be created by split operation)
     /// @param offsets Split offsets
     /// @param placementId Placement tile ID
     /// @param providedId Optional provided ID for the component
@@ -138,7 +138,7 @@ public:
         const ComponentId& sourceId,
         int numOutputs,
         const ComponentId& outputTypeId,
-        const std::vector<ComponentId>& outputIds,
+        const std::vector<std::string>& outputNames,
         const std::vector<int>& offsets,
         const ComponentId& placementId,
         const ComponentId& providedId = ComponentId(),
@@ -149,7 +149,7 @@ public:
     /// @param destId Destination FIFO ID
     /// @param numInputs Number of inputs to join
     /// @param inputTypeId Input type ID
-    /// @param inputIds Input FIFO IDs
+    /// @param inputNames Names for each input (will be created by join operation)
     /// @param offsets Join offsets
     /// @param placementId Placement tile ID
     /// @param providedId Optional provided ID for the component
@@ -160,7 +160,7 @@ public:
         const ComponentId& destId,
         int numInputs,
         const ComponentId& inputTypeId,
-        const std::vector<ComponentId>& inputIds,
+        const std::vector<std::string>& inputNames,
         const std::vector<int>& offsets,
         const ComponentId& placementId,
         const ComponentId& providedId = ComponentId(),

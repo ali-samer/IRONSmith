@@ -37,10 +37,14 @@ public:
     const QString& label() const { return m_label; }
     void setLabel(QString s) { m_label = std::move(s); }
 
+    const QString& specId() const { return m_specId; }
+    void setSpecId(QString id) { m_specId = std::move(id); }
+
     void setPorts(std::vector<CanvasPort> ports);
     PortId addPort(PortSide side, double t, PortRole role = PortRole::Dynamic, QString name = {});
     PortId addPortToward(const QPointF& targetScene, PortRole role = PortRole::Dynamic, QString name = {});
     bool updatePort(PortId id, PortSide side, double t);
+    bool updatePortName(PortId id, QString name);
     std::optional<CanvasPort> removePort(PortId id, size_t* indexOut = nullptr);
     bool insertPort(size_t index, CanvasPort port);
     bool hasPorts() const override { return !m_ports.empty(); }
@@ -54,6 +58,17 @@ public:
 
     bool allowMultiplePorts() const { return m_allowMultiplePorts; }
     void setAllowMultiplePorts(bool v) { m_allowMultiplePorts = v; }
+
+    bool hasAutoPortRole() const { return m_hasAutoPortRole; }
+    PortRole autoPortRole() const { return m_autoPortRole; }
+    void setAutoPortRole(PortRole role) { m_autoPortRole = role; m_hasAutoPortRole = true; }
+    void clearAutoPortRole() { m_autoPortRole = PortRole::Dynamic; m_hasAutoPortRole = false; }
+
+    bool autoOppositeProducerPort() const { return m_autoOppositeProducerPort; }
+    void setAutoOppositeProducerPort(bool v) { m_autoOppositeProducerPort = v; }
+
+    bool showPortLabels() const { return m_showPortLabels; }
+    void setShowPortLabels(bool v) { m_showPortLabels = v; }
 
     bool autoPortLayout() const { return m_autoPortLayout; }
     void setAutoPortLayout(bool v) { m_autoPortLayout = v; }
@@ -95,9 +110,14 @@ private:
     QRectF m_boundsScene;
     bool m_movable = false;
     QString m_label;
+    QString m_specId;
     std::vector<CanvasPort> m_ports;
     bool m_showPorts = true;
     bool m_allowMultiplePorts = false;
+    bool m_hasAutoPortRole = false;
+    PortRole m_autoPortRole = PortRole::Dynamic;
+    bool m_autoOppositeProducerPort = false;
+    bool m_showPortLabels = false;
     bool m_autoPortLayout = false;
     double m_portSnapStep = Constants::kGridStep;
     bool m_isLinkHub = false;

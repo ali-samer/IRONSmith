@@ -4,12 +4,14 @@
 #include "projectexplorer/api/ProjectExplorerTypes.hpp"
 #include "projectexplorer/api/ProjectExplorerMetaTypes.hpp"
 
+#include <utils/DocumentBundle.hpp>
 #include <utils/EnvironmentQtPolicy.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
 #include <QtCore/QCoreApplication>
+#include <QtCore/QJsonObject>
 #include <QtCore/QTemporaryDir>
 #include <QtTest/QSignalSpy>
 #include <memory>
@@ -69,6 +71,14 @@ TEST(ProjectExplorerDataSourceTests, ScansDirectoryEntries)
     design.write("graph");
     design.close();
 
+    const QString bundlePath = root.filePath(QStringLiteral("bundle.ironsmith"));
+    Utils::DocumentBundle::BundleInit init;
+    init.name = QStringLiteral("Bundle");
+    init.program = QJsonObject{};
+    init.design = QJsonObject{};
+    const Utils::Result bundleCreated = Utils::DocumentBundle::create(bundlePath, init);
+    ASSERT_TRUE(bundleCreated.ok) << bundleCreated.errors.join("\n").toStdString();
+
     QString label;
     ProjectEntryList entries;
 
@@ -94,8 +104,11 @@ TEST(ProjectExplorerDataSourceTests, ScansDirectoryEntries)
     EXPECT_TRUE(containsPath(entries, QStringLiteral("docs")));
     EXPECT_TRUE(containsPath(entries, QStringLiteral("docs/readme.md")));
     EXPECT_TRUE(containsPath(entries, QStringLiteral("design.graphml")));
+    EXPECT_TRUE(containsPath(entries, QStringLiteral("bundle.ironsmith")));
+    EXPECT_FALSE(containsPath(entries, QStringLiteral("bundle.ironsmith/manifest.json")));
 
     EXPECT_EQ(kindForPath(entries, QStringLiteral("docs")), ProjectEntryKind::Folder);
     EXPECT_EQ(kindForPath(entries, QStringLiteral("docs/readme.md")), ProjectEntryKind::Asset);
     EXPECT_EQ(kindForPath(entries, QStringLiteral("design.graphml")), ProjectEntryKind::Design);
+    EXPECT_EQ(kindForPath(entries, QStringLiteral("bundle.ironsmith")), ProjectEntryKind::Design);
 }

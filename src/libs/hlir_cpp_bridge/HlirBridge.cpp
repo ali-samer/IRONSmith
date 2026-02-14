@@ -14,18 +14,15 @@ namespace hlir {
 HlirBridge::HlirBridge(const std::string& programName)
     : m_programName(programName)
 {
-    // Set Python home to find standard library
-    // Try common Python installation paths
+    // Set Python home to find the correct standard library
+    // Use PYTHONHOME env var if set, otherwise use the CMake-detected path
     const char* pythonHome = std::getenv("PYTHONHOME");
     if (!pythonHome) {
-        // Try user's local Python installation
-        const char* localAppData = std::getenv("LOCALAPPDATA");
-        if (localAppData) {
-            static std::wstring pythonHomePath = std::wstring(localAppData, localAppData + strlen(localAppData)) + L"\\Programs\\Python\\Python313";
-            Py_SetPythonHome(pythonHomePath.c_str());
-        }
-    } else {
-        // Convert PYTHONHOME to wide string
+#ifdef PYTHON_HOME_DIR
+        pythonHome = PYTHON_HOME_DIR;
+#endif
+    }
+    if (pythonHome) {
         size_t len = strlen(pythonHome);
         static std::wstring pythonHomePath(pythonHome, pythonHome + len);
         Py_SetPythonHome(pythonHomePath.c_str());
@@ -459,13 +456,13 @@ HlirResult<ComponentId> HlirBridge::addFifoSplit(
     const ComponentId& sourceId,
     int numOutputs,
     const ComponentId& outputTypeId,
-    const std::vector<ComponentId>& outputIds,
+    const std::vector<std::string>& outputNames,
     const std::vector<int>& offsets,
     const ComponentId& placementId,
     const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
-    PyObject* outputIdsList = buildComponentIdList(outputIds);
+    PyObject* outputNamesList = buildPythonList(outputNames);
     PyObject* offsetsList = buildPythonList(offsets);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
@@ -473,7 +470,7 @@ HlirResult<ComponentId> HlirBridge::addFifoSplit(
 
     PyObject* args = Py_BuildValue("(ssisOOsOs)",
         name.c_str(), sourceId.value.c_str(), numOutputs,
-        outputTypeId.value.c_str(), outputIdsList, offsetsList,
+        outputTypeId.value.c_str(), outputNamesList, offsetsList,
         placementId.value.c_str(), metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_split", args);
@@ -493,13 +490,13 @@ HlirResult<ComponentId> HlirBridge::addFifoJoin(
     const ComponentId& destId,
     int numInputs,
     const ComponentId& inputTypeId,
-    const std::vector<ComponentId>& inputIds,
+    const std::vector<std::string>& inputNames,
     const std::vector<int>& offsets,
     const ComponentId& placementId,
     const ComponentId& providedId,
     const std::map<std::string, std::string>& metadata)
 {
-    PyObject* inputIdsList = buildComponentIdList(inputIds);
+    PyObject* inputNamesList = buildPythonList(inputNames);
     PyObject* offsetsList = buildPythonList(offsets);
     PyObject* metadataDict = buildMetadataDict(metadata);
 
@@ -507,7 +504,7 @@ HlirResult<ComponentId> HlirBridge::addFifoJoin(
 
     PyObject* args = Py_BuildValue("(ssisOOsOs)",
         name.c_str(), destId.value.c_str(), numInputs,
-        inputTypeId.value.c_str(), inputIdsList, offsetsList,
+        inputTypeId.value.c_str(), inputNamesList, offsetsList,
         placementId.value.c_str(), metadataDict, providedIdStr);
 
     auto pyRes = callBuilderMethod("add_fifo_join", args);

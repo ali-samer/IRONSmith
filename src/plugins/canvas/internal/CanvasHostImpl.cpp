@@ -2,6 +2,7 @@
 
 #include "canvas/CanvasController.hpp"
 #include "canvas/CanvasDocument.hpp"
+#include "canvas/CanvasSelectionModel.hpp"
 #include "canvas/CanvasView.hpp"
 
 #include <extensionsystem/PluginManager.hpp>
@@ -16,6 +17,8 @@ namespace Canvas::Internal {
 CanvasHostImpl::CanvasHostImpl(QObject* parent)
 	: Canvas::Api::ICanvasHost(parent)
 {
+    m_emptyTitle = QStringLiteral("No design open.");
+    m_emptyMessage = QStringLiteral("Create or open a design to start.");
 }
 
 
@@ -33,17 +36,41 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 
 	m_view = new CanvasView();
 	m_view->setDocument(m_document);
+    applyEmptyState();
 
-	m_controller = new CanvasController(m_document, m_view, this);
+	m_selection = new CanvasSelectionModel(this);
+	m_view->setSelectionModel(m_selection);
+	m_controller = new CanvasController(m_document, m_view, m_selection, this);
 	m_view->setController(m_controller);
 
 	if (auto* bar = m_uiHost ? m_uiHost->playgroundBottomBar() : nullptr) {
 		auto* mode = bar->ensureField(QStringLiteral("mode"));
 		if (mode) {
-			mode->setLabel(QString());
+			mode->setLabel(QStringLiteral("MODE"));
 			mode->setSide(Core::StatusBarField::Side::Left);
 			mode->setValue(QStringLiteral("NORMAL"));
 			m_modeField = mode;
+		}
+
+		auto* zoom = bar->ensureField(QStringLiteral("canvas_zoom"));
+		if (zoom) {
+			zoom->setLabel(QStringLiteral("ZOOM"));
+			zoom->setSide(Core::StatusBarField::Side::Left);
+			m_zoomField = zoom;
+		}
+
+		auto* pan = bar->ensureField(QStringLiteral("canvas_pan"));
+		if (pan) {
+			pan->setLabel(QStringLiteral("PAN"));
+			pan->setSide(Core::StatusBarField::Side::Left);
+			m_panField = pan;
+		}
+
+		auto* sel = bar->ensureField(QStringLiteral("canvas_selection"));
+		if (sel) {
+			sel->setLabel(QStringLiteral("SEL"));
+			sel->setSide(Core::StatusBarField::Side::Left);
+			m_selectionField = sel;
 		}
 	}
 
@@ -87,6 +114,47 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 		updateMode();
 	}
 
+	if (m_view) {
+		auto formatZoom = [](double zoom) -> QString {
+			const double pct = zoom * 100.0;
+			return QString::number(pct, 'f', 0) + QLatin1String("%");
+		};
+		auto formatPan = [](const QPointF& pan) -> QString {
+			return QString::number(pan.x(), 'f', 1) + QLatin1String(", ")
+			       + QString::number(pan.y(), 'f', 1);
+		};
+
+		auto updateZoom = [this, formatZoom]() {
+			if (m_zoomField && m_view)
+				m_zoomField->setValue(formatZoom(m_view->displayZoom()));
+		};
+		auto updatePan = [this, formatPan]() {
+			if (m_panField && m_view)
+				m_panField->setValue(formatPan(m_view->pan()));
+		};
+
+		connect(m_view, &CanvasView::zoomChanged, this,
+		        [updateZoom](double) { updateZoom(); });
+		connect(m_view, &CanvasView::panChanged, this,
+		        [updatePan](const QPointF&) { updatePan(); });
+
+		updateZoom();
+		updatePan();
+	}
+
+	if (m_selection) {
+		auto updateSel = [this]() {
+			if (!m_selectionField || !m_selection)
+				return;
+			m_selectionField->setValue(QString::number(m_selection->selectedItems().size()));
+		};
+		connect(m_selection, &CanvasSelectionModel::selectedItemsChanged, this,
+		        [updateSel]() { updateSel(); });
+		connect(m_selection, &CanvasSelectionModel::selectedItemChanged, this,
+		        [updateSel](ObjectId) { updateSel(); });
+		updateSel();
+	}
+
 	connect(m_view, &CanvasView::canvasMousePressed, m_controller, &CanvasController::onCanvasMousePressed);
 	connect(m_view, &CanvasView::canvasMouseMoved, m_controller, &CanvasController::onCanvasMouseMoved);
 	connect(m_view, &CanvasView::canvasMouseReleased, m_controller, &CanvasController::onCanvasMouseReleased);
@@ -110,6 +178,42 @@ CanvasDocument* CanvasHostImpl::document() const
 CanvasController* CanvasHostImpl::controller() const
 {
 	return m_controller;
+}
+
+void CanvasHostImpl::setCanvasActive(bool active)
+{
+    if (m_canvasActive == active)
+        return;
+    m_canvasActive = active;
+    applyEmptyState();
+    emit canvasActiveChanged(m_canvasActive);
+}
+
+bool CanvasHostImpl::canvasActive() const
+{
+    return m_canvasActive;
+}
+
+void CanvasHostImpl::setEmptyStateText(const QString& title, const QString& message)
+{
+    const QString cleanedTitle = title.trimmed();
+    const QString cleanedMessage = message.trimmed();
+    if (m_emptyTitle == cleanedTitle && m_emptyMessage == cleanedMessage)
+        return;
+    m_emptyTitle = cleanedTitle;
+    m_emptyMessage = cleanedMessage;
+    applyEmptyState();
+}
+
+void CanvasHostImpl::applyEmptyState()
+{
+    if (!m_view)
+        return;
+    const bool showEmpty = !m_canvasActive;
+    m_view->setEmptyStateVisible(showEmpty);
+    if (showEmpty)
+        m_view->setEmptyStateText(m_emptyTitle, m_emptyMessage);
+    m_view->update();
 }
 
 } // namespace Canvas::Internal

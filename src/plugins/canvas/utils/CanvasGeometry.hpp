@@ -11,7 +11,7 @@
 #include <cmath>
 #include <optional>
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 inline double snapCoord(double v, double step)
 {
@@ -119,4 +119,4 @@ inline QPointF toScenePoint(const FabricCoord& c, double step)
     return QPointF(c.x * step, c.y * step);
 }
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

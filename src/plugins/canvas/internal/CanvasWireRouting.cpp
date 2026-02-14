@@ -47,12 +47,12 @@ std::vector<QPointF> orthogonalFallback(const QPointF& aFabric, const QPointF& b
 
 FabricCoord toCoord(const QPointF& s, double step)
 {
-    return Utils::toFabricCoord(s, step);
+    return Support::toFabricCoord(s, step);
 }
 
 QPointF toScene(const FabricCoord& c, double step)
 {
-    return Utils::toScenePoint(c, step);
+    return Support::toScenePoint(c, step);
 }
 
 CoordBounds computeSearchBounds(const FabricCoord& start,

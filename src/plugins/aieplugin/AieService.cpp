@@ -58,6 +58,8 @@ Utils::Result AieService::setProfileId(const QString& id)
     if (m_coordinator)
         m_coordinator->setBaseModel(model);
     applyBaseStyles();
+    if (m_coordinator)
+        m_coordinator->flushApply();
     emit profileIdChanged(m_profileId);
     return Utils::Result::success();
 }

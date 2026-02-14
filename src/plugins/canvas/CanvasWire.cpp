@@ -207,8 +207,8 @@ std::vector<QPointF> CanvasWire::resolvedPathScene(const CanvasRenderContext& ct
     if (step <= 0.0)
         return router.routeFabricPath(endpoints.aFabric, endpoints.bFabric);
 
-    const FabricCoord startCoord = Utils::toFabricCoord(endpoints.aFabric, step);
-    const FabricCoord endCoord = Utils::toFabricCoord(endpoints.bFabric, step);
+    const FabricCoord startCoord = Support::toFabricCoord(endpoints.aFabric, step);
+    const FabricCoord endCoord = Support::toFabricCoord(endpoints.bFabric, step);
     const EscapeInfo escapeA = computeEscape(endpoints.aBorder, endpoints.aFabric, startCoord, ctx);
     const EscapeInfo escapeB = computeEscape(endpoints.bBorder, endpoints.bFabric, endCoord, ctx);
 
@@ -258,7 +258,7 @@ std::vector<FabricCoord> CanvasWire::resolvedPathCoords(const CanvasRenderContex
     std::vector<FabricCoord> out;
     out.reserve(pathScene.size());
     for (const auto& pt : pathScene)
-        out.push_back(Utils::toFabricCoord(pt, step));
+        out.push_back(Support::toFabricCoord(pt, step));
     return out;
 }
 

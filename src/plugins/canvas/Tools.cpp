@@ -1,4 +1,5 @@
 #include "canvas/Tools.hpp"
+#include "canvas/CanvasConstants.hpp"
 
 #include <algorithm>
 #include <QtCore/qmath.h>
@@ -9,7 +10,7 @@ namespace Canvas::Tools::Math {
 
 double clampZoom(double z)
 {
-    return std::clamp(z, 0.10, 8.0);
+    return std::clamp(z, Constants::kMinZoom, Constants::kMaxZoom);
 }
 
 QPointF sceneToView(const QPointF& scenePos, const QPointF& pan, double zoom)

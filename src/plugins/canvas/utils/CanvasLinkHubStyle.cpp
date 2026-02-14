@@ -2,7 +2,7 @@
 
 #include "canvas/CanvasConstants.hpp"
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 LinkHubStyle linkHubStyle(LinkHubKind kind)
 {
@@ -29,4 +29,4 @@ LinkHubStyle linkHubStyle(LinkHubKind kind)
             QColor(Constants::kBlockTextColor)};
 }
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

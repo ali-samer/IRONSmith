@@ -105,7 +105,7 @@ private:
 template <typename Tag>
 size_t qHash(const StrongId<Tag>& id, size_t seed = 0) noexcept
 {
-    return qHash(id.uuid(), seed);
+    return ::qHash(id.uuid(), seed);
 }
 
 } // namespace Utils

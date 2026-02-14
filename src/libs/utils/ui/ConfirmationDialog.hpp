@@ -1,13 +1,15 @@
 #pragma once
 
 #include "utils/UtilsGlobal.hpp"
+#include "utils/ui/BaseDialog.hpp"
 
 #include <QtCore/QString>
-#include <QtWidgets/QDialog>
+#include <qnamespace.h>
 
+QT_BEGIN_NAMESPACE
 class QLabel;
-class QDialogButtonBox;
 class QPushButton;
+QT_END_NAMESPACE
 
 namespace Utils {
 
@@ -21,7 +23,7 @@ struct UTILS_EXPORT ConfirmationDialogConfig final {
     bool destructive = false;
 };
 
-class UTILS_EXPORT ConfirmationDialog final : public QDialog
+class UTILS_EXPORT ConfirmationDialog final : public BaseDialog
 {
     Q_OBJECT
     Q_PROPERTY(QString title READ title WRITE setTitle NOTIFY titleChanged)
@@ -65,19 +67,14 @@ private:
     void updateLabels();
     void updateButtons();
 
-    QString m_title;
-    QString m_message;
     QString m_informativeText;
     QString m_details;
     QString m_confirmText;
     QString m_cancelText;
     bool m_destructive = false;
 
-    QLabel* m_titleLabel = nullptr;
-    QLabel* m_messageLabel = nullptr;
     QLabel* m_informativeLabel = nullptr;
     QLabel* m_detailsLabel = nullptr;
-    QDialogButtonBox* m_buttons = nullptr;
     QPushButton* m_confirmButton = nullptr;
     QPushButton* m_cancelButton = nullptr;
 };

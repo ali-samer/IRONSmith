@@ -255,7 +255,7 @@ ProjectExplorerModel::NodeKind ProjectExplorerModel::mapEntryKind(const ProjectE
     }
 
     const QString ext = path.extension().toLower();
-    if (ext == "graphml")
+    if (ext == "graphml" || ext == "ironsmith" || ext == "irondesign")
         return NodeKind::Design;
     if (ext == "json" || ext == "xml")
         return NodeKind::Asset;

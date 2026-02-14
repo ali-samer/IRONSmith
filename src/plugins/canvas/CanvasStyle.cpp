@@ -4,6 +4,7 @@
 
 #include <QtGui/QPainter>
 #include <QtGui/QFont>
+#include <QtGui/QFontMetricsF>
 #include <QtGui/QPolygonF>
 #include <cmath>
 
@@ -77,7 +78,10 @@ void CanvasStyle::drawBlockLabel(QPainter& p,
 
     p.setPen(color);
 
-    const QRectF r = boundsScene.adjusted(6.0, 4.0, -6.0, -4.0);
+    const QRectF r = boundsScene.adjusted(Constants::kBlockLabelPadX,
+                                          Constants::kBlockLabelPadY,
+                                          -Constants::kBlockLabelPadX,
+                                          -Constants::kBlockLabelPadY);
     p.drawText(r, Qt::AlignLeft | Qt::AlignTop, text);
 }
 
@@ -117,6 +121,49 @@ void CanvasStyle::drawPort(QPainter& p, const QPointF& anchorScene, PortSide sid
 
     const QRectF box(anchorScene.x() - half, anchorScene.y() - half, half * 2.0, half * 2.0);
     p.drawRect(box);
+}
+
+void CanvasStyle::drawPortLabel(QPainter& p,
+                                const QPointF& anchorScene,
+                                PortSide side,
+                                double zoom,
+                                const QString& text,
+                                const QColor& color)
+{
+    if (text.isEmpty())
+        return;
+
+    QFont f = p.font();
+    f.setPointSizeF(Constants::kPortLabelPointSize);
+    f.setBold(true);
+    p.setFont(f);
+    p.setPen(color);
+
+    QFontMetricsF fm(p.font());
+    const QSizeF size = fm.size(Qt::TextSingleLine, text);
+
+    QPointF dir(0, 0);
+    switch (side) {
+        case PortSide::Left:   dir = QPointF(-1, 0); break;
+        case PortSide::Right:  dir = QPointF( 1, 0); break;
+        case PortSide::Top:    dir = QPointF( 0,-1); break;
+        case PortSide::Bottom: dir = QPointF( 0, 1); break;
+    }
+
+    const double offset = Constants::kPortStubLength + Constants::kPortLabelOffset;
+    const QPointF base = anchorScene + dir * offset;
+
+    QPointF topLeft = base;
+    if (side == PortSide::Left)
+        topLeft = QPointF(base.x() - size.width(), base.y() - size.height() * 0.5);
+    else if (side == PortSide::Right)
+        topLeft = QPointF(base.x(), base.y() - size.height() * 0.5);
+    else if (side == PortSide::Top)
+        topLeft = QPointF(base.x() - size.width() * 0.5, base.y() - size.height());
+    else
+        topLeft = QPointF(base.x() - size.width() * 0.5, base.y());
+
+    p.drawText(QRectF(topLeft, size), Qt::AlignLeft | Qt::AlignTop, text);
 }
 
 void CanvasStyle::drawWire(QPainter& p,

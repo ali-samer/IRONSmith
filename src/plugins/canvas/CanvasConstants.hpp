@@ -4,10 +4,11 @@ namespace Canvas::Constants {
 
 inline constexpr char CANVAS_BACKGROUND_COLOR[] = "#121316";
 
-inline constexpr double kGridStep = 8.0;
+inline constexpr double kWorldScale = 3.0;
+inline constexpr double kGridStep = 8.0 * kWorldScale;
 
-inline constexpr double kMinZoom = 0.10;
-inline constexpr double kMaxZoom = 8.00;
+inline constexpr double kMinZoom = 0.01;
+inline constexpr double kMaxZoom = 4.00;
 inline constexpr double kZoomStep = 1.10;
 
 // Block styling (world-space colors; widths are adjusted in CanvasStyle).
@@ -17,8 +18,10 @@ inline constexpr char kBlockTextColor[] = "#B8C2CC";
 inline constexpr char kBlockSelectionColor[] = "#5DA9FF";
 inline constexpr char kWireColor[] = "#8D99A8";
 inline constexpr char kDynamicPortColor[] = "#D2B36A";
-inline constexpr double kBlockCornerRadius = 6.0;
-inline constexpr double kBlockLabelPointSize = 10.0;
+inline constexpr double kBlockCornerRadius = 6.0 * kWorldScale;
+inline constexpr double kBlockLabelPointSize = 10.0 * kWorldScale;
+inline constexpr double kBlockLabelPadX = 6.0 * kWorldScale;
+inline constexpr double kBlockLabelPadY = 4.0 * kWorldScale;
 inline constexpr double kPortHitRadiusPx = 8.0;
 inline constexpr double kEdgeHoverRadiusPx = 14.0;
 inline constexpr double kEndpointHitRadiusPx = 10.0;
@@ -26,16 +29,21 @@ inline constexpr double kEndpointDragThresholdPx = 4.0;
 inline constexpr double kMarqueeDragThresholdPx = 4.0;
 inline constexpr double kPortActivationBandPx = 20.0;
 
-inline constexpr double kPortStubLength = 10.0;
-inline constexpr double kPortStubLengthHover = 14.0;
-inline constexpr double kPortBoxHalf = 3.0;
-inline constexpr double kPortBoxHalfHover = 4.0;
+inline constexpr double kPortStubLength = 10.0 * kWorldScale;
+inline constexpr double kPortStubLengthHover = 14.0 * kWorldScale;
+inline constexpr double kPortBoxHalf = 3.0 * kWorldScale;
+inline constexpr double kPortBoxHalfHover = 4.0 * kWorldScale;
 inline constexpr double kPortHitStubLengthPx = kPortStubLengthHover;
 inline constexpr double kPortHitBoxHalfPx = kPortBoxHalfHover;
+inline constexpr double kPortLabelPointSize = 8.0 * kWorldScale;
+inline constexpr double kPortLabelOffset = 6.0 * kWorldScale;
 
 inline constexpr double kBlockKeepoutMargin = kGridStep;
 
 inline constexpr double kLinkHubSize = kGridStep * 2.0;
+
+inline constexpr double kContentPadding = 6.0 * kWorldScale;
+inline constexpr double kContentGap = 6.0 * kWorldScale;
 
 inline constexpr char kLinkHubSplitFill[] = "#1B1422";
 inline constexpr char kLinkHubSplitOutline[] = "#C089FF";

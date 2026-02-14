@@ -96,6 +96,7 @@ struct NpuProfile final {
     QString name;
     QString vendor;
     QString family;
+    QString aieArch;
     DeviceMatch match;
     GridDefinition grid;
     TileLayout tiles;

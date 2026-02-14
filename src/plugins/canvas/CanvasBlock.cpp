@@ -4,7 +4,9 @@
 #include "canvas/CanvasBlockContent.hpp"
 #include "canvas/CanvasStyle.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
+#include "canvas/utils/CanvasAutoPorts.hpp"
 
+#include <QtCore/QHash>
 #include <QtGui/QPainter>
 #include <algorithm>
 #include <cmath>
@@ -16,9 +18,14 @@ bool CanvasBlock::s_globalShowPorts = true;
 std::unique_ptr<CanvasItem> CanvasBlock::clone() const
 {
     auto blk = std::make_unique<CanvasBlock>(m_boundsScene, m_movable, m_label);
+    blk->setSpecId(m_specId);
     blk->setPorts(m_ports);
     blk->m_showPorts = m_showPorts;
     blk->m_allowMultiplePorts = m_allowMultiplePorts;
+    blk->m_hasAutoPortRole = m_hasAutoPortRole;
+    blk->m_autoPortRole = m_autoPortRole;
+    blk->m_autoOppositeProducerPort = m_autoOppositeProducerPort;
+    blk->m_showPortLabels = m_showPortLabels;
     blk->m_autoPortLayout = m_autoPortLayout;
     blk->m_portSnapStep = m_portSnapStep;
     blk->m_isLinkHub = m_isLinkHub;
@@ -111,6 +118,19 @@ bool CanvasBlock::updatePort(PortId id, PortSide side, double t)
     return false;
 }
 
+bool CanvasBlock::updatePortName(PortId id, QString name)
+{
+    for (auto& port : m_ports) {
+        if (port.id == id) {
+            if (port.name == name)
+                return false;
+            port.name = std::move(name);
+            return true;
+        }
+    }
+    return false;
+}
+
 std::optional<CanvasPort> CanvasBlock::removePort(PortId id, size_t* indexOut)
 {
     for (size_t i = 0; i < m_ports.size(); ++i) {
@@ -138,7 +158,7 @@ QPointF CanvasBlock::portAnchorScene(PortId id) const
     for (const auto& port : m_ports) {
         if (port.id != id) continue;
 
-        const double t = Utils::clampT(port.t);
+        const double t = Support::clampT(port.t);
         const QRectF r = m_boundsScene;
         const double step = m_portSnapStep;
 
@@ -223,11 +243,53 @@ void CanvasBlock::draw(QPainter& p, const CanvasRenderContext& ctx) const
     }
 
     if (m_showPorts && s_globalShowPorts) {
+        QHash<QString, int> labelIndices;
+        if (m_showPortLabels) {
+            int nextIndex = 1;
+            for (const auto& port : m_ports) {
+                if (!Support::isPairedProducerPort(port))
+                    continue;
+                const auto key = Support::pairedPortKey(port);
+                if (!key || key->isEmpty())
+                    continue;
+                if (!labelIndices.contains(*key))
+                    labelIndices.insert(*key, nextIndex++);
+            }
+        }
+
         for (const auto& port : m_ports) {
             const QPointF a = portAnchorScene(port.id);
             const bool hovered = ctx.portHovered(id(), port.id);
             const bool selected = ctx.portSelected(id(), port.id);
             CanvasStyle::drawPort(p, a, port.side, port.role, ctx.zoom, hovered || selected);
+
+            if (m_showPortLabels) {
+                QString label;
+                QString key;
+                if (auto k = Support::pairedPortKey(port); k && !k->isEmpty()) {
+                    key = *k;
+                } else if (port.role == PortRole::Consumer) {
+                    const QString legacyKey = port.id.toString();
+                    if (labelIndices.contains(legacyKey))
+                        key = legacyKey;
+                }
+
+                if (!key.isEmpty()) {
+                    const int index = labelIndices.value(key, 0);
+                    if (index > 0) {
+                        const bool isProducer = (port.role == PortRole::Producer);
+                        label = (isProducer ? QStringLiteral("OUT_%1")
+                                            : QStringLiteral("IN_%1"))
+                                    .arg(index);
+                    }
+                }
+
+                if (!label.isEmpty()) {
+                    const QColor labelColor = m_hasCustomColors ? m_labelColor
+                                                                : QColor(Constants::kBlockTextColor);
+                    CanvasStyle::drawPortLabel(p, a, port.side, ctx.zoom, label, labelColor);
+                }
+            }
         }
     }
 }

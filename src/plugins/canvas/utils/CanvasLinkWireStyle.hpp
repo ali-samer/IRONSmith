@@ -4,7 +4,7 @@
 
 #include <QtGui/QColor>
 
-namespace Canvas::Utils {
+namespace Canvas::Support {
 
 enum class LinkWireRole : uint8_t {
     Producer,
@@ -17,4 +17,4 @@ struct CANVAS_EXPORT LinkWireStyle final {
 
 LinkWireStyle linkWireStyle(LinkWireRole role);
 
-} // namespace Canvas::Utils
+} // namespace Canvas::Support

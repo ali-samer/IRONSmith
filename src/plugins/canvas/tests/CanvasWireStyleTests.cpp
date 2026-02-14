@@ -27,8 +27,8 @@ TEST(CanvasWireStyleTests, ColorOverrideAndArrowPolicyClone)
 
 TEST(CanvasLinkWireStyleTests, RoleColorsMatchConstants)
 {
-    const auto producer = Utils::linkWireStyle(Utils::LinkWireRole::Producer);
-    const auto consumer = Utils::linkWireStyle(Utils::LinkWireRole::Consumer);
+    const auto producer = Support::linkWireStyle(Support::LinkWireRole::Producer);
+    const auto consumer = Support::linkWireStyle(Support::LinkWireRole::Consumer);
 
     EXPECT_EQ(producer.color.name(QColor::HexArgb),
               QColor(Constants::kLinkWireProducerColor).name(QColor::HexArgb));
