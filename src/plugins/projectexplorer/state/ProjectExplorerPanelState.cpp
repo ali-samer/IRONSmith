@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "projectexplorer/state/ProjectExplorerPanelState.hpp"
 
 #include "projectexplorer/ProjectExplorerService.hpp"

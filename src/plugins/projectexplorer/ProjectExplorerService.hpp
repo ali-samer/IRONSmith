@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "projectexplorer/ProjectExplorerGlobal.hpp"
@@ -39,7 +42,7 @@ public:
     ProjectExplorer::ProjectExplorerActionList registeredActions() const override;
 
     void setRootPath(const QString& path, bool userInitiated = false);
-    QString rootPath() const;
+    QString rootPath() const override;
 
     void setSearchText(const QString& text);
     QString searchText() const;

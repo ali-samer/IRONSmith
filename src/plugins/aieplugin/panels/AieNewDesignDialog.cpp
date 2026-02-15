@@ -1,13 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/panels/AieNewDesignDialog.hpp"
 
-#include <utils/DocumentBundle.hpp>
-#include <utils/PathUtils.hpp>
-#include <utils/filesystem/FileSystemUtils.hpp>
+#include "aieplugin/design/DesignBundleCreator.hpp"
 
 #include <QtCore/QDir>
-#include <QtCore/QFile>
 #include <QtCore/QFileInfo>
-#include <QtCore/QJsonObject>
 #include <QtCore/QStandardPaths>
 #include <QtCore/QTimer>
 #include <QtGui/QColor>
@@ -35,11 +34,6 @@ const QString kProjectRootKey = u"projectExplorer/rootPath"_s;
 
 const QString kFamilyAieMl = u"aie-ml"_s;
 const QString kFamilyAieMlV2 = u"aie-ml-v2"_s;
-
-bool containsPathSeparators(const QString& text)
-{
-    return text.contains(u'/') || text.contains(u'\\');
-}
 
 QString defaultLocationForEnvironment(const Utils::Environment& env)
 {
@@ -206,45 +200,15 @@ void AieNewDesignDialog::chooseLocation()
 
 bool AieNewDesignDialog::validateInputs(QString* error) const
 {
-    const QString name = m_nameEdit->text().trimmed();
-    if (name.isEmpty()) {
+    DesignBundleCreateRequest request;
+    request.name = m_nameEdit ? m_nameEdit->text().trimmed() : QString();
+    request.location = m_locationEdit ? m_locationEdit->text().trimmed() : QString();
+    request.deviceFamily = deviceFamilyKey();
+
+    const Utils::Result valid = DesignBundleCreator::validateRequest(request);
+    if (!valid) {
         if (error)
-            *error = QStringLiteral("Name cannot be empty.");
-        return false;
-    }
-
-    if (containsPathSeparators(name)) {
-        if (error)
-            *error = QStringLiteral("Name cannot contain path separators.");
-        return false;
-    }
-
-    const QString location = m_locationEdit->text().trimmed();
-    if (location.isEmpty()) {
-        if (error)
-            *error = QStringLiteral("Location cannot be empty.");
-        return false;
-    }
-
-    return true;
-}
-
-bool AieNewDesignDialog::ensureLocationExists(QString* error)
-{
-    const QString location = m_locationEdit->text().trimmed();
-    if (location.isEmpty()) {
-        if (error)
-            *error = QStringLiteral("Location cannot be empty.");
-        return false;
-    }
-
-    QDir dir(location);
-    if (dir.exists())
-        return true;
-
-    if (!dir.mkpath(QStringLiteral("."))) {
-        if (error)
-            *error = QStringLiteral("Failed to create folder: %1").arg(location);
+            *error = valid.errors.join("\n");
         return false;
     }
 
@@ -253,13 +217,8 @@ bool AieNewDesignDialog::ensureLocationExists(QString* error)
 
 QString AieNewDesignDialog::resolvedBundlePath(const QString& name) const
 {
-    const QString trimmed = name.trimmed();
     const QString location = m_locationEdit ? m_locationEdit->text().trimmed() : QString();
-    if (trimmed.isEmpty() || location.isEmpty())
-        return {};
-
-    const QString candidate = QDir(location).filePath(trimmed);
-    return Utils::DocumentBundle::normalizeBundlePath(candidate);
+    return DesignBundleCreator::resolveBundlePath(location, name);
 }
 
 QString AieNewDesignDialog::deviceFamilyKey() const
@@ -273,6 +232,13 @@ AieNewDesignDialog::DeviceFamily AieNewDesignDialog::deviceFamilyValue() const
 {
     const QString key = deviceFamilyKey();
     return key == kFamilyAieMlV2 ? DeviceFamily::AieMlV2 : DeviceFamily::AieMl;
+}
+
+QString AieNewDesignDialog::defaultBundlePath() const
+{
+    if (!m_nameEdit)
+        return {};
+    return resolvedBundlePath(m_nameEdit->text());
 }
 
 AieNewDesignDialog::ConflictChoice AieNewDesignDialog::promptConflict(const QString& path)
@@ -296,16 +262,6 @@ AieNewDesignDialog::ConflictChoice AieNewDesignDialog::promptConflict(const QStr
     return ConflictChoice::ChooseDifferent;
 }
 
-QString AieNewDesignDialog::uniqueBundlePath(const QString& existingPath) const
-{
-    const QFileInfo info(existingPath);
-    const QDir dir(info.absolutePath());
-    const QString candidate = Utils::FileSystemUtils::duplicateName(dir, info.fileName());
-    if (candidate.isEmpty())
-        return {};
-    return dir.filePath(candidate);
-}
-
 void AieNewDesignDialog::handleCreate()
 {
     QString error;
@@ -314,18 +270,18 @@ void AieNewDesignDialog::handleCreate()
         return;
     }
 
-    if (!ensureLocationExists(&error)) {
-        setError(error);
-        return;
-    }
+    DesignBundleCreateRequest request;
+    request.name = m_nameEdit ? m_nameEdit->text().trimmed() : QString();
+    request.location = m_locationEdit ? m_locationEdit->text().trimmed() : QString();
+    request.deviceFamily = deviceFamilyKey();
 
-    const QString name = m_nameEdit->text().trimmed();
-    QString bundlePath = resolvedBundlePath(name);
+    QString bundlePath = defaultBundlePath();
     if (bundlePath.isEmpty()) {
         setError(QStringLiteral("Unable to resolve bundle path."));
         return;
     }
 
+    ExistingBundlePolicy policy = ExistingBundlePolicy::FailIfExists;
     if (QFileInfo::exists(bundlePath)) {
         const ConflictChoice choice = promptConflict(bundlePath);
         if (choice == ConflictChoice::ChooseDifferent) {
@@ -335,43 +291,23 @@ void AieNewDesignDialog::handleCreate()
         }
 
         if (choice == ConflictChoice::CreateCopy) {
-            const QString uniquePath = uniqueBundlePath(bundlePath);
-            if (uniquePath.isEmpty()) {
-                setError(QStringLiteral("Unable to generate a unique design name."));
-                return;
-            }
-            bundlePath = uniquePath;
+            policy = ExistingBundlePolicy::CreateCopy;
         } else {
-            QFileInfo existing(bundlePath);
-            bool removed = false;
-            if (existing.isDir())
-                removed = QDir(bundlePath).removeRecursively();
-            else
-                removed = QFile::remove(bundlePath);
-
-            if (!removed) {
-                setError(QStringLiteral("Failed to replace existing design."));
-                return;
-            }
+            policy = ExistingBundlePolicy::ReplaceExisting;
         }
     }
 
-    Utils::DocumentBundle::BundleInit init;
-    init.name = QFileInfo(bundlePath).completeBaseName();
-    init.program = QJsonObject{
-        { QStringLiteral("deviceFamily"), deviceFamilyKey() }
-    };
-    init.design = QJsonObject{};
-
-    const Utils::Result created = Utils::DocumentBundle::create(bundlePath, init);
-    if (!created.ok) {
-        setError(created.errors.isEmpty() ? QStringLiteral("Failed to create design.") : created.errors.join("\n"));
+    DesignBundleCreateResult createdBundle;
+    const Utils::Result created = DesignBundleCreator::create(request, policy, createdBundle);
+    if (!created) {
+        setError(created.errors.isEmpty() ? QStringLiteral("Failed to create design.")
+                                          : created.errors.join("\n"));
         return;
     }
 
-    m_result.name = init.name;
-    m_result.location = m_locationEdit->text().trimmed();
-    m_result.bundlePath = bundlePath;
+    m_result.name = createdBundle.displayName;
+    m_result.location = request.location;
+    m_result.bundlePath = createdBundle.bundlePath;
     m_result.deviceFamily = deviceFamilyValue();
     m_result.created = true;
 

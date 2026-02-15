@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "utils/filesystem/RecursiveFileSystemWatcher.hpp"
 
 #include "utils/async/AsyncTask.hpp"

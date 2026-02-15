@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include <utils/EnvironmentQtPolicy.hpp>
@@ -45,10 +48,10 @@ private:
     void handleCreate();
 
     bool validateInputs(QString* error) const;
-    bool ensureLocationExists(QString* error);
     QString resolvedBundlePath(const QString& name) const;
     QString deviceFamilyKey() const;
     DeviceFamily deviceFamilyValue() const;
+    QString defaultBundlePath() const;
 
     enum class ConflictChoice : unsigned char {
         Replace,
@@ -56,7 +59,6 @@ private:
         ChooseDifferent
     };
     ConflictChoice promptConflict(const QString& path);
-    QString uniqueBundlePath(const QString& existingPath) const;
 
     static Utils::Environment makeEnvironment();
 

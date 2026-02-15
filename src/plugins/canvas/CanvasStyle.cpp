@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/CanvasStyle.hpp"
 
 #include "canvas/CanvasConstants.hpp"

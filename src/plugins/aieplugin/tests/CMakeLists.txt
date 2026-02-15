@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samer Ali
+# SPDX-License-Identifier: GPL-3.0-only
+
 include(IRONSmithFunctions)
 
 ironsmith_define_tests(
@@ -11,6 +14,7 @@ ironsmith_define_tests(
             SOURCES
                 NpuProfileLoaderTests.cpp
                 NpuProfileCanvasMapperTests.cpp
+                DesignBundleCreatorTests.cpp
                 DesignBundleLoaderTests.cpp
                 DesignStateCanvasTests.cpp
                 DesignStateJsonTests.cpp

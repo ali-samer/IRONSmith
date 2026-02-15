@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/design/DesignPersistenceController.hpp"
 
 #include "aieplugin/design/DesignStateCanvas.hpp"

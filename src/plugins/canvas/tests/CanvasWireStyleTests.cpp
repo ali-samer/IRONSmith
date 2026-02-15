@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/CanvasWire.hpp"
 #include "canvas/CanvasConstants.hpp"
 #include "canvas/utils/CanvasLinkWireStyle.hpp"
