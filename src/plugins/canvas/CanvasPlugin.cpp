@@ -13,6 +13,7 @@
 #include <QtGui/QActionGroup>
 
 #include "canvas/internal/CanvasHostImpl.hpp"
+#include "canvas/document/CanvasDocumentServiceImpl.hpp"
 #include "extensionsystem/PluginManager.hpp"
 #include "canvas/internal/CanvasGridHostImpl.hpp"
 #include "canvas/internal/CanvasStyleHostImpl.hpp"
@@ -53,9 +54,10 @@ private:
     void clearWireOverrides(CanvasDocument* doc);
     void setWireArrows(CanvasDocument* doc, bool enabled);
 
-    QPointer<CanvasHostImpl> m_host;
-    QPointer<CanvasGridHostImpl> m_gridHost;
-    QPointer<CanvasStyleHostImpl> m_styleHost;
+	    QPointer<CanvasHostImpl> m_host;
+	    QPointer<CanvasGridHostImpl> m_gridHost;
+	    QPointer<CanvasStyleHostImpl> m_styleHost;
+        QPointer<CanvasDocumentServiceImpl> m_documentService;
 
     struct RibbonActions final {
         QPointer<QAction> select;
@@ -84,6 +86,8 @@ Utils::Result CanvasPlugin::initialize(const QStringList &arguments, ExtensionSy
 	qCInfo(canvaslog) << "CanvasPlugin: initialize...";
 	qRegisterMetaType<Canvas::ObjectId>("Canvas::ObjectId");
 	qRegisterMetaType<Canvas::PortId>("Canvas::PortId");
+    qRegisterMetaType<Canvas::Api::CanvasDocumentHandle>("Canvas::Api::CanvasDocumentHandle");
+    qRegisterMetaType<Canvas::Api::CanvasDocumentCloseReason>("Canvas::Api::CanvasDocumentCloseReason");
 	m_host = new CanvasHostImpl();
 	if (!m_host) {
 		qCInfo(canvaslog) << "Failed to create CanvasHostImpl";
@@ -94,6 +98,9 @@ Utils::Result CanvasPlugin::initialize(const QStringList &arguments, ExtensionSy
 
 	m_styleHost = new CanvasStyleHostImpl();
 	ExtensionSystem::PluginManager::addObject(m_styleHost);
+
+    m_documentService = new CanvasDocumentServiceImpl(this);
+    ExtensionSystem::PluginManager::addObject(m_documentService);
 	return Utils::Result::success();
 }
 
@@ -105,6 +112,8 @@ void CanvasPlugin::extensionsInitialized(ExtensionSystem::PluginManager &manager
 	}
 
 	m_host->wireIntoApplication(manager);
+    if (m_documentService)
+        m_documentService->setCanvasHost(m_host);
 
 	if (!m_gridHost) {
 		auto* view = qobject_cast<CanvasView*>(m_host->viewWidget());
@@ -132,6 +141,10 @@ ExtensionSystem::IPlugin::ShutdownFlag CanvasPlugin::aboutToShutdown() {
 		ExtensionSystem::PluginManager::removeObject(m_styleHost);
 		m_styleHost = nullptr;
 	}
+    if (m_documentService) {
+        ExtensionSystem::PluginManager::removeObject(m_documentService);
+        m_documentService = nullptr;
+    }
 	return ShutdownFlag::SynchronousShutdown;
 }
 

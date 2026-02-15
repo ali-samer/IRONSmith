@@ -9,6 +9,7 @@
 #include "canvas/CanvasItem.hpp"
 #include "canvas/CanvasSelectionModel.hpp"
 #include "canvas/CanvasStyle.hpp"
+#include "canvas/CanvasWire.hpp"
 #include "canvas/Tools.hpp"
 #include "canvas/utils/CanvasRenderContextBuilder.hpp"
 
@@ -17,6 +18,8 @@
 #include <QtGui/QColor>
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace Canvas {
 
@@ -32,6 +35,43 @@ bool isPortSelectedThunk(void* user, ObjectId itemId, PortId portId)
 {
     const auto* scene = static_cast<const CanvasScene*>(user);
     return scene && scene->isPortSelected(itemId, portId);
+}
+
+struct FabricKeepoutBounds final {
+    int minX = 0;
+    int maxX = 0;
+    int minY = 0;
+    int maxY = 0;
+};
+
+struct FabricBlockerContext final {
+    const std::vector<FabricKeepoutBounds>* keepouts = nullptr;
+};
+
+FabricKeepoutBounds keepoutToFabricBounds(const QRectF& keepoutSceneRect, double step)
+{
+    const QRectF normalized = keepoutSceneRect.normalized();
+    FabricKeepoutBounds bounds;
+    bounds.minX = static_cast<int>(std::floor(normalized.left() / step));
+    bounds.maxX = static_cast<int>(std::ceil(normalized.right() / step));
+    bounds.minY = static_cast<int>(std::floor(normalized.top() / step));
+    bounds.maxY = static_cast<int>(std::ceil(normalized.bottom() / step));
+    return bounds;
+}
+
+bool isFabricPointBlockedByKeepouts(const FabricCoord& coord, void* user)
+{
+    const auto* context = static_cast<const FabricBlockerContext*>(user);
+    if (!context || !context->keepouts)
+        return false;
+
+    for (const auto& keepout : *context->keepouts) {
+        if (coord.x >= keepout.minX && coord.x <= keepout.maxX
+            && coord.y >= keepout.minY && coord.y <= keepout.maxY) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -255,7 +295,26 @@ void CanvasScene::drawGridFabric(QPainter& p, const QRectF& visibleScene) const
     if (!m_document)
         return;
 
-    m_document->fabric().draw(p, visibleScene, &CanvasDocument::isFabricPointBlockedThunk, m_document);
+    const double step = m_document->fabric().config().step;
+    if (step <= 0.0) {
+        m_document->fabric().draw(p, visibleScene, &CanvasDocument::isFabricPointBlockedThunk, m_document);
+        return;
+    }
+
+    const QRectF visibleWithPadding = visibleScene.adjusted(-step, -step, step, step);
+    std::vector<FabricKeepoutBounds> keepouts;
+    keepouts.reserve(m_document->items().size());
+    for (const auto& item : m_document->items()) {
+        if (!item || !item->blocksFabric())
+            continue;
+        const QRectF keepout = item->keepoutSceneRect();
+        if (!keepout.intersects(visibleWithPadding))
+            continue;
+        keepouts.push_back(keepoutToFabricBounds(keepout, step));
+    }
+
+    FabricBlockerContext blocker{&keepouts};
+    m_document->fabric().draw(p, visibleScene, &isFabricPointBlockedByKeepouts, &blocker);
 }
 
 void CanvasScene::drawContentLayer(QPainter& p, const QRectF& visibleScene, double zoom) const
@@ -264,9 +323,18 @@ void CanvasScene::drawContentLayer(QPainter& p, const QRectF& visibleScene, doub
         return;
 
     CanvasRenderContext ctx = buildRenderContext(visibleScene, true, zoom);
+
+    // Render wires first so block bodies, ports, and labels stay legible on top.
     for (const auto& item : m_document->items()) {
-        if (item)
-            item->draw(p, ctx);
+        if (!item || !dynamic_cast<const CanvasWire*>(item.get()))
+            continue;
+        item->draw(p, ctx);
+    }
+
+    for (const auto& item : m_document->items()) {
+        if (!item || dynamic_cast<const CanvasWire*>(item.get()))
+            continue;
+        item->draw(p, ctx);
     }
 }
 

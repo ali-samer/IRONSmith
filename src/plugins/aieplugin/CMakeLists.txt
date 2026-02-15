@@ -43,8 +43,6 @@ ironsmith_add_plugin(AiePlugin
             design/DesignStateJson.cpp
             design/DesignStateCanvas.hpp
             design/DesignStateCanvas.cpp
-            design/DesignPersistenceController.hpp
-            design/DesignPersistenceController.cpp
             design/CanvasDocumentImporter.hpp
             design/CanvasDocumentImporter.cpp
             design/DesignOpenController.hpp

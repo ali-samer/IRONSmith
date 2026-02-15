@@ -8,7 +8,6 @@
 #include "aieplugin/design/CanvasDocumentImporter.hpp"
 #include "aieplugin/design/DesignBundleLoader.hpp"
 #include "aieplugin/design/DesignOpenController.hpp"
-#include "aieplugin/design/DesignPersistenceController.hpp"
 #include "aieplugin/panels/AieNewDesignDialog.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
 #include "aieplugin/AieService.hpp"
@@ -31,6 +30,7 @@
 #include "core/CoreConstants.hpp"
 #include "core/ui/IUiHost.hpp"
 #include "canvas/api/ICanvasHost.hpp"
+#include "canvas/api/ICanvasDocumentService.hpp"
 #include "canvas/api/ICanvasGridHost.hpp"
 #include "canvas/api/ICanvasStyleHost.hpp"
 #include "extensionsystem/PluginManager.hpp"
@@ -58,6 +58,7 @@ private:
         Core::IUiHost* uiHost = nullptr;
         Canvas::Api::ICanvasGridHost* gridHost = nullptr;
         Canvas::Api::ICanvasHost* canvasHost = nullptr;
+        Canvas::Api::ICanvasDocumentService* canvasDocumentService = nullptr;
         Canvas::Api::ICanvasStyleHost* styleHost = nullptr;
         Core::IHeaderInfo* headerInfo = nullptr;
         ProjectExplorer::IProjectExplorer* projectExplorer = nullptr;
@@ -79,11 +80,11 @@ private:
     QPointer<AieService> m_service;
     QPointer<AiePanelState> m_panelState;
     QPointer<DesignOpenController> m_designOpenController;
-    QPointer<DesignPersistenceController> m_persistenceController;
     std::unique_ptr<DesignBundleLoader> m_bundleLoader;
     std::unique_ptr<CanvasDocumentImporter> m_canvasImporter;
     QMetaObject::Connection m_openFailedConnection;
     QMetaObject::Connection m_designOpenedConnection;
+    QMetaObject::Connection m_designClosedConnection;
     QMetaObject::Connection m_newDesignTriggeredConnection;
     bool m_toolRegistered = false;
 };
@@ -201,6 +202,7 @@ Utils::Result AiePlugin::resolveRuntimeDependencies(ExtensionSystem::PluginManag
         return Utils::Result::failure(QStringLiteral("Canvas grid host is not available."));
 
     deps.canvasHost = manager.getObject<Canvas::Api::ICanvasHost>();
+    deps.canvasDocumentService = manager.getObject<Canvas::Api::ICanvasDocumentService>();
     deps.styleHost = manager.getObject<Canvas::Api::ICanvasStyleHost>();
     deps.headerInfo = manager.getObject<Core::IHeaderInfo>();
     deps.projectExplorer = manager.getObject<ProjectExplorer::IProjectExplorer>();
@@ -245,16 +247,14 @@ Utils::Result AiePlugin::configureDesignWorkflow(const RuntimeDependencies& deps
         m_bundleLoader = std::make_unique<DesignBundleLoader>(&m_service->catalog());
     if (!m_canvasImporter)
         m_canvasImporter = std::make_unique<CanvasDocumentImporter>(m_service);
-    if (!m_persistenceController)
-        m_persistenceController = new DesignPersistenceController(this);
 
-    m_persistenceController->setCanvasHost(deps.canvasHost);
-    m_persistenceController->setCoordinator(m_service->coordinator());
+    if (!deps.canvasDocumentService)
+        return Utils::Result::failure(QStringLiteral("Canvas document service is not available."));
 
     if (!m_designOpenController) {
         m_designOpenController = new DesignOpenController(m_bundleLoader.get(),
                                                           m_canvasImporter.get(),
-                                                          m_persistenceController,
+                                                          deps.canvasDocumentService,
                                                           this);
     }
 
@@ -331,6 +331,16 @@ void AiePlugin::connectHeaderInfo(const RuntimeDependencies& deps)
                                                header->setDeviceLabel(formatDeviceLabel(m_service->catalog(), deviceId));
                                            else
                                                header->setDeviceLabel(deviceId);
+                                       });
+
+    if (m_designClosedConnection)
+        disconnect(m_designClosedConnection);
+    m_designClosedConnection = connect(m_designOpenController, &DesignOpenController::designClosed, this,
+                                       [header = QPointer<Core::IHeaderInfo>(deps.headerInfo)](const QString&) {
+                                           if (!header)
+                                               return;
+                                           header->setDesignLabel(QString());
+                                           header->setDeviceLabel(QString());
                                        });
 }
 

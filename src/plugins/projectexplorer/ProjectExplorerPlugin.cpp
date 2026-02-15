@@ -14,6 +14,7 @@
 #include <extensionsystem/IPlugin.hpp>
 #include <extensionsystem/PluginManager.hpp>
 #include <utils/Result.hpp>
+#include <utils/DocumentBundle.hpp>
 
 #include "core/api/ISidebarRegistry.hpp"
 #include "core/api/SidebarToolSpec.hpp"
@@ -27,10 +28,23 @@
 #include <QPointer>
 #include <QStringList>
 #include <QWidget>
+#include <QFileInfo>
 
 Q_LOGGING_CATEGORY(projectexplorerlog, "ironsmith.projectexplorer")
 
 namespace ProjectExplorer::Internal {
+
+namespace {
+
+ProjectExplorer::ProjectEntryKind inferEntryKindFromPath(const QString& path)
+{
+    const QFileInfo info(path);
+    if (info.suffix().compare(Utils::DocumentBundle::extension(), Qt::CaseInsensitive) == 0)
+        return ProjectExplorer::ProjectEntryKind::Design;
+    return ProjectExplorer::ProjectEntryKind::Unknown;
+}
+
+} // namespace
 
 class ProjectExplorerPlugin final : public ExtensionSystem::IPlugin {
     Q_OBJECT
@@ -111,8 +125,8 @@ void ProjectExplorerPlugin::extensionsInitialized(ExtensionSystem::PluginManager
         return;
     }
 
-    if (m_service && m_fileSystem && !m_fileController) {
-        m_fileController = new ProjectExplorerFileSystemController(m_service, m_fileSystem, this);
+	    if (m_service && m_fileSystem && !m_fileController) {
+	        m_fileController = new ProjectExplorerFileSystemController(m_service, m_fileSystem, this);
         m_fileController->setDialogParent(uiHost->playgroundOverlayHost());
         connect(m_service, &ProjectExplorerService::contextActionRequested,
                 m_fileController, &ProjectExplorerFileSystemController::handleContextAction);
@@ -120,9 +134,30 @@ void ProjectExplorerPlugin::extensionsInitialized(ExtensionSystem::PluginManager
                 m_fileController, &ProjectExplorerFileSystemController::handleOpenRequest);
         connect(m_service, &ProjectExplorerService::revealPathRequested,
                 m_fileController, &ProjectExplorerFileSystemController::handleRevealPath);
-        connect(m_service, &ProjectExplorerService::openRootRequested,
-                this, [this, uiHost]() { openRootFolder(uiHost); });
-    }
+	        connect(m_service, &ProjectExplorerService::openRootRequested,
+	                this, [this, uiHost]() { openRootFolder(uiHost); });
+            connect(m_fileSystem, &ProjectExplorerFileSystemService::operationCompleted,
+                    this, [this](ProjectExplorerFileSystemService::Operation op,
+                                 const QString& path,
+                                 const QString& newPath) {
+                        if (!m_service)
+                            return;
+                        switch (op) {
+                            case ProjectExplorerFileSystemService::Operation::Delete:
+                                m_service->notifyEntryRemoved(path, inferEntryKindFromPath(path));
+                                break;
+                            case ProjectExplorerFileSystemService::Operation::Rename:
+                                if (!newPath.trimmed().isEmpty()) {
+                                    m_service->notifyEntryRenamed(path,
+                                                                  newPath,
+                                                                  inferEntryKindFromPath(newPath));
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                    });
+	    }
 
     QAction* openAction = uiHost->ribbonCommand(Core::Constants::RIBBON_TAB_HOME,
                                                 Core::Constants::RIBBON_TAB_HOME_PROJECT_GROUP,

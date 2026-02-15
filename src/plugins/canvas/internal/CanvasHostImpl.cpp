@@ -161,6 +161,8 @@ void CanvasHostImpl::wireIntoApplication(ExtensionSystem::PluginManager& manager
 	connect(m_view, &CanvasView::canvasMousePressed, m_controller, &CanvasController::onCanvasMousePressed);
 	connect(m_view, &CanvasView::canvasMouseMoved, m_controller, &CanvasController::onCanvasMouseMoved);
 	connect(m_view, &CanvasView::canvasMouseReleased, m_controller, &CanvasController::onCanvasMouseReleased);
+    connect(m_view, &CanvasView::canvasContextMenuRequested,
+            m_controller, &CanvasController::onCanvasContextMenuRequested);
 	connect(m_view, &CanvasView::canvasWheel, m_controller, &CanvasController::onCanvasWheel);
 	connect(m_view, &CanvasView::canvasKeyPressed, m_controller, &CanvasController::onCanvasKeyPressed);
 

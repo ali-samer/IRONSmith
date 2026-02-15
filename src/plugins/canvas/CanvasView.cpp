@@ -9,6 +9,7 @@
 
 #include <QtGui/QPainter>
 #include <QtGui/QMouseEvent>
+#include <QtGui/QContextMenuEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QWheelEvent>
 #include <QtGui/QResizeEvent>
@@ -271,6 +272,15 @@ void CanvasView::mousePressEvent(QMouseEvent* event)
         event->accept();
         return;
     }
+
+    if (event->button() == Qt::RightButton) {
+        emit canvasContextMenuRequested(viewToScene(event->position()),
+                                        event->globalPosition().toPoint(),
+                                        event->modifiers());
+        event->accept();
+        return;
+    }
+
 	emit canvasMousePressed(viewToScene(event->position()), event->buttons(), event->modifiers());
 	event->accept();
 }
@@ -293,6 +303,20 @@ void CanvasView::mouseReleaseEvent(QMouseEvent* event)
     }
 	emit canvasMouseReleased(viewToScene(event->position()), event->buttons(), event->modifiers());
 	event->accept();
+}
+
+void CanvasView::contextMenuEvent(QContextMenuEvent* event)
+{
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
+
+    if (event->reason() != QContextMenuEvent::Mouse) {
+        const QPointF scenePos = viewToScene(event->pos());
+        emit canvasContextMenuRequested(scenePos, event->globalPos(), event->modifiers());
+    }
+    event->accept();
 }
 
 void CanvasView::wheelEvent(QWheelEvent* event)

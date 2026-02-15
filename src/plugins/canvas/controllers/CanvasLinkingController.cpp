@@ -454,7 +454,7 @@ bool CanvasLinkingController::createHubAndWires(const QPointF& scenePos, const P
     const QPointF topLeft(hubCenter.x() - size * 0.5, hubCenter.y() - size * 0.5);
     auto hub = std::make_unique<CanvasBlock>(QRectF(topLeft, QSizeF(size, size)), true, QString());
     hub->setShowPorts(false);
-    hub->setAutoPortLayout(true);
+    hub->setAutoPortLayout(false);
     hub->setPortSnapStep(Constants::kGridStep);
     hub->setLinkHub(true);
     hub->setKeepoutMargin(0.0);

@@ -27,6 +27,7 @@ namespace Controllers {
 class CanvasSelectionController;
 class CanvasLinkingController;
 class CanvasDragController;
+class CanvasContextMenuController;
 }
 
 class CANVAS_EXPORT CanvasController final : public QObject
@@ -56,6 +57,7 @@ public slots:
 	void onCanvasMousePressed(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void onCanvasMouseMoved(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
 	void onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseButtons buttons, Qt::KeyboardModifiers mods);
+	void onCanvasContextMenuRequested(const QPointF& scenePos, const QPoint& globalPos, Qt::KeyboardModifiers mods);
 	void onCanvasWheel(const QPointF& scenePos, const QPoint& angleDelta, const QPoint& pixelDelta, Qt::KeyboardModifiers mods);
 	void onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods);
 	void setMode(Mode mode);
@@ -78,6 +80,7 @@ private:
 	std::unique_ptr<Controllers::CanvasSelectionController> m_selectionController;
 	std::unique_ptr<Controllers::CanvasLinkingController> m_linkingController;
 	std::unique_ptr<Controllers::CanvasDragController> m_dragController;
+	std::unique_ptr<Controllers::CanvasContextMenuController> m_contextMenuController;
 
 	bool    m_panning = false;
 	QPointF m_lastViewPos;

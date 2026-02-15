@@ -320,7 +320,7 @@ Utils::Result applyDesignStateToCanvas(const DesignState& state,
 
         auto hub = std::make_unique<Canvas::CanvasBlock>(node.bounds, true, QString());
         hub->setShowPorts(false);
-        hub->setAutoPortLayout(true);
+        hub->setAutoPortLayout(false);
         hub->setPortSnapStep(Canvas::Constants::kGridStep);
         hub->setLinkHub(true);
         hub->setKeepoutMargin(0.0);

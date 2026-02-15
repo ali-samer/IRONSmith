@@ -15,6 +15,7 @@
 #include "canvas/controllers/CanvasDragController.hpp"
 #include "canvas/controllers/CanvasInteractionHelpers.hpp"
 #include "canvas/controllers/CanvasLinkingController.hpp"
+#include "canvas/controllers/CanvasContextMenuController.hpp"
 #include "canvas/controllers/CanvasSelectionController.hpp"
 
 #include <QtCore/QString>
@@ -52,6 +53,10 @@ CanvasController::CanvasController(CanvasDocument* doc, CanvasView* view, Canvas
 	m_linkingController = std::make_unique<Controllers::CanvasLinkingController>(m_doc, m_view,
 	                                                                             m_selectionController.get(),
 	                                                                             m_dragController.get());
+    m_contextMenuController = std::make_unique<Controllers::CanvasContextMenuController>(m_doc,
+                                                                                          m_view,
+                                                                                          m_selectionController.get(),
+                                                                                          this);
 }
 
 CanvasController::~CanvasController() = default;
@@ -153,7 +158,6 @@ void CanvasController::updatePanning(const QPointF& viewPos)
     const QPointF deltaScene(delta.x() / zoom, delta.y() / zoom);
     m_view->setPan(m_view->pan() + deltaScene);
     m_lastViewPos = viewPos;
-    m_view->update();
 }
 
 void CanvasController::endPanning()
@@ -362,8 +366,16 @@ void CanvasController::onCanvasMouseReleased(const QPointF& scenePos, Qt::MouseB
         return;
     }
 
-    if (m_dragController && m_dragController->isBlockDragActive())
-        m_dragController->endBlockDrag();
+	    if (m_dragController && m_dragController->isBlockDragActive())
+	        m_dragController->endBlockDrag();
+}
+
+void CanvasController::onCanvasContextMenuRequested(const QPointF& scenePos,
+                                                    const QPoint& globalPos,
+                                                    Qt::KeyboardModifiers mods)
+{
+    if (m_contextMenuController)
+        m_contextMenuController->showContextMenu(scenePos, globalPos, mods);
 }
 
 
