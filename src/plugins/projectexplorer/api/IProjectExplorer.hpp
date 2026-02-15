@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "projectexplorer/ProjectExplorerGlobal.hpp"
@@ -31,6 +34,7 @@ public:
     virtual void registerAction(const ProjectExplorerActionSpec& spec) = 0;
     virtual void unregisterAction(const QString& id) = 0;
     virtual ProjectExplorerActionList registeredActions() const = 0;
+    virtual QString rootPath() const = 0;
 
 signals:
     void openRequested(const QString& path, ProjectExplorer::ProjectEntryKind kind);

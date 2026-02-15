@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samer Ali
+# SPDX-License-Identifier: GPL-3.0-only
+
 ironsmith_add_plugin(AiePlugin
         PLUGIN_NAME AiePlugin
         PLUGIN_CLASS Aie::Internal::AiePlugin
@@ -6,6 +9,8 @@ ironsmith_add_plugin(AiePlugin
             AiePlugin.cpp
             AieGlobal.hpp
             AieConstants.hpp
+            AieStyleCatalog.hpp
+            AieStyleCatalog.cpp
             AieService.hpp
             AieService.cpp
             AiePlugin.json
@@ -31,6 +36,8 @@ ironsmith_add_plugin(AiePlugin
             design/DesignModel.cpp
             design/DesignBundleLoader.hpp
             design/DesignBundleLoader.cpp
+            design/DesignBundleCreator.hpp
+            design/DesignBundleCreator.cpp
             design/DesignState.hpp
             design/DesignStateJson.hpp
             design/DesignStateJson.cpp

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/AieCanvasCoordinator.hpp"
 
 #include "aieplugin/AieConstants.hpp"
@@ -249,25 +252,42 @@ const SelectionBlockInfo* findBlockInfo(const SelectionLayout& layout, Canvas::O
 AieCanvasCoordinator::AieCanvasCoordinator(QObject* parent)
     : QObject(parent)
     , m_applyDebounce(this)
-    , m_horizontalSpacing(Aie::kDefaultTileSpacing)
-    , m_verticalSpacing(Aie::kDefaultTileSpacing)
-    , m_outwardSpread(Aie::kDefaultOuterMargin)
-    , m_autoCellSize(true)
-    , m_cellSize(Aie::kDefaultCellSize)
-    , m_showPorts(true)
-    , m_showLabels(true)
-    , m_showAnnotations(false)
-    , m_keepoutMargin(Aie::kDefaultKeepoutMargin)
-    , m_useCustomColors(false)
-    , m_fillColor(QColor(Canvas::Constants::kBlockFillColor))
-    , m_outlineColor(QColor(Canvas::Constants::kBlockOutlineColor))
-    , m_labelColor(QColor(Canvas::Constants::kBlockTextColor))
 {
+    m_layout.horizontalSpacing = Aie::kDefaultTileSpacing;
+    m_layout.verticalSpacing = Aie::kDefaultTileSpacing;
+    m_layout.outwardSpread = Aie::kDefaultOuterMargin;
+    m_layout.cellSize = Aie::kDefaultCellSize;
+    m_layout.keepoutMargin = Aie::kDefaultKeepoutMargin;
+
+    m_colors.fill = QColor(Canvas::Constants::kBlockFillColor);
+    m_colors.outline = QColor(Canvas::Constants::kBlockOutlineColor);
+    m_colors.label = QColor(Canvas::Constants::kBlockTextColor);
+
     m_applyDebounce.setDelayMs(kApplyDebounceMs);
     m_applyDebounce.setAction([this]() { applyNow(); });
 }
 
 AieCanvasCoordinator::~AieCanvasCoordinator() = default;
+
+bool AieCanvasCoordinator::hasFlag(FlagBit flag) const
+{
+    const quint8 bit = static_cast<quint8>(flag);
+    return (m_flags & bit) != 0u;
+}
+
+bool AieCanvasCoordinator::setFlag(FlagBit flag, bool enabled)
+{
+    const quint8 bit = static_cast<quint8>(flag);
+    const bool wasEnabled = (m_flags & bit) != 0u;
+    if (wasEnabled == enabled)
+        return false;
+
+    if (enabled)
+        m_flags |= bit;
+    else
+        m_flags &= static_cast<quint8>(~bit);
+    return true;
+}
 
 void AieCanvasCoordinator::setCanvasHost(Canvas::Api::ICanvasHost* host)
 {
@@ -307,9 +327,9 @@ void AieCanvasCoordinator::setBaseStyles(const QHash<QString, Canvas::Api::Canva
 
 double AieCanvasCoordinator::tileSpacing() const
 {
-    if (qFuzzyCompare(m_horizontalSpacing, m_verticalSpacing))
-        return m_horizontalSpacing;
-    return (m_horizontalSpacing + m_verticalSpacing) * 0.5;
+    if (qFuzzyCompare(m_layout.horizontalSpacing, m_layout.verticalSpacing))
+        return m_layout.horizontalSpacing;
+    return (m_layout.horizontalSpacing + m_layout.verticalSpacing) * 0.5;
 }
 
 void AieCanvasCoordinator::setTileSpacing(double spacing)
@@ -321,10 +341,10 @@ void AieCanvasCoordinator::setTileSpacing(double spacing)
 void AieCanvasCoordinator::setHorizontalSpacing(double spacing)
 {
     spacing = std::max(0.0, spacing);
-    if (qFuzzyCompare(m_horizontalSpacing, spacing))
+    if (qFuzzyCompare(m_layout.horizontalSpacing, spacing))
         return;
-    m_horizontalSpacing = spacing;
-    emit horizontalSpacingChanged(m_horizontalSpacing);
+    m_layout.horizontalSpacing = spacing;
+    emit horizontalSpacingChanged(m_layout.horizontalSpacing);
     emit tileSpacingChanged(tileSpacing());
     requestApply();
 }
@@ -332,10 +352,10 @@ void AieCanvasCoordinator::setHorizontalSpacing(double spacing)
 void AieCanvasCoordinator::setVerticalSpacing(double spacing)
 {
     spacing = std::max(0.0, spacing);
-    if (qFuzzyCompare(m_verticalSpacing, spacing))
+    if (qFuzzyCompare(m_layout.verticalSpacing, spacing))
         return;
-    m_verticalSpacing = spacing;
-    emit verticalSpacingChanged(m_verticalSpacing);
+    m_layout.verticalSpacing = spacing;
+    emit verticalSpacingChanged(m_layout.verticalSpacing);
     emit tileSpacingChanged(tileSpacing());
     requestApply();
 }
@@ -343,11 +363,11 @@ void AieCanvasCoordinator::setVerticalSpacing(double spacing)
 void AieCanvasCoordinator::setOutwardSpread(double spread)
 {
     spread = std::max(0.0, spread);
-    if (qFuzzyCompare(m_outwardSpread, spread))
+    if (qFuzzyCompare(m_layout.outwardSpread, spread))
         return;
-    m_outwardSpread = spread;
-    emit outwardSpreadChanged(m_outwardSpread);
-    emit outerMarginChanged(m_outwardSpread);
+    m_layout.outwardSpread = spread;
+    emit outwardSpreadChanged(m_layout.outwardSpread);
+    emit outerMarginChanged(m_layout.outwardSpread);
     requestApply();
 }
 
@@ -358,96 +378,91 @@ void AieCanvasCoordinator::setOuterMargin(double margin)
 
 void AieCanvasCoordinator::setAutoCellSize(bool enabled)
 {
-    if (m_autoCellSize == enabled)
+    if (!setFlag(FlagBit::AutoCellSize, enabled))
         return;
-    m_autoCellSize = enabled;
-    emit autoCellSizeChanged(m_autoCellSize);
+    emit autoCellSizeChanged(enabled);
     requestApply();
 }
 
 void AieCanvasCoordinator::setCellSize(double size)
 {
     size = std::max(1.0, size);
-    if (qFuzzyCompare(m_cellSize, size))
+    if (qFuzzyCompare(m_layout.cellSize, size))
         return;
-    m_cellSize = size;
-    emit cellSizeChanged(m_cellSize);
-    if (!m_autoCellSize)
+    m_layout.cellSize = size;
+    emit cellSizeChanged(m_layout.cellSize);
+    if (!autoCellSize())
         requestApply();
 }
 
 void AieCanvasCoordinator::setShowPorts(bool enabled)
 {
-    if (m_showPorts == enabled)
+    if (!setFlag(FlagBit::ShowPorts, enabled))
         return;
-    m_showPorts = enabled;
-    emit showPortsChanged(m_showPorts);
+    emit showPortsChanged(enabled);
     requestApply();
 }
 
 void AieCanvasCoordinator::setShowLabels(bool enabled)
 {
-    if (m_showLabels == enabled)
+    if (!setFlag(FlagBit::ShowLabels, enabled))
         return;
-    m_showLabels = enabled;
-    emit showLabelsChanged(m_showLabels);
+    emit showLabelsChanged(enabled);
     requestApply();
 }
 
 void AieCanvasCoordinator::setShowAnnotations(bool enabled)
 {
-    if (m_showAnnotations == enabled)
+    if (!setFlag(FlagBit::ShowAnnotations, enabled))
         return;
-    m_showAnnotations = enabled;
-    emit showAnnotationsChanged(m_showAnnotations);
+    emit showAnnotationsChanged(enabled);
     requestApply();
 }
 
 void AieCanvasCoordinator::setKeepoutMargin(double margin)
 {
-    if (qFuzzyCompare(m_keepoutMargin, margin))
+    if (qFuzzyCompare(m_layout.keepoutMargin, margin))
         return;
-    m_keepoutMargin = margin;
-    emit keepoutMarginChanged(m_keepoutMargin);
+    m_layout.keepoutMargin = margin;
+    emit keepoutMarginChanged(m_layout.keepoutMargin);
     requestApply();
 }
 
 void AieCanvasCoordinator::setUseCustomColors(bool enabled)
 {
-    if (m_useCustomColors == enabled)
+    if (!setFlag(FlagBit::UseCustomColors, enabled))
         return;
-    m_useCustomColors = enabled;
-    emit useCustomColorsChanged(m_useCustomColors);
+    emit useCustomColorsChanged(enabled);
     requestApply();
 }
 
 void AieCanvasCoordinator::setFillColor(const QColor& color)
 {
-    if (m_fillColor == color)
+    if (m_colors.fill == color)
         return;
-    m_fillColor = color;
-    emit fillColorChanged(m_fillColor);
-    if (m_useCustomColors)
+    m_colors.fill = color;
+    emit fillColorChanged(m_colors.fill);
+    if (useCustomColors())
         requestApply();
 }
 
 void AieCanvasCoordinator::setOutlineColor(const QColor& color)
 {
-    if (m_outlineColor == color)
+    if (m_colors.outline == color)
         return;
-    m_outlineColor = color;
-    emit outlineColorChanged(m_outlineColor);
-    if (m_useCustomColors)
+    m_colors.outline = color;
+    emit outlineColorChanged(m_colors.outline);
+    if (useCustomColors())
         requestApply();
 }
 
 void AieCanvasCoordinator::setLabelColor(const QColor& color)
 {
-    if (m_labelColor == color)
+    if (m_colors.label == color)
         return;
-    m_labelColor = color;
-    emit labelColorChanged(m_labelColor);
-    if (m_useCustomColors)
+    m_colors.label = color;
+    emit labelColorChanged(m_colors.label);
+    if (useCustomColors())
         requestApply();
 }
 
@@ -460,29 +475,29 @@ void AieCanvasCoordinator::apply()
                           << "gridValid=" << m_baseModel.gridSpec.isValid();
 
     Utils::GridSpec spec = m_baseModel.gridSpec;
-    const double spread = m_outwardSpread;
-    spec.cellSpacing = QSizeF(m_horizontalSpacing + spread, m_verticalSpacing + spread);
-    spec.autoCellSize = m_autoCellSize;
-    spec.cellSize = m_autoCellSize ? QSizeF() : QSizeF(m_cellSize, m_cellSize);
+    const double spread = m_layout.outwardSpread;
+    spec.cellSpacing = QSizeF(m_layout.horizontalSpacing + spread, m_layout.verticalSpacing + spread);
+    spec.autoCellSize = autoCellSize();
+    spec.cellSize = autoCellSize() ? QSizeF() : QSizeF(m_layout.cellSize, m_layout.cellSize);
 
     QVector<Canvas::Api::CanvasBlockSpec> blocks = m_baseModel.blocks;
     for (auto& block : blocks) {
         const bool basePortLabels = block.showPortLabels;
-        block.showPorts = m_showPorts;
-        block.label = m_showLabels ? block.label : QString();
-        block.showPortLabels = m_showAnnotations && basePortLabels;
+        block.showPorts = showPorts();
+        block.label = showLabels() ? block.label : QString();
+        block.showPortLabels = showAnnotations() && basePortLabels;
         block.positionOffset = m_blockOffsets.value(block.id);
-        if (m_keepoutMargin >= 0.0)
-            block.keepoutMargin = m_keepoutMargin;
+        if (m_layout.keepoutMargin >= 0.0)
+            block.keepoutMargin = m_layout.keepoutMargin;
         else
             block.keepoutMargin = -1.0;
 
         if (!m_styleHost) {
-            if (m_useCustomColors) {
+            if (useCustomColors()) {
                 block.hasCustomColors = true;
-                block.fillColor = m_fillColor;
-                block.outlineColor = m_outlineColor;
-                block.labelColor = m_labelColor;
+                block.fillColor = m_colors.fill;
+                block.outlineColor = m_colors.outline;
+                block.labelColor = m_colors.label;
             } else {
                 block.hasCustomColors = false;
             }
@@ -495,10 +510,10 @@ void AieCanvasCoordinator::apply()
     if (m_styleHost && !m_baseStyles.isEmpty()) {
         for (auto it = m_baseStyles.begin(); it != m_baseStyles.end(); ++it) {
             Canvas::Api::CanvasBlockStyle style = it.value();
-            if (m_useCustomColors) {
-                style.fillColor = m_fillColor;
-                style.outlineColor = m_outlineColor;
-                style.labelColor = m_labelColor;
+            if (useCustomColors()) {
+                style.fillColor = m_colors.fill;
+                style.outlineColor = m_colors.outline;
+                style.labelColor = m_colors.label;
             }
             m_styleHost->setBlockStyle(it.key(), style);
         }
@@ -607,17 +622,17 @@ void AieCanvasCoordinator::nudgeSelection(double dx, double dy)
 
 void AieCanvasCoordinator::requestApply()
 {
-    m_dirty = true;
+    setFlag(FlagBit::Dirty, true);
     m_applyDebounce.trigger();
 }
 
 void AieCanvasCoordinator::applyNow()
 {
-    if (!m_dirty)
+    if (!hasFlag(FlagBit::Dirty))
         return;
     if (!m_gridHost || !m_baseModel.gridSpec.isValid())
         return;
-    m_dirty = false;
+    setFlag(FlagBit::Dirty, false);
     apply();
 }
 

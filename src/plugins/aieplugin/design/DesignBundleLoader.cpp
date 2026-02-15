@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/design/DesignBundleLoader.hpp"
 
 #include "aieplugin/AieConstants.hpp"
@@ -114,18 +117,32 @@ Utils::Result DesignBundleLoader::resolveProfileForArch(const QString& arch, con
     if (!m_catalog)
         return Utils::Result::failure(QStringLiteral("NPU profile catalog is not available."));
 
-    const QString deviceId = QString::fromLatin1(Aie::kDefaultDeviceId);
-    const Aie::NpuProfile* profile = findProfileById(*m_catalog, deviceId);
-    if (!profile)
-        return Utils::Result::failure(QStringLiteral("Device profile not found: %1").arg(deviceId));
-
-    if (!profile->aieArch.isEmpty() && !archMatches(profile->aieArch, arch)) {
-        return Utils::Result::failure(QStringLiteral("Device profile architecture '%1' does not match '%2'.")
-                                          .arg(profile->aieArch, arch));
+    const Aie::NpuProfile* profile = selectProfileForArch(arch);
+    if (!profile) {
+        return Utils::Result::failure(QStringLiteral("No device profile supports architecture: %1").arg(arch));
     }
 
     outProfile = profile;
     return Utils::Result::success();
+}
+
+const Aie::NpuProfile* DesignBundleLoader::selectProfileForArch(const QString& arch) const
+{
+    if (!m_catalog)
+        return nullptr;
+
+    const QString defaultDeviceId = QString::fromLatin1(Aie::kDefaultDeviceId);
+    if (const Aie::NpuProfile* preferred = findProfileById(*m_catalog, defaultDeviceId)) {
+        if (preferred->aieArch.isEmpty() || archMatches(preferred->aieArch, arch))
+            return preferred;
+    }
+
+    for (const auto& profile : m_catalog->devices) {
+        if (profile.aieArch.isEmpty() || archMatches(profile.aieArch, arch))
+            return &profile;
+    }
+
+    return nullptr;
 }
 
 bool DesignBundleLoader::archMatches(QStringView lhs, QStringView rhs)

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "projectexplorer/search/ProjectExplorerSearchIndex.hpp"
 
 #include <utils/async/AsyncTask.hpp>
