@@ -11,7 +11,6 @@
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QSizePolicy>
 #include <QtWidgets/QStackedWidget>
-#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 #include <QtGui/QMouseEvent>
@@ -117,12 +116,9 @@ private:
         if (!m_action->icon().isNull()) {
             const QSize logical = m_iconSize.isValid() ? m_iconSize : QSize(24, 24);
             const qreal dpr = m_icon->devicePixelRatioF();
-
-            const QSize devicePx(qRound(logical.width() * dpr),
-                                 qRound(logical.height() * dpr));
-
-            QPixmap pm = m_action->icon().pixmap(devicePx);
-            pm.setDevicePixelRatio(dpr);
+            const QIcon::Mode mode = isEnabled() ? QIcon::Normal : QIcon::Disabled;
+            const QIcon::State state = (m_action->isCheckable() && m_action->isChecked()) ? QIcon::On : QIcon::Off;
+            const QPixmap pm = m_action->icon().pixmap(logical, dpr, mode, state);
             m_icon->setPixmap(pm);
         } else {
             m_icon->setPixmap(QPixmap());
@@ -144,21 +140,23 @@ private:
     QLabel* m_caption = nullptr;
     QSize m_iconSize;
 };
-} // namespace
 
-static Qt::ToolButtonStyle toolButtonStyleFor(const RibbonPresentation& p)
+QSize tileMinSizeFor(const RibbonPresentation& pres)
 {
-    if (!p.showText)
-        return Qt::ToolButtonIconOnly;
-
-    switch (p.iconPlacement) {
-    case RibbonIconPlacement::AboveText: return Qt::ToolButtonTextUnderIcon;
-    case RibbonIconPlacement::LeftOfText: return Qt::ToolButtonTextBesideIcon;
-    case RibbonIconPlacement::IconOnly: return Qt::ToolButtonIconOnly;
-    case RibbonIconPlacement::TextOnly: return Qt::ToolButtonTextOnly;
+    switch (pres.size) {
+        case RibbonVisualSize::Large:
+            return QSize(Ui::UiStyle::RibbonCommandLargeMinWidthPx,
+                         Ui::UiStyle::RibbonCommandLargeMinHeightPx);
+        case RibbonVisualSize::Medium:
+            return QSize(Ui::UiStyle::RibbonCommandMediumMinWidthPx,
+                         Ui::UiStyle::RibbonCommandMediumMinHeightPx);
+        case RibbonVisualSize::Small:
+        default:
+            return QSize(Ui::UiStyle::RibbonCommandSmallMinWidthPx,
+                         Ui::UiStyle::RibbonCommandSmallMinHeightPx);
     }
-    return Qt::ToolButtonTextBesideIcon;
 }
+} // namespace
 
 static int defaultIconPxFor(const RibbonPresentation& pres)
 {
@@ -262,12 +260,20 @@ QWidget* CommandRibbonWidget::buildPageWidget(CommandRibbonPage* page)
     pageRoot->setAttribute(Qt::WA_StyledBackground, true);
 
     auto* row = new QHBoxLayout(pageRoot);
-    row->setContentsMargins(0, 0, 0, 0);
+    row->setContentsMargins(Ui::UiStyle::RibbonPageHPaddingPx,
+                            Ui::UiStyle::RibbonPageVPaddingPx,
+                            Ui::UiStyle::RibbonPageHPaddingPx,
+                            0);
     row->setSpacing(0);
 
-    for (auto* group : page->groups()) {
+    const auto groups = page->groups();
+    for (int index = 0; index < groups.size(); ++index) {
+        auto* group = groups.at(index);
         QWidget* gw = buildGroupWidget(group);
         row->addWidget(gw);
+
+        if (index + 1 < groups.size())
+            row->addWidget(buildGroupDividerWidget(pageRoot));
     }
 
     row->addStretch(1);
@@ -291,8 +297,11 @@ QWidget* CommandRibbonWidget::buildGroupWidget(CommandRibbonGroup* group)
     content->setObjectName("RibbonGroupContent");
 
     auto* contentLayout = new QHBoxLayout(content);
-    contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(6);
+    contentLayout->setContentsMargins(Ui::UiStyle::RibbonGroupContentHPaddingPx,
+                                      Ui::UiStyle::RibbonGroupContentVPaddingPx,
+                                      Ui::UiStyle::RibbonGroupContentHPaddingPx,
+                                      Ui::UiStyle::RibbonGroupContentVPaddingPx);
+    contentLayout->setSpacing(Ui::UiStyle::RibbonLayoutSpacingPx);
 
     QWidget* tree = buildNodeWidget(group->layoutRoot(), content);
     if (tree)
@@ -303,11 +312,33 @@ QWidget* CommandRibbonWidget::buildGroupWidget(CommandRibbonGroup* group)
     auto* title = new QLabel(group->title(), box);
     title->setObjectName("RibbonGroupTitle");
     title->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-    title->setMinimumHeight(18);
+    title->setMinimumHeight(Ui::UiStyle::RibbonGroupTitleHeightPx);
     title->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     col->addWidget(title, 0);
 
     return box;
+}
+
+QWidget* CommandRibbonWidget::buildGroupDividerWidget(QWidget* parent)
+{
+    auto* host = new QWidget(parent);
+    host->setObjectName("RibbonGroupDivider");
+    host->setAttribute(Qt::WA_StyledBackground, true);
+    host->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    host->setFixedWidth(12);
+
+    auto* layout = new QVBoxLayout(host);
+    layout->setContentsMargins(5, 10, 5, 10);
+    layout->setSpacing(0);
+
+    auto* line = new QWidget(host);
+    line->setObjectName("RibbonGroupDividerLine");
+    line->setAttribute(Qt::WA_StyledBackground, true);
+    line->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    line->setFixedWidth(1);
+
+    layout->addWidget(line, 1, Qt::AlignHCenter);
+    return host;
 }
 
 QWidget* CommandRibbonWidget::buildNodeWidget(const RibbonNode& node, QWidget* parent)
@@ -341,7 +372,7 @@ QWidget* CommandRibbonWidget::buildNodeWidget(const RibbonNode& node, QWidget* p
                                : static_cast<QBoxLayout*>(new QVBoxLayout(container));
 
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(6);
+    layout->setSpacing(Ui::UiStyle::RibbonLayoutSpacingPx);
 
     for (const auto& childPtr : node.children()) {
         const RibbonNode& child = *childPtr;
@@ -370,10 +401,15 @@ QWidget* CommandRibbonWidget::buildSeparatorWidget(Qt::Orientation parentLayoutO
 {
     auto* sep = new QFrame(parent);
     sep->setObjectName("RibbonSeparator");
-    if (parentLayoutOrientation == Qt::Horizontal)
+    if (parentLayoutOrientation == Qt::Horizontal) {
         sep->setFrameShape(QFrame::VLine);
-    else
+        sep->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+        sep->setFixedWidth(1);
+    } else {
         sep->setFrameShape(QFrame::HLine);
+        sep->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        sep->setFixedHeight(1);
+    }
     sep->setFrameShadow(QFrame::Plain);
     return sep;
 }
@@ -397,13 +433,8 @@ QWidget* CommandRibbonWidget::buildLeafCommandWidget(const RibbonNode& node, QWi
     const int iconPx = defaultIconPxFor(pres);
     tile->setIconSize(QSize(iconPx, iconPx));
 
-    if (node.presentation().size == RibbonVisualSize::Large) {
-        tile->setMinimumWidth(72);
-        tile->setMinimumHeight(56);
-    } else {
-        tile->setMinimumWidth(64);
-        tile->setMinimumHeight(40);
-    }
+    const QSize minSize = tileMinSizeFor(node.presentation());
+    tile->setMinimumSize(minSize);
 
     return tile;
 }

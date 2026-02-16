@@ -34,6 +34,7 @@ private slots:
 private:
 	QWidget* buildPageWidget(CommandRibbonPage* page);
 	QWidget* buildGroupWidget(CommandRibbonGroup* group);
+	QWidget* buildGroupDividerWidget(QWidget* parent);
 
 	QWidget* buildNodeWidget(const RibbonNode& node, QWidget* parent);
 	QWidget* buildLeafCommandWidget(const RibbonNode& node, QWidget* parent);

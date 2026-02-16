@@ -1,124 +1,141 @@
-/* Container */
+/* Top chrome */
 QWidget#MenuHost {
-/*    background: #1e2022;*/
-    background: #191919;
-    border-bottom: 1px solid #27313B;
+    background: #15181A;
+    border-bottom: none;
 }
 
-/* Tab buttons */
 QWidget#MenuHost QToolButton {
     background: transparent;
-    color: #B8C4D2;
-
+    color: #BDC5CD;
     border: 1px solid transparent;
-    border-bottom: none;
-
-    padding: 7px 14px 5px 14px;
-    margin: 5px 0px 0px 0px;
-
+    border-radius: 0px;
+    padding: 6px 14px;
+    margin: 3px 0px 0px 0px;
     font-family: "Menlo", "Segoe UI", "SF Pro Text", "Roboto", sans-serif;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
 }
 
-/* Hover */
 QWidget#MenuHost QToolButton:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.10);
-    color: #E3ECF7;
+    border-radius: 0px;
+    color: #F0F3F7;
 }
 
-/* Selected tab (dark blue, not brighter than the strip) */
 QWidget#MenuHost QToolButton:checked {
-    background: #214283;
-    border-color: #2E4760;
+    background: #222528;
+    border: none;
+    border-bottom: 0px;
+    border-radius: 0px;
+    margin: 3px 0px -1px 0px;
+    padding: 6px 14px 8px 14px;
     color: #FFFFFF;
 }
 
-/* Selected + hover */
 QWidget#MenuHost QToolButton:checked:hover {
-    background: #1A3147;
-    border-color: #355372;
+    background: #222528;
+    border: none;
+    border-bottom: 0px;
+    border-radius: 0px;
 }
 
-/* Keyboard focus */
+QWidget#MenuHost QToolButton:checked:focus {
+    border: none;
+    border-bottom: 0px;
+    border-radius: 0px;
+}
+
 QWidget#MenuHost QToolButton:focus {
-    border-color: #3A7BFF;
+    border-color: #5E6774;
 }
 
-/* Disabled */
 QWidget#MenuHost QToolButton:disabled {
-    color: rgba(184, 196, 210, 0.35);
+    color: rgba(189, 197, 205, 0.35);
 }
 
-/* Ribbon container */
+/* Ribbon area */
 QWidget#RibbonHost {
-    background: #1e2022;
-    border-top: 1px solid #36404A;     /* separates from menu strip */
-    border-bottom: 1px solid #36404A;  /* separates from playground */
+    background: #222528;
+    border-top: none;
+    border-bottom: 1px solid #2C3035;
 }
 
-/* Ribbon page container */
+QWidget#CommandRibbon,
 QWidget#RibbonPage {
     background: transparent;
 }
 
-/* Groups: no box, just separators between groups */
 QFrame#RibbonGroup {
     background: transparent;
     border: none;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Group title strip at bottom */
+QWidget#RibbonGroupDivider {
+    background: transparent;
+}
+
+QWidget#RibbonGroupDividerLine {
+    background: rgba(255, 255, 255, 0.10);
+    border: none;
+}
+
+QWidget#RibbonGroupContent {
+    background: transparent;
+}
+
 QLabel#RibbonGroupTitle {
-    color: #AEB6C0;
+    color: #8F99A6;
     font-size: 11px;
-
-    background: rgba(0, 0, 0, 0.12);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-
-    padding: 2px 8px;
+    font-weight: 500;
+    background: transparent;
+    border: none;
+    padding: 1px 8px 3px 8px;
     min-height: 18px;
 }
 
-/* Ribbon command tiles: icon region + caption strip */
+QFrame#RibbonSeparator {
+    background: rgba(255, 255, 255, 0.14);
+    border: none;
+}
+
 QWidget#RibbonCommandTile {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 3px;
 }
 
 QWidget#RibbonCommandTile[ribbonHover="true"] {
     background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
 }
 
 QWidget#RibbonCommandTile[ribbonPressed="true"] {
-    background: rgba(0, 0, 0, 0.22);
+    background: rgba(0, 0, 0, 0.30);
+    border-color: rgba(0, 0, 0, 0.40);
 }
 
 QWidget#RibbonCommandTile[ribbonChecked="true"] {
-    background: rgba(70, 140, 255, 0.14);
-    border-color: rgba(70, 140, 255, 0.28);
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.22);
 }
 
 QLabel#RibbonCommandIcon {
     background: transparent;
+    min-height: 20px;
 }
 
-/* Command caption: plain text, no strip */
 QLabel#RibbonCommandCaption {
-    color: #E6EAF0;
+    color: #D7DEE8;
     background: transparent;
     border: none;
-    padding: 0px 8px 6px 8px;   /* just spacing, no “strip” */
+    padding: 0px 8px 6px 8px;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 QWidget#RibbonCommandTile:disabled QLabel#RibbonCommandCaption {
-    color: rgba(230, 234, 240, 0.35);
-/*    color: white*/
-    background: transparent;
-    border: none;
+    color: rgba(215, 222, 232, 0.42);
 }
 
 QWidget#PlaygroundRoot {
@@ -549,12 +566,12 @@ QDialog#BaseDialog QDialogButtonBox QPushButton:hover {
     background: #343A42;
 }
 
-QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive=\"true\"] {
+QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive="true"] {
     background: #7B2C2C;
     border-color: #8E3434;
 }
 
-QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive=\"true\"]:hover {
+QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive="true"]:hover {
     background: #8E3434;
 }
 
