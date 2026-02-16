@@ -5,5 +5,5 @@
   "Vendor": "IRONSmith",
   "Category": "Core",
   "Description": "Code editor plugin.",
-  "Dependencies": ["Core"]
+  "Dependencies": ["Core", "ProjectExplorer"]
 }

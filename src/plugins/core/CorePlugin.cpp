@@ -11,6 +11,7 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QVBoxLayout>
 #include <QtCore/QDebug>
+#include <QElapsedTimer>
 
 #include <extensionsystem/PluginManager.hpp>
 
@@ -53,6 +54,7 @@ Utils::Result CorePlugin::initialize(const QStringList& arguments,
 	Q_UNUSED(arguments);
 	Q_UNUSED(manager);
 
+	qCInfo(corelog) << "Initializing...";
 	if (m_core)
 		return Utils::Result::failure("CorePlugin initialized twice.");
 
@@ -64,7 +66,12 @@ Utils::Result CorePlugin::initialize(const QStringList& arguments,
 
 	ExtensionSystem::PluginManager::addObject(ui);
 
+	qCInfo(corelog) << "setting up command ribbon actions.";
+	QElapsedTimer timer;
+	timer.start();
 	setupCommandRibbonActions(ui);
+	qint64 ns = timer.nsecsElapsed();
+	qCInfo(corelog) << "command ribbon actions setup complete: avg =" << (ns/1e9) << " secs.";
 	if (auto* bar = ui->playgroundTopBar()) {
 		m_headerInfo = new Internal::HeaderInfoService(this);
 		m_headerInfo->bindInfoBar(bar);
@@ -78,6 +85,7 @@ void CorePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
 {
 	Q_UNUSED(manager);
 
+	qCInfo(corelog) << "extensionsInitialized()...";
 	if (m_core)
 		m_core->open();
 }
@@ -86,6 +94,19 @@ void CorePlugin::setupCommandRibbonActions(Core::IUiHost* uiHost)
 {
 	if (!uiHost)
 		return;
+
+	struct RibbonUpdateBatchGuard final
+	{
+		Core::IUiHost* host = nullptr;
+		~RibbonUpdateBatchGuard()
+		{
+			if (host)
+				host->endRibbonUpdateBatch();
+		}
+	};
+
+	uiHost->beginRibbonUpdateBatch();
+	const RibbonUpdateBatchGuard batchGuard{uiHost};
 
 	uiHost->addMenuTab(Constants::RIBBON_TAB_HOME, "Home");
 	uiHost->addMenuTab(Constants::RIBBON_TAB_VIEW, "View");
@@ -111,42 +132,18 @@ void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 
 	auto* actNew    = new QAction(tr("New Design"), this);
 	auto* actOpen   = new QAction(tr("Open…"), this);
-	auto* actSave   = new QAction(tr("Save"), this);
-	auto* actSaveAs = new QAction(tr("Save As…"), this);
 
 	// actNew->setIcon(QIcon(":/ui/icons/32x32/document-new.png"));
-	actNew->setIcon(QIcon(":/ui/icons/64x64/file-new.png"));
-	actOpen->setIcon(QIcon(":/ui/icons/64x64/folder-new.png"));
-	actSave->setIcon(QIcon(":/ui/icons/64x64/file-save.png"));
-	actSaveAs->setIcon(QIcon(":/ui/icons/64x64/file-save-as.png"));
-
-	auto* recentMenu = new QMenu;
-	connect(this, &QObject::destroyed, recentMenu, &QObject::deleteLater);
-	{
-		auto* placeholder = recentMenu->addAction(tr("No recent projects"));
-		placeholder->setEnabled(false);
-	}
-
-	auto* actRecent = new QAction(tr("Recent"), this);
-	actRecent->setMenu(recentMenu);
-	actRecent->setIcon(QIcon(":/ui/icons/32x32/document-open-recent.png"));
+	actNew->setIcon(QIcon( ":/ui/icons/svg/file_new_icon.svg"));
+	actOpen->setIcon(QIcon(":/ui/icons/svg/opened_folder.svg"));
 
 	connect(actNew, &QAction::triggered, this, [] {
 		qCWarning(corelog) << "New Design triggered (no project service bound yet).";
-	});
-	connect(actSave, &QAction::triggered, this, [] {
-		qCWarning(corelog) << "Save triggered (no project service bound yet).";
-	});
-	connect(actSaveAs, &QAction::triggered, this, [] {
-		qCWarning(corelog) << "Save As triggered (no project service bound yet).";
 	});
 
 	auto projectRoot = RibbonNode::makeRow("project_root");
 	projectRoot->addCommand(Constants::PROJECT_NEW_ITEMID, actNew, RibbonControlType::Button, {});
 	projectRoot->addCommand(Constants::PROJECT_OPEN_ITEMID, actOpen, RibbonControlType::Button, {});
-	projectRoot->addCommand(Constants::PROJECT_SAVE_ITEMID, actSave, RibbonControlType::Button, {});
-	projectRoot->addCommand(Constants::PROJECT_SAVE_AS_ITEMID, actSaveAs, RibbonControlType::Button, {});
-	projectRoot->addCommand(Constants::PROJECT_RECENT_ITEMID, actRecent, RibbonControlType::DropDownButton, {});
 
 	if (const auto res = uiHost->setRibbonGroupLayout(Constants::RIBBON_TAB_HOME,
 	                                                  Constants::RIBBON_TAB_HOME_PROJECT_GROUP,

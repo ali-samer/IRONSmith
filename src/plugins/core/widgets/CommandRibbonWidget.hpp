@@ -27,6 +27,7 @@ public:
 	CommandRibbon* model() const { return m_model; }
 
 private slots:
+	void scheduleRebuild();
 	void rebuildAll();
 	void syncActivePage();
 
@@ -44,6 +45,7 @@ private:
 	QStackedWidget* m_stack = nullptr;
 
 	QHash<QString, int> m_pageIndex;
+	bool m_rebuildScheduled = false;
 };
 
 } // namespace Core

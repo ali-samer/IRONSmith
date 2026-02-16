@@ -64,6 +64,8 @@
         <file>icons/svg/zoom_in_icon.svg</file>
         <file>icons/svg/zoom_out_icon.svg</file>
         <file>icons/svg/compute_icon.svg</file>
+        <file>icons/svg/code_icon.svg</file>
+        <file>icons/svg/file_new_icon.svg</file>
 
         <!-- Fonts -->
         <file>fonts/dejavu-sans-mono/ttf/DejaVuSansMono.ttf</file>

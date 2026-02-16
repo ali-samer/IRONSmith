@@ -184,11 +184,15 @@ void SidebarOverlayHostWidget::setOverlayWidth(int width)
 void SidebarOverlayHostWidget::setPanelWidth(int width)
 {
     const int w = qMax(0, width);
+    if (m_panelWidth == w)
+        return;
 
     m_panelWidth = w;
 
     if (m_hasPanels)
         setOverlayWidth(w);
+
+    emit panelWidthChanged(m_panelWidth);
 }
 
 void SidebarOverlayHostWidget::setPanelWidthClamped(int w)

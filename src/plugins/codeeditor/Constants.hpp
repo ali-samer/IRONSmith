@@ -3,11 +3,12 @@
 
 #pragma once
 
-#include <qtypes.h>
+#include <QtCore/qtypes.h>
 #include <QtCore/QSet>
 #include <QtCore/QString>
 
 namespace CodeEditor::Constants {
+constexpr inline quint64 kSessionOpenMaxBytes = 32 * 1024 * 1024;
 constexpr inline quint64 kQuickViewMaxBytes = 2 * 1024 * 1024;
 
 constexpr inline char kLanguageIdC[] = "c";
@@ -17,13 +18,13 @@ constexpr inline char kLanguageIdJson[] = "json";
 constexpr inline char kLanguageIdXml[] = "xml";
 constexpr inline char kLanguageIdText[] = "text";
 
-static QSet<QString> kSupportedLanguages = {
-	kLanguageIdC,
-	kLanguageIdCpp,
-	kLanguageIdPython,
-	kLanguageIdJson,
-	kLanguageIdXml,
-	kLanguageIdText,
+inline const QSet<QString> kSupportedLanguages = {
+    kLanguageIdC,
+    kLanguageIdCpp,
+    kLanguageIdPython,
+    kLanguageIdJson,
+    kLanguageIdXml,
+    kLanguageIdText,
 };
 
 } // namespace CodeEditor::Constants

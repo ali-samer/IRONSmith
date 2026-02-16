@@ -12,10 +12,14 @@
 #include "aieplugin/panels/AieToolPanel.hpp"
 #include "aieplugin/AieService.hpp"
 #include "aieplugin/state/AiePanelState.hpp"
+#include "aieplugin/state/AieWorkspaceState.hpp"
 
 #include <extensionsystem/IPlugin.hpp>
+#include <utils/DocumentBundle.hpp>
+#include <utils/PathUtils.hpp>
 #include <utils/Result.hpp>
 
+#include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QMetaObject>
 #include <QtCore/QStringList>
@@ -74,6 +78,9 @@ private:
     void registerSidebarTool(const RuntimeDependencies& deps);
     void connectHeaderInfo(const RuntimeDependencies& deps);
     void connectRibbonActions(const RuntimeDependencies& deps, ExtensionSystem::PluginManager& manager);
+    void configureWorkspacePersistence(const RuntimeDependencies& deps);
+    void restoreWorkspaceDesign();
+    bool isRestorableBundlePath(const QString& bundlePath, const QString& workspaceRoot) const;
     void showOpenError(Core::IUiHost* uiHost, const QString& message) const;
 
     QPointer<Core::ISidebarRegistry> m_sidebarRegistry;
@@ -82,10 +89,14 @@ private:
     QPointer<DesignOpenController> m_designOpenController;
     std::unique_ptr<DesignBundleLoader> m_bundleLoader;
     std::unique_ptr<CanvasDocumentImporter> m_canvasImporter;
+    AieWorkspaceState m_workspaceState;
     QMetaObject::Connection m_openFailedConnection;
     QMetaObject::Connection m_designOpenedConnection;
     QMetaObject::Connection m_designClosedConnection;
     QMetaObject::Connection m_newDesignTriggeredConnection;
+    QMetaObject::Connection m_workspaceDesignOpenedConnection;
+    QMetaObject::Connection m_workspaceRootChangedConnection;
+    QString m_workspaceRoot;
     bool m_toolRegistered = false;
 };
 
@@ -166,10 +177,14 @@ void AiePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
     registerSidebarTool(deps);
     connectHeaderInfo(deps);
     connectRibbonActions(deps, manager);
+    configureWorkspacePersistence(deps);
 }
 
 ExtensionSystem::IPlugin::ShutdownFlag AiePlugin::aboutToShutdown()
 {
+    if (m_designOpenController && !m_workspaceRoot.isEmpty())
+        m_workspaceState.setActiveBundlePathForRoot(m_workspaceRoot, m_designOpenController->activeBundlePath());
+
     if (m_sidebarRegistry && m_toolRegistered) {
         QString error;
         if (!m_sidebarRegistry->unregisterTool(QStringLiteral("IRONSmith.AieGridTools"), &error)) {
@@ -378,6 +393,102 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps, ExtensionS
                                                  if (m_designOpenController)
                                                      m_designOpenController->openBundlePath(result.bundlePath);
                                              });
+}
+
+void AiePlugin::configureWorkspacePersistence(const RuntimeDependencies& deps)
+{
+    if (!m_designOpenController)
+        return;
+
+    if (m_workspaceDesignOpenedConnection)
+        disconnect(m_workspaceDesignOpenedConnection);
+    m_workspaceDesignOpenedConnection = connect(m_designOpenController, &DesignOpenController::designOpened, this,
+                                                [this](const QString& bundlePath, const QString&, const QString&) {
+                                                    if (m_workspaceRoot.isEmpty())
+                                                        return;
+                                                    m_workspaceState.setActiveBundlePathForRoot(m_workspaceRoot, bundlePath);
+                                                });
+
+    if (m_workspaceRootChangedConnection)
+        disconnect(m_workspaceRootChangedConnection);
+
+    m_workspaceRoot = Utils::PathUtils::normalizePath(deps.projectExplorer ? deps.projectExplorer->rootPath()
+                                                                            : QString());
+
+    if (deps.projectExplorer) {
+        m_workspaceRootChangedConnection = connect(deps.projectExplorer,
+                                                   &ProjectExplorer::IProjectExplorer::workspaceRootChanged,
+                                                   this,
+                                                   [this](const QString& rootPath, bool userInitiated) {
+                                                       Q_UNUSED(userInitiated);
+                                                       if (!m_workspaceRoot.isEmpty() && m_designOpenController) {
+                                                           const QString activeBundlePath =
+                                                               m_designOpenController->activeBundlePath();
+                                                           if (!activeBundlePath.isEmpty()) {
+                                                               m_workspaceState.setActiveBundlePathForRoot(m_workspaceRoot,
+                                                                                                           activeBundlePath);
+                                                           }
+                                                       }
+
+                                                       m_workspaceRoot = Utils::PathUtils::normalizePath(rootPath);
+                                                       restoreWorkspaceDesign();
+                                                   });
+    }
+
+    restoreWorkspaceDesign();
+}
+
+void AiePlugin::restoreWorkspaceDesign()
+{
+    if (m_workspaceRoot.isEmpty() || !m_designOpenController)
+        return;
+
+    const QString persistedBundlePath = m_workspaceState.activeBundlePathForRoot(m_workspaceRoot);
+    if (persistedBundlePath.isEmpty())
+        return;
+
+    if (!isRestorableBundlePath(persistedBundlePath, m_workspaceRoot)) {
+        m_workspaceState.clearRoot(m_workspaceRoot);
+        return;
+    }
+
+    const QString activeBundlePath = Utils::PathUtils::normalizePath(m_designOpenController->activeBundlePath());
+#if defined(Q_OS_WIN)
+    const Qt::CaseSensitivity pathCase = Qt::CaseInsensitive;
+#else
+    const Qt::CaseSensitivity pathCase = Qt::CaseSensitive;
+#endif
+    if (!activeBundlePath.isEmpty()
+        && QString::compare(activeBundlePath, persistedBundlePath, pathCase) == 0) {
+        return;
+    }
+
+    m_designOpenController->openBundlePath(persistedBundlePath);
+}
+
+bool AiePlugin::isRestorableBundlePath(const QString& bundlePath, const QString& workspaceRoot) const
+{
+    const QString normalizedBundlePath = Utils::PathUtils::normalizePath(bundlePath);
+    const QString normalizedWorkspaceRoot = Utils::PathUtils::normalizePath(workspaceRoot);
+    if (normalizedBundlePath.isEmpty() || normalizedWorkspaceRoot.isEmpty())
+        return false;
+
+    if (!Utils::DocumentBundle::hasBundleExtension(normalizedBundlePath))
+        return false;
+
+    const QFileInfo bundleInfo(normalizedBundlePath);
+    if (!bundleInfo.exists() || !bundleInfo.isDir())
+        return false;
+
+    QString workspacePrefix = normalizedWorkspaceRoot;
+    if (!workspacePrefix.endsWith('/'))
+        workspacePrefix.append('/');
+
+#if defined(Q_OS_WIN)
+    return normalizedBundlePath.startsWith(workspacePrefix, Qt::CaseInsensitive);
+#else
+    return normalizedBundlePath.startsWith(workspacePrefix, Qt::CaseSensitive);
+#endif
 }
 
 void AiePlugin::showOpenError(Core::IUiHost* uiHost, const QString& message) const

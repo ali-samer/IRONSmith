@@ -4,6 +4,7 @@
 #include "core/widgets/CommandRibbonWidget.hpp"
 
 #include <QtCore/QtGlobal>
+#include <QtCore/QMetaObject>
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -196,11 +197,25 @@ void CommandRibbonWidget::setModel(CommandRibbon* model)
     m_model = model;
 
     if (m_model) {
-        connect(m_model, &CommandRibbon::structureChanged, this, &CommandRibbonWidget::rebuildAll);
+        connect(m_model, &CommandRibbon::structureChanged, this, &CommandRibbonWidget::scheduleRebuild);
         connect(m_model, &CommandRibbon::activePageChanged, this, &CommandRibbonWidget::syncActivePage);
     }
 
     rebuildAll();
+}
+
+void CommandRibbonWidget::scheduleRebuild()
+{
+    if (m_rebuildScheduled)
+        return;
+
+    m_rebuildScheduled = true;
+    QMetaObject::invokeMethod(this,
+                              [this]() {
+                                  m_rebuildScheduled = false;
+                                  rebuildAll();
+                              },
+                              Qt::QueuedConnection);
 }
 
 void CommandRibbonWidget::rebuildAll()
@@ -210,7 +225,7 @@ void CommandRibbonWidget::rebuildAll()
     while (m_stack->count() > 0) {
         QWidget* w = m_stack->widget(0);
         m_stack->removeWidget(w);
-        w->deleteLater();
+        delete w;
     }
 
     if (!m_model)
@@ -221,8 +236,6 @@ void CommandRibbonWidget::rebuildAll()
         QWidget* pw = buildPageWidget(page);
         const int idx = m_stack->addWidget(pw);
         m_pageIndex.insert(page->id(), idx);
-
-        connect(page, &CommandRibbonPage::changed, this, &CommandRibbonWidget::rebuildAll);
     }
 
     syncActivePage();
@@ -255,8 +268,6 @@ QWidget* CommandRibbonWidget::buildPageWidget(CommandRibbonPage* page)
     for (auto* group : page->groups()) {
         QWidget* gw = buildGroupWidget(group);
         row->addWidget(gw);
-
-        connect(group, &CommandRibbonGroup::changed, this, &CommandRibbonWidget::rebuildAll);
     }
 
     row->addStretch(1);

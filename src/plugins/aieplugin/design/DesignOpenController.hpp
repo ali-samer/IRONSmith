@@ -32,6 +32,7 @@ public:
 
     void openBundlePath(const QString& absolutePath);
     void closeActiveDesign(Canvas::Api::CanvasDocumentCloseReason reason);
+    QString activeBundlePath() const;
 
 signals:
     void designOpened(const QString& bundlePath, const QString& displayName, const QString& deviceId);

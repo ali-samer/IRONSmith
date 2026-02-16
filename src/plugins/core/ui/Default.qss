@@ -582,3 +582,77 @@ QTreeView#ProjectExplorerTree::item:selected:!active {
     background: rgba(33, 66, 131, 0.65);
     color: #FFFFFF;
 }
+
+QWidget#CodeEditorPanel {
+    background: #15181A;
+}
+
+QStackedWidget#CodeEditorContentStack {
+    background: #15181A;
+}
+
+QLabel#CodeEditorEmptyState {
+    color: rgba(230, 234, 240, 0.62);
+    padding: 14px;
+}
+
+QTabWidget#CodeEditorTabs {
+    border: none;
+    background: #15181A;
+}
+
+QTabWidget#CodeEditorTabs::tab-bar {
+    alignment: left;
+    left: 0px;
+}
+
+QTabWidget#CodeEditorTabs::pane {
+    border: none;
+    top: 0px;
+    margin: 0px;
+    background: #15181A;
+}
+
+QTabBar#CodeEditorTabBar {
+    background: #15181A;
+    border: none;
+    border-bottom: 1px solid rgba(230, 234, 240, 0.14);
+    padding: 0px;
+}
+
+QTabBar#CodeEditorTabBar::tab {
+    background: #15181A;
+    color: rgba(230, 234, 240, 0.72);
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid #2A2F36;
+    border-right: 1px solid #2A2F36;
+    border-radius: 0px;
+    padding: 4px 12px 4px 12px;
+    margin: 0px;
+}
+
+QTabBar#CodeEditorTabBar::tab:first {
+    border-left: none;
+}
+
+QTabBar#CodeEditorTabBar::tab:hover {
+    color: #EAF3FF;
+    background: #15181A;
+}
+
+QTabBar#CodeEditorTabBar::tab:selected {
+    color: #F4F8FD;
+    background: #15181A;
+    border-left-color: #404953;
+    border-right-color: #404953;
+}
+
+QPlainTextEdit#CodeEditorPlainText,
+QsciScintilla#CodeEditorScintilla {
+    background: #15181A;
+    color: #D7E0EA;
+    border: none;
+    selection-background-color: #28466F;
+    selection-color: #F4F8FC;
+}

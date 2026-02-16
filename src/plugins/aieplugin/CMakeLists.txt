@@ -26,6 +26,8 @@ ironsmith_add_plugin(AiePlugin
             api/IAieHost.hpp
             state/AiePanelState.hpp
             state/AiePanelState.cpp
+            state/AieWorkspaceState.hpp
+            state/AieWorkspaceState.cpp
             state/AieLayoutSettings.hpp
             state/AieLayoutSettings.cpp
             panels/AieToolPanel.hpp

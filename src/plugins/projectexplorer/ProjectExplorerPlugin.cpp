@@ -10,6 +10,7 @@
 #include "projectexplorer/metadata/ProjectExplorerThumbnailService.hpp"
 #include "projectexplorer/filesystem/ProjectExplorerFileSystemService.hpp"
 #include "projectexplorer/filesystem/ProjectExplorerFileSystemController.hpp"
+#include "projectexplorer/state/ProjectExplorerSidebarState.hpp"
 
 #include <extensionsystem/IPlugin.hpp>
 #include <extensionsystem/PluginManager.hpp>
@@ -44,6 +45,8 @@ ProjectExplorer::ProjectEntryKind inferEntryKindFromPath(const QString& path)
     return ProjectExplorer::ProjectEntryKind::Unknown;
 }
 
+const QString kProjectSidebarToolId = QStringLiteral("IRONSmith.ProjectExplorer");
+
 } // namespace
 
 class ProjectExplorerPlugin final : public ExtensionSystem::IPlugin {
@@ -67,7 +70,8 @@ private:
     QPointer<ProjectExplorerFileSystemService> m_fileSystem;
     QPointer<ProjectExplorerFileSystemController> m_fileController;
     QPointer<ProjectExplorerMetadataService> m_metadataService;
-    QPointer<ProjectExplorerThumbnailService> m_thumbnailService;
+	QPointer<ProjectExplorerThumbnailService> m_thumbnailService;
+    ProjectExplorerSidebarState m_sidebarState;
 	bool m_registered = false;
 };
 
@@ -130,8 +134,6 @@ void ProjectExplorerPlugin::extensionsInitialized(ExtensionSystem::PluginManager
         m_fileController->setDialogParent(uiHost->playgroundOverlayHost());
         connect(m_service, &ProjectExplorerService::contextActionRequested,
                 m_fileController, &ProjectExplorerFileSystemController::handleContextAction);
-        connect(m_service, &ProjectExplorerService::openRequested,
-                m_fileController, &ProjectExplorerFileSystemController::handleOpenRequest);
         connect(m_service, &ProjectExplorerService::revealPathRequested,
                 m_fileController, &ProjectExplorerFileSystemController::handleRevealPath);
 	        connect(m_service, &ProjectExplorerService::openRootRequested,
@@ -166,7 +168,7 @@ void ProjectExplorerPlugin::extensionsInitialized(ExtensionSystem::PluginManager
         qCWarning(projectexplorerlog) << "ProjectExplorerPlugin: Open action not available";
 
     Core::SidebarToolSpec spec;
-    spec.id = QStringLiteral("IRONSmith.ProjectExplorer");
+    spec.id = kProjectSidebarToolId;
     spec.title = QStringLiteral("Project");
     spec.iconResource = QStringLiteral(":/ui/icons/svg/folder.svg");
     spec.side = Core::SidebarSide::Left;
@@ -188,6 +190,17 @@ void ProjectExplorerPlugin::extensionsInitialized(ExtensionSystem::PluginManager
 
     m_registered = true;
 
+    connect(m_sidebarRegistry, &Core::ISidebarRegistry::toolOpenStateChanged,
+            this,
+            [this](const QString& id, bool open) {
+                if (id != kProjectSidebarToolId)
+                    return;
+                m_sidebarState.setPanelOpen(open);
+            });
+
+    if (m_sidebarState.panelOpen())
+        m_sidebarRegistry->requestShowTool(kProjectSidebarToolId);
+
     if (openAction)
         connectRibbonActions(uiHost, openAction);
 }
@@ -196,8 +209,9 @@ ExtensionSystem::IPlugin::ShutdownFlag ProjectExplorerPlugin::aboutToShutdown()
 {
     qCInfo(projectexplorerlog) << "ProjectExplorerPlugin: aboutToShutdown";
     if (m_sidebarRegistry && m_registered) {
+        m_sidebarState.setPanelOpen(m_sidebarRegistry->isToolOpen(kProjectSidebarToolId));
         QString error;
-        if (!m_sidebarRegistry->unregisterTool(QStringLiteral("IRONSmith.ProjectExplorer"), &error)) {
+        if (!m_sidebarRegistry->unregisterTool(kProjectSidebarToolId, &error)) {
             qCWarning(projectexplorerlog) << "ProjectExplorerPlugin: unregisterTool failed:" << error;
         }
     }

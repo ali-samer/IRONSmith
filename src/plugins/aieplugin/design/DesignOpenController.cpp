@@ -76,6 +76,11 @@ void DesignOpenController::closeActiveDesign(Canvas::Api::CanvasDocumentCloseRea
     emit designClosed(closedBundlePath);
 }
 
+QString DesignOpenController::activeBundlePath() const
+{
+    return m_activeBundlePath;
+}
+
 void DesignOpenController::handleOpenRequested(const QString& path, ProjectExplorer::ProjectEntryKind kind)
 {
     if (kind != ProjectExplorer::ProjectEntryKind::Design)
