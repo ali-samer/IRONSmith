@@ -90,20 +90,25 @@
                 <dir>/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</dir>
             </include_dirs>
         </ExternalFunction>
-        <CoreFunction name="core_fn" loop_count="K_div_k" operation="matvec">
+        <CoreFunction name="core_fn" operation="matvec">
             <parameters>
                 <param name="a_in" role="external_function"/>
-                <param name="b_in" role="consumer"/>
-                <param name="c_out" role="consumer"/>
+                <param name="b_in" role="unknown"/>
+                <param name="c_out" role="unknown"/>
                 <param name="matvec" role="unknown"/>
             </parameters>
             <body>
                 <Acquire source="c_out" count="1" name="elem_out"/>
-                <Acquire source="a_in" count="1" name="elem_a"/>
-                <Acquire source="b_in" count="1" name="elem_b"/>
-                <Call function="matvec" args="elem_a, elem_b, elem_out"/>
-                <Release source="a_in" count="1"/>
-                <Release source="b_in" count="1"/>
+                <ForLoop var="i" count="m">
+                    <Assignment target="elem_out" index="i" value="0"/>
+                </ForLoop>
+                <ForLoop var="_" count="K_div_k">
+                    <Acquire source="a_in" count="1" name="elem_a"/>
+                    <Acquire source="b_in" count="1" name="elem_b"/>
+                    <Call function="matvec" args="elem_a, elem_b, elem_out"/>
+                    <Release source="a_in" count="1"/>
+                    <Release source="b_in" count="1"/>
+                </ForLoop>
                 <Release source="c_out" count="1"/>
             </body>
         </CoreFunction>

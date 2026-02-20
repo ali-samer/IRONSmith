@@ -255,6 +255,23 @@ public:
         const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
+    /// Add a core function using body_stmts mode for complex nested loop structures
+    /// @param name Function name
+    /// @param parameters Parameter names (for kernel and FIFOs)
+    /// @param bodyStmtsJson JSON encoding of body statements.
+    ///        Supported types: Acquire, Release, KernelCall, ForLoop, Assignment.
+    ///        Example: [{"type":"Acquire","fifo_param":"c_out","count":1,"local_var":"elem_out"},
+    ///                  {"type":"ForLoop","var":"_","count":"K_div_k","body":[...]}]
+    /// @param providedId Optional provided ID for the component
+    /// @param metadata Additional metadata
+    /// @return ComponentId on success, errors on failure
+    HlirResult<ComponentId> addCoreFunctionBody(
+        const std::string& name,
+        const std::vector<std::string>& parameters,
+        const std::string& bodyStmtsJson,
+        const ComponentId& providedId = ComponentId(),
+        const std::map<std::string, std::string>& metadata = {});
+
     /// Function argument (for worker binding)
     struct FunctionArg {
         enum class Type { KERNEL, FIFO, SPLIT, JOIN, FORWARD };

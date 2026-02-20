@@ -79,20 +79,20 @@ def add_activate_test_jit(A, B, D):
 
     # core_fn here:
     def corefunc1(kernel, inputA, inputB, outputC):
-            elementA = inputA.acquire(1)
-            elementB = inputB.acquire(1)
-            elementC = outputC.acquire(1)
-            kernel(elementA, elementB, elementC)
-            inputA.release(1)
-            inputB.release(1)
-            outputC.release(1)
+        elementA = inputA.acquire(1)
+        elementB = inputB.acquire(1)
+        elementC = outputC.acquire(1)
+        kernel(elementA, elementB, elementC)
+        inputA.release(1)
+        inputB.release(1)
+        outputC.release(1)
 
     def corefunc2(kernel, inputC, outputD):
-            elementC = inputC.acquire(1)
-            elementD = outputD.acquire(1)
-            kernel(elementC, elementD)
-            inputC.release(1)
-            outputD.release(1)
+        elementC = inputC.acquire(1)
+        elementD = outputD.acquire(1)
+        kernel(elementC, elementD)
+        inputC.release(1)
+        outputD.release(1)
 
     #Workers defined here:
     Workers = []

@@ -676,6 +676,35 @@ HlirResult<ComponentId> HlirBridge::addCoreFunction(
     return parseJsonResult<ComponentId>(jsonRes.value());
 }
 
+HlirResult<ComponentId> HlirBridge::addCoreFunctionBody(
+    const std::string& name,
+    const std::vector<std::string>& parameters,
+    const std::string& bodyStmtsJson,
+    const ComponentId& providedId,
+    const std::map<std::string, std::string>& metadata)
+{
+    PyObject* paramsList = buildPythonList(parameters);
+    PyObject* metadataDict = buildMetadataDict(metadata);
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+
+    // Args: (name, parameters, body_stmts_json, metadata, provided_id)
+    PyObject* args = Py_BuildValue("(sOsOs)",
+        name.c_str(), paramsList, bodyStmtsJson.c_str(), metadataDict, providedIdStr);
+    Py_DECREF(paramsList);
+    Py_DECREF(metadataDict);
+
+    auto pyRes = callBuilderMethod("add_core_function_body", args);
+    Py_DECREF(args);
+
+    if (!pyRes) return std::unexpected(pyRes.error());
+
+    auto jsonRes = extractJsonString(pyRes.value());
+    Py_DECREF(pyRes.value());
+
+    if (!jsonRes) return std::unexpected(jsonRes.error());
+    return parseJsonResult<ComponentId>(jsonRes.value());
+}
+
 HlirResult<ComponentId> HlirBridge::addWorker(
     const std::string& name,
     const ComponentId& coreFnId,

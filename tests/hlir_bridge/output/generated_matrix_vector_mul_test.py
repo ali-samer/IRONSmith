@@ -60,14 +60,16 @@ def matrix_vector_mul_test_jit(inputA, inputB, outputC):
 
     # core_fn here:
     def core_fn(a_in, b_in, c_out, matvec):
-            for _ in range_(K // k):
-                elem_out = c_out.acquire(1)
-                elem_a = a_in.acquire(1)
-                elem_b = b_in.acquire(1)
-                matvec(elem_a, elem_b, elem_out)
-                a_in.release(1)
-                b_in.release(1)
-                c_out.release(1)
+        elem_out = c_out.acquire(1)
+        for i in range_(32):
+            elem_out[i] = 0
+        for _ in range_(K // k):
+            elem_a = a_in.acquire(1)
+            elem_b = b_in.acquire(1)
+            matvec(elem_a, elem_b, elem_out)
+            a_in.release(1)
+            b_in.release(1)
+        c_out.release(1)
 
     #Workers defined here:
     Workers = []

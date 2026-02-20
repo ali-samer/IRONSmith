@@ -1762,25 +1762,36 @@ static bool testMatrixVectorMulExample() {
         }
         std::cout << "OK\n";
 
-        // Step 11: Add core function
-        // Simplified flat representation:
-        //   elem_out = c_out.acquire(1)      <- outer acquire first
-        //   [loop K_div_k]:
+        // Step 11: Add core function using body_stmts mode for correct nested structure:
+        //   elem_out = c_out.acquire(1)        <- outer acquire (once per output tile)
+        //   for i in range_(m): elem_out[i]=0  <- zero-initialize output buffer
+        //   for _ in range_(K_div_k):          <- inner loop over K chunks
         //     elem_a = a_in.acquire(1)
         //     elem_b = b_in.acquire(1)
         //     matvec(elem_a, elem_b, elem_out)
         //     a_in.release(1)
         //     b_in.release(1)
-        //   c_out.release(1)                 <- outer release last
+        //   c_out.release(1)                   <- outer release (matches outer acquire)
         std::cout << "  [11/15] Adding core function... ";
-        std::map<std::string, std::string> coreFuncMeta = {
-            {"operation", "matvec"}, {"loop_count", "K_div_k"}};
-        auto corefunc_matvec = bridge.addCoreFunction(
+        std::string bodyStmtsJson = R"([
+            {"type": "Acquire", "fifo_param": "c_out", "count": 1, "local_var": "elem_out"},
+            {"type": "ForLoop", "var": "i", "count": "m", "body": [
+                {"type": "Assignment", "target": "elem_out", "index": "i", "value": 0}
+            ]},
+            {"type": "ForLoop", "var": "_", "count": "K_div_k", "body": [
+                {"type": "Acquire", "fifo_param": "a_in", "count": 1, "local_var": "elem_a"},
+                {"type": "Acquire", "fifo_param": "b_in", "count": 1, "local_var": "elem_b"},
+                {"type": "KernelCall", "kernel_param": "matvec", "args": ["elem_a", "elem_b", "elem_out"]},
+                {"type": "Release", "fifo_param": "a_in", "count": 1},
+                {"type": "Release", "fifo_param": "b_in", "count": 1}
+            ]},
+            {"type": "Release", "fifo_param": "c_out", "count": 1}
+        ])";
+        std::map<std::string, std::string> coreFuncMeta = {{"operation", "matvec"}};
+        auto corefunc_matvec = bridge.addCoreFunctionBody(
             "core_fn",
             {"a_in", "b_in", "c_out", "matvec"},
-            {{"c_out", 1, "elem_out"}, {"a_in", 1, "elem_a"}, {"b_in", 1, "elem_b"}},
-            {"matvec", {"elem_a", "elem_b", "elem_out"}},
-            {{"a_in", 1}, {"b_in", 1}, {"c_out", 1}},
+            bodyStmtsJson,
             hlir::ComponentId(), coreFuncMeta);
         if (!corefunc_matvec) {
             std::cerr << "FAILED\n";

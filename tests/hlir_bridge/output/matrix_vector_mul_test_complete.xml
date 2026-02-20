@@ -173,16 +173,19 @@
         <param name="matvec"/>
       </parameters>
       <body>
+        <Acquire name="elem_out">
+          <call>
+            <method ref="c_out" name="acquire">
+              <arg>
+                <const>1</const>
+              </arg>
+            </method>
+          </call>
+        </Acquire>
+        <For var="i" range="range_(32)">
+          <Assignment target="elem_out" index="i" value="0"/>
+        </For>
         <For var="_" range="range_(K // k)">
-          <Acquire name="elem_out">
-            <call>
-              <method ref="c_out" name="acquire">
-                <arg>
-                  <const>1</const>
-                </arg>
-              </method>
-            </call>
-          </Acquire>
           <Acquire name="elem_a">
             <call>
               <method ref="a_in" name="acquire">
@@ -232,16 +235,16 @@
               </method>
             </call>
           </Release>
-          <Release>
-            <call>
-              <method ref="c_out" name="release">
-                <arg>
-                  <const>1</const>
-                </arg>
-              </method>
-            </call>
-          </Release>
         </For>
+        <Release>
+          <call>
+            <method ref="c_out" name="release">
+              <arg>
+                <const>1</const>
+              </arg>
+            </method>
+          </call>
+        </Release>
       </body>
     </CoreFunction>
     <ObjectFifo name="inA">

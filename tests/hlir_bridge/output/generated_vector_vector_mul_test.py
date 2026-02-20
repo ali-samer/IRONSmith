@@ -44,14 +44,14 @@ def vector_vector_mul_test_jit(inputA, inputB, outputC):
 
     # core_fn here:
     def corefunc_mul(kernel, inputA, inputB, outputC):
-            for _ in range_(((65536) // 4096)):
-                elem_out = outputC.acquire(1)
-                elem_in_a = inputA.acquire(1)
-                elem_in_b = inputB.acquire(1)
-                kernel(elem_in_a, elem_in_b, elem_out)
-                inputA.release(1)
-                inputB.release(1)
-                outputC.release(1)
+        for _ in range_(((65536) // 4096)):
+            elem_out = outputC.acquire(1)
+            elem_in_a = inputA.acquire(1)
+            elem_in_b = inputB.acquire(1)
+            kernel(elem_in_a, elem_in_b, elem_out)
+            inputA.release(1)
+            inputB.release(1)
+            outputC.release(1)
 
     #Workers defined here:
     Workers = []

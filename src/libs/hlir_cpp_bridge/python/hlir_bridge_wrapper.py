@@ -366,6 +366,86 @@ class BuilderWrapper:
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
+    def add_core_function_body(self, name: str, parameters: list, body_stmts_json: str,
+                               metadata: dict = None, provided_id: str = None) -> str:
+        """Add a core function using body_stmts mode for complex nested loop structures.
+
+        body_stmts_json is a JSON string encoding a list of statements using types:
+        Acquire, Release, KernelCall, ForLoop, Assignment.
+
+        JSON format:
+        [
+          {"type": "Acquire", "fifo_param": "c_out", "count": 1, "local_var": "elem_out"},
+          {"type": "ForLoop", "var": "i", "count": "m", "body": [
+            {"type": "Assignment", "target": "elem_out", "index": "i", "value": 0}
+          ]},
+          {"type": "ForLoop", "var": "_", "count": "K_div_k", "body": [
+            {"type": "Acquire", "fifo_param": "a_in", "count": 1, "local_var": "elem_a"},
+            {"type": "KernelCall", "kernel_param": "matvec", "args": ["elem_a", "elem_b", "elem_out"]},
+            {"type": "Release", "fifo_param": "a_in", "count": 1}
+          ]},
+          {"type": "Release", "fifo_param": "c_out", "count": 1}
+        ]
+        """
+        try:
+            from hlir.core import Acquire, Release, KernelCall, ForLoop, Assignment
+
+            metadata = metadata or {}
+            provided_id = provided_id if provided_id else None
+
+            def _deserialize_stmts(stmts_data):
+                stmts = []
+                for stmt in stmts_data:
+                    t = stmt["type"]
+                    if t == "Acquire":
+                        stmts.append(Acquire(
+                            fifo_param=stmt["fifo_param"],
+                            count=stmt["count"],
+                            local_var=stmt["local_var"]
+                        ))
+                    elif t == "Release":
+                        stmts.append(Release(
+                            fifo_param=stmt["fifo_param"],
+                            count=stmt["count"]
+                        ))
+                    elif t == "KernelCall":
+                        stmts.append(KernelCall(
+                            kernel_param=stmt["kernel_param"],
+                            args=stmt["args"]
+                        ))
+                    elif t == "Assignment":
+                        stmts.append(Assignment(
+                            target=stmt["target"],
+                            index=stmt["index"],
+                            value=stmt["value"]
+                        ))
+                    elif t == "ForLoop":
+                        body = _deserialize_stmts(stmt.get("body", []))
+                        stmts.append(ForLoop(
+                            var=stmt["var"],
+                            count=stmt["count"],
+                            body=body
+                        ))
+                return stmts
+
+            stmts_data = json.loads(body_stmts_json)
+            body_stmts = _deserialize_stmts(stmts_data)
+
+            result = self.builder.add_core_function(
+                name, parameters, body_stmts=body_stmts, provided_id=provided_id, **metadata
+            )
+            if result.success:
+                return success_response(result.id)
+            else:
+                return error_response(
+                    error_code_to_string(result.error_code),
+                    result.error_message or "Unknown error",
+                    result.id or "",
+                    result.dependencies or []
+                )
+        except Exception as e:
+            return error_response("PYTHON_EXCEPTION", str(e))
+
     def add_worker(self, name: str, core_fn_id: str, fn_args_json: str, placement_id: str,
                    metadata: dict = None, provided_id: str = None) -> str:
         """Add or update a worker with ID-based references.

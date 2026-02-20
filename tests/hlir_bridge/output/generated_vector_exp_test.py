@@ -41,12 +41,12 @@ def vector_exp_test_jit(inputA, outputC):
 
     # core_fn here:
     def corefunc_exp(kernel, inputA, outputC):
-            for _ in range_(((65536) // 4096)):
-                elem_out = outputC.acquire(1)
-                elem_in = inputA.acquire(1)
-                kernel(elem_in, elem_out)
-                inputA.release(1)
-                outputC.release(1)
+        for _ in range_(((65536) // 4096)):
+            elem_out = outputC.acquire(1)
+            elem_in = inputA.acquire(1)
+            kernel(elem_in, elem_out)
+            inputA.release(1)
+            outputC.release(1)
 
     #Workers defined here:
     Workers = []

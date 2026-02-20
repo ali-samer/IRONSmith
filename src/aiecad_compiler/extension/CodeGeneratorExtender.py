@@ -147,10 +147,12 @@ class CoreFunctionCodeGen(CodeGenExtension):
         # Generate body
         body_nodes = self._get_children(node_id, 'contains')
         if not body_nodes:
-            lines.append("        pass")
+            lines.append("    pass")
         else:
-            # Process body statements with base indentation (2 levels = 8 spaces)
-            body_lines = self._process_body_statements(body_nodes, indent_level=2)
+            # Process body statements with base indentation (1 level = 4 spaces).
+            # The "\n    ".join() below adds another 4 spaces to each continuation
+            # line, so indent_level=1 here produces the correct 8-space body indent.
+            body_lines = self._process_body_statements(body_nodes, indent_level=1)
             lines.extend(body_lines)
 
         return "\n    ".join(lines)
