@@ -21,7 +21,7 @@ class QWidget;
 
 namespace Core {
 
-enum class RibbonItemKind {
+enum class CORE_EXPORT RibbonItemKind {
     Action,
     WidgetFactory,
     Separator,
@@ -88,20 +88,20 @@ struct CORE_EXPORT RibbonResult final
     explicit operator bool() const { return ok; }
 };
 
-enum class RibbonControlType {
+enum class CORE_EXPORT RibbonControlType {
     Button,
     SplitButton,
     DropDownButton,
     ToggleButton
 };
 
-enum class RibbonVisualSize {
+enum class CORE_EXPORT RibbonVisualSize {
     Small,
     Medium,
     Large
 };
 
-enum class RibbonIconPlacement {
+enum class CORE_EXPORT RibbonIconPlacement {
     AboveText,
     LeftOfText,
     IconOnly,

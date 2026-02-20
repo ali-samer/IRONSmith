@@ -18,6 +18,6 @@ struct CANVAS_EXPORT LinkWireStyle final {
     QColor color;
 };
 
-CANVAS_EXPORT LinkWireStyle linkWireStyle(LinkWireRole role);
+LinkWireStyle linkWireStyle(LinkWireRole role);
 
 } // namespace Canvas::Support

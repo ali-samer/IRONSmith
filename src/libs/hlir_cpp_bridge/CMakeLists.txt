@@ -30,13 +30,6 @@ ironsmith_add_library(HlirCppBridge
 # Add Python include directories
 target_include_directories(HlirCppBridge PRIVATE ${Python3_INCLUDE_DIRS})
 
-# Bake the Python home path so the embedded interpreter finds its standard library.
-# Use CMake path (forward slashes) which Windows APIs accept fine.
-cmake_path(GET Python3_EXECUTABLE PARENT_PATH _python3_home)
-target_compile_definitions(HlirCppBridge PRIVATE
-    PYTHON_HOME_DIR="${_python3_home}"
-)
-
 # Copy Python wrapper module to build directory
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/python/hlir_bridge_wrapper.py
@@ -50,6 +43,3 @@ message(STATUS "  Python3 Version: ${Python3_VERSION}")
 message(STATUS "  Python3 Include: ${Python3_INCLUDE_DIRS}")
 message(STATUS "  Python3 Libraries: ${Python3_LIBRARIES}")
 message(STATUS "  nlohmann_json: Found")
-
-# Bridge tests are compiled into the ironsmith executable (see src/app/CMakeLists.txt)
-# and run via: ironsmith.exe --test-bridges

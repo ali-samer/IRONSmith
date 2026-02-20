@@ -15,7 +15,7 @@ namespace Core {
 
 class StatusBarFieldWidget;
 
-class CORE_EXPORT InfoBarWidget final : public QWidget
+class InfoBarWidget final : public QWidget
 {
 	Q_OBJECT
 

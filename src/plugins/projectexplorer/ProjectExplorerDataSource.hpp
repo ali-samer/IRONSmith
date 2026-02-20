@@ -16,7 +16,7 @@
 
 namespace ProjectExplorer::Internal {
 
-class PROJECTEXPLORER_EXPORT ProjectExplorerDataSource final : public QObject
+class ProjectExplorerDataSource final : public QObject
 {
     Q_OBJECT
 

@@ -17,7 +17,7 @@ namespace ProjectExplorer::Internal {
 class ProjectExplorerModel;
 class ProjectExplorerFilterModel;
 
-class PROJECTEXPLORER_EXPORT ProjectExplorerService final : public ProjectExplorer::IProjectExplorer
+class ProjectExplorerService final : public ProjectExplorer::IProjectExplorer
 {
     Q_OBJECT
 

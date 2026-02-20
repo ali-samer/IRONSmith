@@ -10,7 +10,7 @@
 
 namespace ProjectExplorer::Internal {
 
-class PROJECTEXPLORER_EXPORT ProjectExplorerFilterModel final : public QSortFilterProxyModel
+class ProjectExplorerFilterModel final : public QSortFilterProxyModel
 {
     Q_OBJECT
 

@@ -219,7 +219,7 @@
     <ExternalFunction name="externalfunc1">
       <attributes>
         <kwarg name="name" value="eltwise_add_bf16_scalar"/>
-        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/add.cc"/>
+        <kwarg name="source_file" value="../../../aie_kernels/aie2/add.cc"/>
         <kwarg name="arg_types">
           <list>
             <type_ref>worker_chunk_ty</type_ref>
@@ -229,8 +229,7 @@
         </kwarg>
         <kwarg name="include_dirs">
           <list>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_kernels</string>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</string>
+            <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
           </list>
         </kwarg>
       </attributes>
@@ -238,7 +237,7 @@
     <ExternalFunction name="externalfunc2">
       <attributes>
         <kwarg name="name" value="bf16_relu"/>
-        <kwarg name="source_file" value="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/relu.cc"/>
+        <kwarg name="source_file" value="../../../aie_kernels/aie2/relu.cc"/>
         <kwarg name="arg_types">
           <list>
             <type_ref>worker_chunk_ty</type_ref>
@@ -247,8 +246,7 @@
         </kwarg>
         <kwarg name="include_dirs">
           <list>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_kernels</string>
-            <string>/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</string>
+            <string>/scratch/andrewa/mlir-aie/aie_kernels/</string>
           </list>
         </kwarg>
       </attributes>
@@ -2129,22 +2127,12 @@
         </call>
       </context>
       <bindings>
-        <bind name="a_in" type_ref="data_ty"/>
-        <bind name="b_in" type_ref="data_ty"/>
-        <bind name="d_out" type_ref="data_ty"/>
+        <bind name="A" type_ref="data_ty"/>
+        <bind name="B" type_ref="data_ty"/>
+        <bind name="D" type_ref="data_ty"/>
       </bindings>
       <body>
-        <Operation name="start">
-          <target>
-            <method ref="rt" name="start"/>
-          </target>
-          <args>
-            <arg>
-              <var ref="Workers"/>
-            </arg>
-          </args>
-        </Operation>
-        <Operation name="fill_a_in_col0">
+        <Operation name="fill_A_col0">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2164,7 +2152,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="a_in"/>
+              <var ref="A"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2213,7 +2201,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_a_in_col1">
+        <Operation name="fill_A_col1">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2233,7 +2221,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="a_in"/>
+              <var ref="A"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2282,7 +2270,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_a_in_col2">
+        <Operation name="fill_A_col2">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2302,7 +2290,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="a_in"/>
+              <var ref="A"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2351,7 +2339,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_a_in_col3">
+        <Operation name="fill_A_col3">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2371,7 +2359,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="a_in"/>
+              <var ref="A"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2420,7 +2408,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_b_in_col0">
+        <Operation name="fill_B_col0">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2440,7 +2428,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="b_in"/>
+              <var ref="B"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2489,7 +2477,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_b_in_col1">
+        <Operation name="fill_B_col1">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2509,7 +2497,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="b_in"/>
+              <var ref="B"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2558,7 +2546,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_b_in_col2">
+        <Operation name="fill_B_col2">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2578,7 +2566,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="b_in"/>
+              <var ref="B"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2627,7 +2615,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="fill_b_in_col3">
+        <Operation name="fill_B_col3">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -2647,7 +2635,7 @@
               <method name="prod"/>
             </kwarg>
             <kwarg name="source">
-              <var ref="b_in"/>
+              <var ref="B"/>
             </kwarg>
             <kwarg name="tap">
               <constructor ref="TensorAccessPattern">
@@ -2696,7 +2684,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_d_out_col0">
+        <Operation name="drain_D_col0">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -2716,7 +2704,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="d_out"/>
+              <var ref="D"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -2766,7 +2754,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_d_out_col1">
+        <Operation name="drain_D_col1">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -2786,7 +2774,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="d_out"/>
+              <var ref="D"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -2836,7 +2824,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_d_out_col2">
+        <Operation name="drain_D_col2">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -2856,7 +2844,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="d_out"/>
+              <var ref="D"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -2906,7 +2894,7 @@
             </kwarg>
           </args>
         </Operation>
-        <Operation name="drain_d_out_col3">
+        <Operation name="drain_D_col3">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -2926,7 +2914,7 @@
               <method name="cons"/>
             </kwarg>
             <kwarg name="dest">
-              <var ref="d_out"/>
+              <var ref="D"/>
             </kwarg>
             <kwarg name="wait" value="True"/>
             <kwarg name="tap">
@@ -3030,6 +3018,12 @@
   <Function name="main">
     <body>
       <Assign>
+        <target>datatype</target>
+        <source>
+          <var ref="bfloat16"/>
+        </source>
+      </Assign>
+      <Assign>
         <target>data_size</target>
         <source>
           <const>128</const>
@@ -3044,7 +3038,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>bfloat16</var>
+                <var>datatype</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>
@@ -3062,7 +3056,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>bfloat16</var>
+                <var>datatype</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>
@@ -3080,7 +3074,7 @@
                 <var>data_size</var>
               </arg>
               <kwarg name="dtype">
-                <var>bfloat16</var>
+                <var>datatype</var>
               </kwarg>
               <kwarg name="device">
                 <string>npu</string>

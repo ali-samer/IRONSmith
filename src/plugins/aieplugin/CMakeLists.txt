@@ -59,12 +59,6 @@ ironsmith_add_plugin(AiePlugin
             IRONSmith::CorePlugin
             IRONSmith::CanvasPlugin
             IRONSmith::ProjectExplorerPlugin
-
-        PRIVATE_DEFINES
-            AIEPLUGIN_LIBRARY
-
-        PUBLIC_DEFINES
-            AIEPLUGIN_BUILD_SHARED=1
 )
 
 if (BUILD_WITH_TESTS)

@@ -16,7 +16,7 @@
 
 namespace ProjectExplorer::Internal {
 
-class PROJECTEXPLORER_EXPORT ProjectExplorerModel final : public QAbstractItemModel
+class ProjectExplorerModel final : public QAbstractItemModel
 {
     Q_OBJECT
 

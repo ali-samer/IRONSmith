@@ -21,7 +21,6 @@
     <Import name="aie.helpers.taplib">
       <Submodule name="TensorAccessPattern"/>
     </Import>
-    <Const name="N" type="int">4096</Const>
     <TypeAbstraction name="vector_ty">
       <ndarray>
         <shape>
@@ -97,11 +96,11 @@
         </call>
       </context>
       <bindings>
-        <bind name="inputa_in" type_ref="vector_ty"/>
-        <bind name="outputc_out" type_ref="vector_ty"/>
+        <bind name="inputA" type_ref="vector_ty"/>
+        <bind name="outputC" type_ref="vector_ty"/>
       </bindings>
       <body>
-        <Operation name="fill_inputa_in_col0">
+        <Operation name="fill_inputA_col0">
           <target>
             <method ref="rt" name="fill"/>
           </target>
@@ -112,11 +111,11 @@
               </call>
             </arg>
             <arg>
-              <var ref="inputa_in"/>
+              <var ref="inputA"/>
             </arg>
           </args>
         </Operation>
-        <Operation name="drain_outputc_out_col0">
+        <Operation name="drain_outputC_col0">
           <target>
             <method ref="rt" name="drain"/>
           </target>
@@ -127,7 +126,7 @@
               </call>
             </arg>
             <arg>
-              <var ref="outputc_out"/>
+              <var ref="outputC"/>
             </arg>
             <kwarg name="wait" value="True"/>
           </args>

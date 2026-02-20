@@ -166,28 +166,6 @@ public:
         const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
-    /// Add a TensorTiler2D.group_tiler() access pattern specification
-    /// @param name Variable name (e.g. "a_tap")
-    /// @param tensorDims Full tensor dimensions as strings (e.g. {"n_fifo_elems", "A_elem_size"})
-    /// @param tileDims Tile dimensions as strings (e.g. {"1", "512"})
-    /// @param tileCounts Tile counts as strings (e.g. {"n_fifo_elems", "A_elem_size // 512"})
-    /// @param pruneStep Whether to prune the step dimension
-    /// @param index Which pattern to extract from the tiler (typically 0)
-    /// @param patternRepeat Optional pattern_repeat expression (empty = omit)
-    /// @param providedId Optional provided ID for the component
-    /// @param metadata Additional metadata
-    /// @return ComponentId on success, errors on failure
-    HlirResult<ComponentId> addTensorTiler2D(
-        const std::string& name,
-        const std::vector<std::string>& tensorDims,
-        const std::vector<std::string>& tileDims,
-        const std::vector<std::string>& tileCounts,
-        bool pruneStep = false,
-        int index = 0,
-        const std::string& patternRepeat = "",
-        const ComponentId& providedId = ComponentId(),
-        const std::map<std::string, std::string>& metadata = {});
-
     /// Add a FIFO forward operation
     /// @param name Operation name
     /// @param sourceId Source FIFO ID
@@ -255,26 +233,9 @@ public:
         const ComponentId& providedId = ComponentId(),
         const std::map<std::string, std::string>& metadata = {});
 
-    /// Add a core function using body_stmts mode for complex nested loop structures
-    /// @param name Function name
-    /// @param parameters Parameter names (for kernel and FIFOs)
-    /// @param bodyStmtsJson JSON encoding of body statements.
-    ///        Supported types: Acquire, Release, KernelCall, ForLoop, Assignment.
-    ///        Example: [{"type":"Acquire","fifo_param":"c_out","count":1,"local_var":"elem_out"},
-    ///                  {"type":"ForLoop","var":"_","count":"K_div_k","body":[...]}]
-    /// @param providedId Optional provided ID for the component
-    /// @param metadata Additional metadata
-    /// @return ComponentId on success, errors on failure
-    HlirResult<ComponentId> addCoreFunctionBody(
-        const std::string& name,
-        const std::vector<std::string>& parameters,
-        const std::string& bodyStmtsJson,
-        const ComponentId& providedId = ComponentId(),
-        const std::map<std::string, std::string>& metadata = {});
-
     /// Function argument (for worker binding)
     struct FunctionArg {
-        enum class Type { KERNEL, FIFO, SPLIT, JOIN, FORWARD };
+        enum class Type { KERNEL, FIFO, SPLIT, JOIN };
         Type type;
         ComponentId componentId;
         std::string fifoDirection;  // "prod" or "cons" for FIFOs
@@ -304,12 +265,6 @@ public:
         /// @param inputIndex Index of the join input (0, 1, ...)
         static FunctionArg joinProducer(const ComponentId& joinOpId, int inputIndex) {
             return FunctionArg{Type::JOIN, joinOpId, "prod", inputIndex};
-        }
-
-        /// Reference a forward operation output as consumer (no index needed)
-        /// @param forwardOpId Forward operation component ID
-        static FunctionArg forwardConsumer(const ComponentId& forwardOpId) {
-            return FunctionArg{Type::FORWARD, forwardOpId, "cons", 0};
         }
     };
 
@@ -401,8 +356,7 @@ public:
     /// @param inputName Input parameter name
     /// @param tileId Tile ID
     /// @param column Column index (optional, -1 to omit)
-    /// @param useTap Whether to use tensor access pattern (legacy, prefer tapId)
-    /// @param tapId Optional TensorTiler2D component ID for access pattern
+    /// @param useTap Whether to use tensor access pattern
     /// @return Success or errors
     HlirResult<void> runtimeAddFill(
         const std::string& name,
@@ -410,8 +364,7 @@ public:
         const std::string& inputName,
         const ComponentId& tileId,
         int column = -1,
-        bool useTap = false,
-        const ComponentId& tapId = ComponentId());
+        bool useTap = false);
 
     /// Add drain operation to runtime
     /// @param name Drain operation name
@@ -419,8 +372,7 @@ public:
     /// @param outputName Output parameter name
     /// @param tileId Tile ID
     /// @param column Column index (optional, -1 to omit)
-    /// @param useTap Whether to use tensor access pattern (legacy, prefer tapId)
-    /// @param tapId Optional TensorTiler2D component ID for access pattern
+    /// @param useTap Whether to use tensor access pattern
     /// @return Success or errors
     HlirResult<void> runtimeAddDrain(
         const std::string& name,
@@ -428,8 +380,7 @@ public:
         const std::string& outputName,
         const ComponentId& tileId,
         int column = -1,
-        bool useTap = false,
-        const ComponentId& tapId = ComponentId());
+        bool useTap = false);
 
     /// Build runtime sequence
     /// @return Success or errors

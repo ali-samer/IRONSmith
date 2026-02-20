@@ -7,14 +7,13 @@
 #include <QtCore/QString>
 #include <functional>
 
-#include "core/CoreGlobal.hpp"
 #include "core/api/SidebarToolSpec.hpp"
 
 class QWidget;
 
 namespace Core {
 
-class CORE_EXPORT ISidebarRegistry : public QObject
+class ISidebarRegistry : public QObject
 {
 	Q_OBJECT
 

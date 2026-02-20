@@ -8,7 +8,6 @@
 
 #include <memory>
 
-#include "core/CoreGlobal.hpp"
 #include "core/CommandRibbon.hpp"
 
 class QWidget;
@@ -17,7 +16,7 @@ namespace Core {
 class ISidebarRegistry;
 class InfoBarWidget;
 
-class CORE_EXPORT IUiHost : public QObject
+class IUiHost : public QObject
 {
 	Q_OBJECT
 

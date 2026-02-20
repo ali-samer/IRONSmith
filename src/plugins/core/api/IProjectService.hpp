@@ -6,13 +6,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QStringList>
 
-#include "core/CoreGlobal.hpp"
-
 class QWidget;
 
 namespace Core {
 
-class CORE_EXPORT IProjectService : public QObject
+class IProjectService : public QObject
 {
 	Q_OBJECT
 

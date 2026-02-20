@@ -236,23 +236,15 @@ def build_add_activate_design():
     print("[10] Adding external kernels...")
     externalfunc1 = builder.add_external_kernel(
         "externalfunc1", kernel_name="eltwise_add_bf16_scalar",
-        source_file="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/add.cc",
+        source_file="../../../aie_kernels/aie2/add.cc",
         arg_types=["worker_chunk_ty", "worker_chunk_ty", "worker_chunk_ty"],
-        operation="element_wise_add",
-        include_dirs=[
-            "/scratch/IRONSmithTesting/mlir-aie/aie_kernels",
-            "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"
-        ]
+        operation="element_wise_add"
     )
     externalfunc2 = builder.add_external_kernel(
         "externalfunc2", kernel_name="bf16_relu",
-        source_file="/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/relu.cc",
+        source_file="../../../aie_kernels/aie2/relu.cc",
         arg_types=["worker_chunk_ty", "worker_chunk_ty"],
-        operation="relu_activation",
-        include_dirs=[
-            "/scratch/IRONSmithTesting/mlir-aie/aie_kernels",
-            "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"
-        ]
+        operation="relu_activation"
     )
     print(f"    - Added 2 external kernels: add and relu")
 
