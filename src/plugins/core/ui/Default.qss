@@ -1,53 +1,75 @@
 /* Top chrome */
 QWidget#MenuHost {
-    background: #15181A;
-    border-bottom: none;
+    background: #0B0E10;
+    border: none;
+/*    border-top: 1px solid rgba(255, 255, 255, 0.06);*/
 }
 
 QWidget#MenuHost QToolButton {
     background: transparent;
     color: #BDC5CD;
     border: 1px solid transparent;
-    border-radius: 0px;
+    border-bottom: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
     padding: 6px 14px;
-    margin: 3px 0px 0px 0px;
+    margin: 3px 2px 0px 2px;
     font-family: "Menlo", "Segoe UI", "SF Pro Text", "Roboto", sans-serif;
     font-size: 12px;
-    font-weight: 600;
 }
 
 QWidget#MenuHost QToolButton:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.10);
-    border-radius: 0px;
+    background: rgba(255, 255, 255, 0.035);
+    border-left: 1px solid rgba(255, 255, 255, 0.07);
+    border-right: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-bottom: none;
     color: #F0F3F7;
 }
 
 QWidget#MenuHost QToolButton:checked {
-    background: #222528;
-    border: none;
-    border-bottom: 0px;
-    border-radius: 0px;
-    margin: 3px 0px -1px 0px;
-    padding: 6px 14px 8px 14px;
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 rgba(255, 255, 255, 0.06),
+        stop: 0.24 rgba(255, 255, 255, 0.02),
+        stop: 0.58 #16191B,
+        stop: 1 #15181A
+    );
+    border-left: 1px solid rgba(255, 255, 255, 0.13);
+    border-right: 1px solid rgba(255, 255, 255, 0.13);
+    border-top: 1px solid rgba(255, 255, 255, 0.20);
+    border-bottom: none;
+    margin: 2px 2px -1px 2px;
+    padding: 7px 14px 8px 14px;
+
     color: #FFFFFF;
 }
 
 QWidget#MenuHost QToolButton:checked:hover {
-    background: #222528;
-    border: none;
-    border-bottom: 0px;
-    border-radius: 0px;
+    background: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 rgba(255, 255, 255, 0.07),
+        stop: 0.24 rgba(255, 255, 255, 0.025),
+        stop: 0.58 #16191B,
+        stop: 1 #15181A
+    );
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgba(255, 255, 255, 0.23);
+    border-bottom: none;
 }
 
 QWidget#MenuHost QToolButton:checked:focus {
-    border: none;
-    border-bottom: 0px;
-    border-radius: 0px;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgba(255, 255, 255, 0.23);
+    border-bottom: none;
 }
 
 QWidget#MenuHost QToolButton:focus {
-    border-color: #5E6774;
+    border-color: #26282A;
 }
 
 QWidget#MenuHost QToolButton:disabled {
@@ -56,9 +78,8 @@ QWidget#MenuHost QToolButton:disabled {
 
 /* Ribbon area */
 QWidget#RibbonHost {
-    background: #222528;
+    background: #15181A;
     border-top: none;
-    border-bottom: 1px solid #2C3035;
 }
 
 QWidget#CommandRibbon,
@@ -213,8 +234,8 @@ QLabel#StatusBarFieldValue {
 /* Mode indicator pill */
 QLabel#StatusBarFieldValue[mode] {
     padding: 2px 10px;
-    border-radius: 3px;
-    font-weight: 700;
+    border-radius: 1px;
+/*    font-weight: 700;*/
     color: #E6EAF0;
 }
 

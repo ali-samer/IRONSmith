@@ -8,6 +8,7 @@
 #include <QtCore/QString>
 #include <QtCore/QVector>
 #include <QtCore/QHash>
+#include <qnamespace.h>
 
 #include <QAction>
 
@@ -17,7 +18,9 @@
 
 #include "core/CoreGlobal.hpp"
 
+QT_BEGIN_NAMESPACE
 class QWidget;
+QT_END_NAMESPACE
 
 namespace Core {
 
