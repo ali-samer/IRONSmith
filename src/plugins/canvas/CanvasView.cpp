@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/CanvasView.hpp"
 
 #include "canvas/CanvasScene.hpp"
+#include "canvas/CanvasConstants.hpp"
 #include "canvas/CanvasViewport.hpp"
 
 #include <QtGui/QPainter>
@@ -8,6 +12,8 @@
 #include <QtGui/QKeyEvent>
 #include <QtGui/QWheelEvent>
 #include <QtGui/QResizeEvent>
+#include <QtGui/QColor>
+#include <QtGui/QFontMetrics>
 #include <QtCore/QtGlobal>
 
 #include <cmath>
@@ -164,6 +170,25 @@ void CanvasView::clearMarqueeRect()
         m_scene->clearMarqueeRect();
 }
 
+void CanvasView::setEmptyStateVisible(bool visible)
+{
+    if (m_emptyStateVisible == visible)
+        return;
+    m_emptyStateVisible = visible;
+    update();
+}
+
+void CanvasView::setEmptyStateText(QString title, QString message)
+{
+    const QString cleanedTitle = title.trimmed();
+    const QString cleanedMessage = message.trimmed();
+    if (m_emptyTitle == cleanedTitle && m_emptyMessage == cleanedMessage)
+        return;
+    m_emptyTitle = cleanedTitle;
+    m_emptyMessage = cleanedMessage;
+    update();
+}
+
 double CanvasView::zoom() const noexcept
 {
     return m_viewport ? m_viewport->zoom() : 1.0;
@@ -219,6 +244,11 @@ void CanvasView::paintEvent(QPaintEvent* e)
 	QPainter p(this);
 	p.setRenderHints(QPainter::Antialiasing, true);
 
+    if (m_emptyStateVisible) {
+        drawEmptyState(p);
+        return;
+    }
+
     if (!m_scene)
         return;
     CanvasScene::ViewState viewState;
@@ -237,32 +267,98 @@ void CanvasView::resizeEvent(QResizeEvent* event)
 
 void CanvasView::mousePressEvent(QMouseEvent* event)
 {
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
 	emit canvasMousePressed(viewToScene(event->position()), event->buttons(), event->modifiers());
 	event->accept();
 }
 
 void CanvasView::mouseMoveEvent(QMouseEvent* event)
 {
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
 	emit canvasMouseMoved(viewToScene(event->position()), event->buttons(), event->modifiers());
 	event->accept();
 }
 
 void CanvasView::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
 	emit canvasMouseReleased(viewToScene(event->position()), event->buttons(), event->modifiers());
 	event->accept();
 }
 
 void CanvasView::wheelEvent(QWheelEvent* event)
 {
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
 	emit canvasWheel(viewToScene(event->position()), event->angleDelta(), event->pixelDelta(), event->modifiers());
 	event->accept();
 }
 
 void CanvasView::keyPressEvent(QKeyEvent* event)
 {
+    if (m_emptyStateVisible) {
+        event->accept();
+        return;
+    }
     emit canvasKeyPressed(event->key(), event->modifiers());
     event->accept();
+}
+
+void CanvasView::drawEmptyState(QPainter& painter)
+{
+    painter.fillRect(rect(), QColor(Constants::CANVAS_BACKGROUND_COLOR));
+
+    const QString title = m_emptyTitle.isEmpty() ? QStringLiteral("No design open.") : m_emptyTitle;
+    const QString message = m_emptyMessage;
+
+    QFont titleFont = font();
+    titleFont.setPointSize(std::max(12, titleFont.pointSize() + 2));
+    titleFont.setWeight(QFont::DemiBold);
+
+    QFont bodyFont = font();
+    bodyFont.setPointSize(std::max(10, bodyFont.pointSize()));
+
+    const QFontMetrics titleMetrics(titleFont);
+    const QFontMetrics bodyMetrics(bodyFont);
+
+    const int maxWidth = qMax(0, width() - 80);
+    const QString titleText = titleMetrics.elidedText(title, Qt::ElideRight, maxWidth);
+    const QString bodyText = message.isEmpty()
+                                 ? QString()
+                                 : bodyMetrics.elidedText(message, Qt::ElideRight, maxWidth);
+
+    const int titleHeight = titleMetrics.height();
+    const int bodyHeight = bodyText.isEmpty() ? 0 : bodyMetrics.height();
+    const int spacing = bodyText.isEmpty() ? 0 : 6;
+    const int totalHeight = titleHeight + spacing + bodyHeight;
+
+    const int centerX = rect().center().x();
+    const int topY = rect().center().y() - totalHeight / 2;
+
+    painter.setPen(QColor(230, 234, 240));
+    painter.setFont(titleFont);
+    painter.drawText(QRect(0, topY, width(), titleHeight),
+                     Qt::AlignHCenter | Qt::AlignVCenter,
+                     titleText);
+
+    if (!bodyText.isEmpty()) {
+        painter.setFont(bodyFont);
+        painter.setPen(QColor(170, 177, 187));
+        painter.drawText(QRect(0, topY + titleHeight + spacing, width(), bodyHeight),
+                         Qt::AlignHCenter | Qt::AlignVCenter,
+                         bodyText);
+    }
 }
 
 } // namespace Canvas

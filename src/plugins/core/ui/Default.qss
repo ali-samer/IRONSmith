@@ -515,29 +515,29 @@ QMenu#SidebarPanelViewMenu::item:checked {
     color: #FFFFFF;
 }
 
-QDialog#ConfirmationDialog {
+QDialog#BaseDialog {
     background: #15181A;
     border: 1px solid #30363D;
     border-radius: 8px;
     color: #E6EAF0;
 }
 
-QLabel#ConfirmationDialogTitle {
+QLabel#DialogTitle {
     color: #F0F3F7;
     font-size: 14px;
     font-weight: 600;
 }
 
-QLabel#ConfirmationDialogMessage {
+QLabel#DialogMessage {
     color: #E6EAF0;
 }
 
-QLabel#ConfirmationDialogInformative,
-QLabel#ConfirmationDialogDetails {
+QLabel#DialogInformative,
+QLabel#DialogDetails {
     color: rgba(230, 234, 240, 0.7);
 }
 
-QDialog#ConfirmationDialog QDialogButtonBox QPushButton {
+QDialog#BaseDialog QDialogButtonBox QPushButton {
     background: #2A2F36;
     color: #E6EAF0;
     border: 1px solid #3A414A;
@@ -545,16 +545,16 @@ QDialog#ConfirmationDialog QDialogButtonBox QPushButton {
     padding: 4px 12px;
 }
 
-QDialog#ConfirmationDialog QDialogButtonBox QPushButton:hover {
+QDialog#BaseDialog QDialogButtonBox QPushButton:hover {
     background: #343A42;
 }
 
-QDialog#ConfirmationDialog QPushButton#ConfirmationDialogConfirmButton[destructive=\"true\"] {
+QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive=\"true\"] {
     background: #7B2C2C;
     border-color: #8E3434;
 }
 
-QDialog#ConfirmationDialog QPushButton#ConfirmationDialogConfirmButton[destructive=\"true\"]:hover {
+QDialog#BaseDialog QPushButton#DialogConfirmButton[destructive=\"true\"]:hover {
     background: #8E3434;
 }
 

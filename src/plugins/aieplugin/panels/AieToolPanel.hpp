@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include <QtWidgets/QWidget>
@@ -46,6 +49,7 @@ private:
     Utils::LabeledSlider* m_cellSizeSlider = nullptr;
     class QCheckBox* m_showPortsCheck = nullptr;
     class QCheckBox* m_showLabelsCheck = nullptr;
+    class QCheckBox* m_showAnnotationsCheck = nullptr;
     Utils::LabeledSlider* m_keepoutSlider = nullptr;
     class QCheckBox* m_useCustomColorsCheck = nullptr;
     Utils::ColorSwatchButton* m_fillColorButton = nullptr;

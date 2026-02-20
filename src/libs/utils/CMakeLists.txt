@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samer Ali
+# SPDX-License-Identifier: GPL-3.0-only
+
 ironsmith_add_library(Utils
         SOURCES
             Result.hpp
@@ -8,10 +11,12 @@ ironsmith_add_library(Utils
 			TreeIds.hpp
 			TreeIndex.hpp
 			TreeChangeSet.hpp
-			VirtualPath.hpp
-			VirtualPath.cpp
+            VirtualPath.hpp
+            VirtualPath.cpp
             PathUtils.hpp
             PathUtils.cpp
+            DocumentBundle.hpp
+            DocumentBundle.cpp
             contextmenu/ContextMenu.hpp
             contextmenu/ContextMenu.cpp
             ui/SidebarPanelFrame.hpp
@@ -22,6 +27,10 @@ ironsmith_add_library(Utils
             ui/LabeledSlider.cpp
             ui/ConfirmationDialog.hpp
             ui/ConfirmationDialog.cpp
+            ui/BaseDialog.hpp
+            ui/BaseDialog.cpp
+            ui/FormDialog.hpp
+            ui/FormDialog.cpp
             ui/GridSpec.hpp
             ui/GridLayout.hpp
             ui/GridLayout.cpp
@@ -29,6 +38,8 @@ ironsmith_add_library(Utils
             async/DebouncedInvoker.hpp
             filesystem/RecursiveFileSystemWatcher.hpp
             filesystem/RecursiveFileSystemWatcher.cpp
+            filesystem/FileSystemUtils.hpp
+            filesystem/FileSystemUtils.cpp
             filesystem/PathPatternMatcher.hpp
             filesystem/PathPatternMatcher.cpp
 

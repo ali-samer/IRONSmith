@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "core/ui/UiHostImpl.hpp"
 
 #include <QtWidgets/QLayout>
@@ -353,6 +356,11 @@ void UiHostImpl::setPlaygroundBottomBar(QWidget* w)
 {
     if (!m_playground) return;
     replaceSingleChild(m_playground->bottomBar(), w);
+}
+
+InfoBarWidget* UiHostImpl::playgroundTopBar() const
+{
+    return m_playground ? m_playground->topBar() : nullptr;
 }
 
 InfoBarWidget* UiHostImpl::playgroundBottomBar() const

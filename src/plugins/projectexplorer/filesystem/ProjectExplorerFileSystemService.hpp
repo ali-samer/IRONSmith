@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "projectexplorer/ProjectExplorerGlobal.hpp"
@@ -56,8 +59,6 @@ signals:
 private:
     QString absolutePathFor(const QString& relPath) const;
     QString resolveTargetDirectory(const QString& relPath) const;
-    QString uniqueChildName(const QDir& dir, const QString& baseName, const QString& ext) const;
-    QString duplicateName(const QDir& dir, const QString& fileName) const;
 
     static Utils::Result copyRecursively(const QString& source, const QString& dest);
 

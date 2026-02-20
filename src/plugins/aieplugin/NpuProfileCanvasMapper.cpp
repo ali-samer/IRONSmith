@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/NpuProfileCanvasMapper.hpp"
 #include "aieplugin/AieConstants.hpp"
 
@@ -121,6 +124,10 @@ Utils::Result buildCanvasGridModel(const NpuProfile& profile, CanvasGridModel& o
             spec.showPorts = true;
             spec.deletable = false;
             spec.styleKey = kindId;
+            if (kind == TileKind::Shim || kind == TileKind::Mem)
+                spec.autoOppositeProducerPort = true;
+            if (kind == TileKind::Shim || kind == TileKind::Mem)
+                spec.showPortLabels = true;
 
             blocks.push_back(std::move(spec));
         }

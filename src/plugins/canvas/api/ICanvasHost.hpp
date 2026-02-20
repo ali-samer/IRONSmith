@@ -1,8 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasGlobal.hpp"
 
 #include <QtCore/QObject>
+#include <QtCore/QString>
 
 QT_BEGIN_NAMESPACE
 class QWidget;
@@ -24,6 +28,13 @@ public:
 
 	virtual CanvasDocument*   document() const = 0;
 	virtual CanvasController* controller() const = 0;
+
+    virtual void setCanvasActive(bool active) = 0;
+    virtual bool canvasActive() const = 0;
+    virtual void setEmptyStateText(const QString& title, const QString& message) = 0;
+
+signals:
+    void canvasActiveChanged(bool active);
 };
 } // namespace Canvas::Api
 } // namespace Canvas

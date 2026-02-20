@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasGlobal.hpp"
@@ -48,7 +51,13 @@ struct CANVAS_EXPORT CanvasRenderContext final {
     ObjectId selectedPortItem{};
     PortId selectedPortId{};
 
+    using IsPortSelectedFn = bool (*)(void*, ObjectId, PortId);
+    IsPortSelectedFn isPortSelected = nullptr;
+    void* isPortSelectedUser = nullptr;
+
     bool portSelected(ObjectId itemId, PortId portId) const {
+        if (isPortSelected)
+            return isPortSelected(isPortSelectedUser, itemId, portId);
         return hasSelectedPort && selectedPortItem == itemId && selectedPortId == portId;
     }
 };

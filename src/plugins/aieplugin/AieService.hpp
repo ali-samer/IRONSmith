@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "aieplugin/api/IAieHost.hpp"
@@ -30,9 +33,12 @@ public:
     Utils::Result loadProfileCatalog(const QString& path) override;
     Utils::Result setProfileId(const QString& id) override;
 
+    const NpuProfileCatalog& catalog() const { return m_catalog; }
+
     void setGridHost(Canvas::Api::ICanvasGridHost* host);
     void setStyleHost(Canvas::Api::ICanvasStyleHost* host);
     void setCanvasHost(Canvas::Api::ICanvasHost* host);
+    Canvas::Api::ICanvasHost* canvasHost() const { return m_canvasHost; }
     void setBaseStyles(const QHash<QString, Canvas::Api::CanvasBlockStyle>& styles);
 
 private:

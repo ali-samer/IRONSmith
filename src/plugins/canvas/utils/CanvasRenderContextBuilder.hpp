@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasRenderContext.hpp"
@@ -24,6 +27,9 @@ struct RenderContextPortState final {
     bool hasSelectedPort = false;
     ObjectId selectedPortItem{};
     PortId selectedPortId{};
+
+    CanvasRenderContext::IsPortSelectedFn isPortSelected = nullptr;
+    void* isPortSelectedUser = nullptr;
 };
 
 CanvasRenderContext buildRenderContext(const CanvasDocument* doc,

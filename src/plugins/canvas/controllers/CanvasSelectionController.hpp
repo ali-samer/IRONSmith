@@ -1,11 +1,17 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasTypes.hpp"
+#include "canvas/CanvasWire.hpp"
 
 #include <QtCore/QPointF>
 #include <QtCore/QRectF>
 #include <QtCore/QSet>
 #include <QtCore/Qt>
+
+#include <optional>
 
 namespace Canvas {
 class CanvasDocument;
@@ -47,6 +53,7 @@ public:
 
 private:
     QSet<ObjectId> collectItemsInRect(const QRectF& sceneRect) const;
+    QSet<PortRef> collectPortsInRect(const QRectF& sceneRect) const;
 
     CanvasDocument* m_doc = nullptr;
     CanvasView* m_view = nullptr;
@@ -58,6 +65,7 @@ private:
     QRectF m_marqueeRectScene;
     Qt::KeyboardModifiers m_marqueeMods;
     QSet<ObjectId> m_marqueeBaseSelection;
+    QSet<PortRef> m_marqueeBasePorts;
 };
 
 } // namespace Canvas::Controllers

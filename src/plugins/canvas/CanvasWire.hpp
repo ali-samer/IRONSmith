@@ -1,8 +1,12 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasItem.hpp"
 
 #include <QtGui/QColor>
+#include <QtCore/QHash>
 #include <optional>
 
 namespace Canvas {
@@ -11,6 +15,17 @@ struct CANVAS_EXPORT PortRef final {
     ObjectId itemId{};
     PortId   portId{};
 };
+
+inline bool operator==(const PortRef& a, const PortRef& b) noexcept
+{
+    return a.itemId == b.itemId && a.portId == b.portId;
+}
+
+inline size_t qHash(const PortRef& ref, size_t seed = 0) noexcept
+{
+    seed = ::qHash(ref.itemId, seed);
+    return ::qHash(ref.portId, seed);
+}
 
 class CANVAS_EXPORT CanvasWire final : public CanvasItem
 {

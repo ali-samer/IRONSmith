@@ -1,12 +1,17 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "projectexplorer/filesystem/ProjectExplorerFileSystemService.hpp"
 
+#include <utils/DocumentBundle.hpp>
 #include <utils/PathUtils.hpp>
+#include <utils/filesystem/FileSystemUtils.hpp>
 
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+#include <QtCore/QJsonObject>
 #include <QtCore/QProcess>
-#include <QtCore/QSaveFile>
 #include <QtCore/QUrl>
 #include <QtGui/QDesktopServices>
 
@@ -198,7 +203,7 @@ Utils::Result ProjectExplorerFileSystemService::duplicatePath(const QString& rel
     }
 
     const QDir dir(fi.absolutePath());
-    const QString newName = duplicateName(dir, fi.fileName());
+    const QString newName = Utils::FileSystemUtils::duplicateName(dir, fi.fileName());
     if (newName.isEmpty()) {
         const QString msg = QStringLiteral("Failed to generate duplicate name for '%1'.").arg(fi.fileName());
         emit operationFailed(Operation::Duplicate, relPath, msg);
@@ -249,7 +254,7 @@ Utils::Result ProjectExplorerFileSystemService::createFolder(const QString& pare
     }
 
     QDir dir(targetDir);
-    const QString newName = uniqueChildName(dir, sanitized, QString());
+    const QString newName = Utils::FileSystemUtils::uniqueChildName(dir, sanitized, QString());
     if (newName.isEmpty()) {
         const QString msg = QStringLiteral("Unable to create folder with that name.");
         emit operationFailed(Operation::NewFolder, parentRelPath, msg);
@@ -296,13 +301,13 @@ Utils::Result ProjectExplorerFileSystemService::createDesign(const QString& pare
         return Utils::Result::failure(msg);
     }
 
-    const QString designName = Utils::PathUtils::ensureExtension(sanitized, QStringLiteral("irondesign"));
+    const QString designName = Utils::PathUtils::ensureExtension(sanitized, Utils::DocumentBundle::extension());
 
     QDir dir(targetDir);
     const QFileInfo fi(designName);
     const QString base = fi.completeBaseName();
     const QString ext = fi.completeSuffix();
-    const QString unique = uniqueChildName(dir, base, ext);
+    const QString unique = Utils::FileSystemUtils::uniqueChildName(dir, base, ext);
     if (unique.isEmpty()) {
         const QString msg = QStringLiteral("Unable to create design with that name.");
         emit operationFailed(Operation::NewDesign, parentRelPath, msg);
@@ -310,15 +315,17 @@ Utils::Result ProjectExplorerFileSystemService::createDesign(const QString& pare
     }
 
     const QString abs = dir.filePath(unique);
-    QSaveFile file(abs);
-    if (!file.open(QIODevice::WriteOnly)) {
-        const QString msg = QStringLiteral("Failed to create design '%1'.").arg(unique);
-        emit operationFailed(Operation::NewDesign, parentRelPath, msg);
-        return Utils::Result::failure(msg);
-    }
-    file.write("{}\n");
-    if (!file.commit()) {
-        const QString msg = QStringLiteral("Failed to save design '%1'.").arg(unique);
+    const QString displayName = QFileInfo(unique).completeBaseName();
+    Utils::DocumentBundle::BundleInit init;
+    init.name = displayName;
+    init.program = QJsonObject{};
+    init.design = QJsonObject{};
+
+    const Utils::Result created = Utils::DocumentBundle::create(abs, init);
+    if (!created.ok) {
+        const QString msg = created.errors.isEmpty()
+                                ? QStringLiteral("Failed to create design '%1'.").arg(unique)
+                                : created.errors.join("\n");
         emit operationFailed(Operation::NewDesign, parentRelPath, msg);
         return Utils::Result::failure(msg);
     }
@@ -360,7 +367,7 @@ Utils::Result ProjectExplorerFileSystemService::importAssets(const QString& pare
         if (!fi.exists())
             continue;
 
-        const QString unique = uniqueChildName(dir, fi.completeBaseName(), fi.completeSuffix());
+        const QString unique = Utils::FileSystemUtils::uniqueChildName(dir, fi.completeBaseName(), fi.completeSuffix());
         if (unique.isEmpty())
             continue;
 
@@ -405,42 +412,6 @@ QString ProjectExplorerFileSystemService::resolveTargetDirectory(const QString& 
         return fi.absolutePath();
 
     return abs;
-}
-
-QString ProjectExplorerFileSystemService::uniqueChildName(const QDir& dir,
-                                                          const QString& baseName,
-                                                          const QString& ext) const
-{
-    const QString trimmedBase = baseName.trimmed();
-    if (trimmedBase.isEmpty())
-        return {};
-
-    const QString suffix = ext.isEmpty() ? QString() : QStringLiteral(".%1").arg(ext);
-    const QString candidate = trimmedBase + suffix;
-    if (!dir.exists(candidate))
-        return candidate;
-
-    for (int i = 1; i < 1000; ++i) {
-        const QString indexed = QStringLiteral("%1 (%2)%3").arg(trimmedBase).arg(i).arg(suffix);
-        if (!dir.exists(indexed))
-            return indexed;
-    }
-
-    return {};
-}
-
-QString ProjectExplorerFileSystemService::duplicateName(const QDir& dir, const QString& fileName) const
-{
-    const QFileInfo fi(fileName);
-    const QString base = fi.completeBaseName();
-    const QString ext = fi.completeSuffix();
-    const QString copyBase = QStringLiteral("%1 copy").arg(base);
-
-    QString candidate = uniqueChildName(dir, copyBase, ext);
-    if (!candidate.isEmpty())
-        return candidate;
-
-    return uniqueChildName(dir, base, ext);
 }
 
 Utils::Result ProjectExplorerFileSystemService::copyRecursively(const QString& source, const QString& dest)

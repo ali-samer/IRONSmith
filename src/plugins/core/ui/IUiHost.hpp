@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include <QtCore/QObject>
@@ -50,6 +53,7 @@ public:
 
 	virtual void setPlaygroundTopBar(QWidget* w) = 0;
 	virtual void setPlaygroundBottomBar(QWidget* w) = 0;
+	virtual InfoBarWidget* playgroundTopBar() const = 0;
 	virtual InfoBarWidget* playgroundBottomBar() const = 0;
 
 	virtual void setPlaygroundCenterBase(QWidget* w) = 0;

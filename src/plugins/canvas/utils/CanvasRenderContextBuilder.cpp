@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/utils/CanvasRenderContextBuilder.hpp"
 
 #include "canvas/CanvasDocument.hpp"
@@ -36,6 +39,8 @@ CanvasRenderContext buildRenderContext(const CanvasDocument* doc,
     ctx.hasSelectedPort = ports.hasSelectedPort;
     ctx.selectedPortItem = ports.selectedPortItem;
     ctx.selectedPortId = ports.selectedPortId;
+    ctx.isPortSelected = ports.isPortSelected;
+    ctx.isPortSelectedUser = ports.isPortSelectedUser;
 
     return ctx;
 }

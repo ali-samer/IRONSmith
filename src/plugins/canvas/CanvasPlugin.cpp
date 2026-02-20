@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/CanvasGlobal.hpp"
 
 #include <extensionsystem/IPlugin.hpp>
@@ -44,6 +47,7 @@ public:
 private:
     void connectRibbonActions(Core::IUiHost* uiHost);
     void syncRibbonState(CanvasController* controller);
+    void setCanvasActionsEnabled(bool enabled);
     void applyZoom(CanvasView* view, double factor);
     void zoomToFit(CanvasView* view, CanvasDocument* doc);
     void clearWireOverrides(CanvasDocument* doc);
@@ -253,6 +257,10 @@ void CanvasPlugin::connectRibbonActions(Core::IUiHost* uiHost)
     connect(controller, &CanvasController::modeChanged, this, updateState);
     connect(controller, &CanvasController::linkingModeChanged, this, updateState);
     syncRibbonState(controller);
+
+    setCanvasActionsEnabled(m_host->canvasActive());
+    connect(m_host, &Canvas::Api::ICanvasHost::canvasActiveChanged, this,
+            [this](bool active) { setCanvasActionsEnabled(active); });
 }
 
 void CanvasPlugin::syncRibbonState(CanvasController* controller)
@@ -289,6 +297,28 @@ void CanvasPlugin::syncRibbonState(CanvasController* controller)
         QSignalBlocker block(m_actions.linkBroadcast);
         m_actions.linkBroadcast->setChecked(linking && linkMode == CanvasController::LinkingMode::Broadcast);
     }
+}
+
+void CanvasPlugin::setCanvasActionsEnabled(bool enabled)
+{
+    const auto setEnabled = [enabled](QPointer<QAction>& action) {
+        if (action)
+            action->setEnabled(enabled);
+    };
+
+    setEnabled(m_actions.select);
+    setEnabled(m_actions.pan);
+    setEnabled(m_actions.link);
+    setEnabled(m_actions.linkSplit);
+    setEnabled(m_actions.linkJoin);
+    setEnabled(m_actions.linkBroadcast);
+    setEnabled(m_actions.autoRoute);
+    setEnabled(m_actions.clearOverrides);
+    setEnabled(m_actions.wireArrows);
+    setEnabled(m_actions.zoomIn);
+    setEnabled(m_actions.zoomOut);
+    setEnabled(m_actions.zoomFit);
+    setEnabled(m_actions.resetView);
 }
 
 void CanvasPlugin::applyZoom(CanvasView* view, double factor)

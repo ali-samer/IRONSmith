@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "core/ui/IUiHost.hpp"
@@ -46,6 +49,7 @@ public:
 
 	void setPlaygroundTopBar(QWidget* w) override;
 	void setPlaygroundBottomBar(QWidget* w) override;
+	InfoBarWidget* playgroundTopBar() const override;
 	InfoBarWidget* playgroundBottomBar() const override;
 
 	void setPlaygroundCenterBase(QWidget* w) override;

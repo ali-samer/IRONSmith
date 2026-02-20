@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/controllers/CanvasDragController.hpp"
 
 #include "canvas/controllers/CanvasInteractionHelpers.hpp"
@@ -9,6 +12,7 @@
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasView.hpp"
 #include "canvas/CanvasWire.hpp"
+#include "canvas/utils/CanvasAutoPorts.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
 #include "canvas/utils/CanvasPortUsage.hpp"
 
@@ -40,6 +44,7 @@ void CanvasDragController::clearTransientState()
     m_dragEndpointOriginal = CanvasWire::Endpoint{};
     m_dragEndpointPortDynamic = false;
     m_dragEndpointPortShared = false;
+    m_dragEndpointPortPaired = false;
     m_dragEndpointPort = PortRef{};
     m_dragEndpointPortMeta = CanvasPort{};
     m_dragEndpointPortIndex = 0;
@@ -174,6 +179,7 @@ void CanvasDragController::updateWireSegmentDrag(const QPointF& scenePos)
             if (auto* w = dynamic_cast<CanvasWire*>(it.get())) {
                 w->setRouteOverride(std::move(next));
                 m_dragWirePath = w->routeOverride();
+                m_doc->notifyChanged();
                 m_view->update();
             }
             break;
@@ -218,6 +224,7 @@ bool CanvasDragController::beginEndpointDrag(CanvasWire* wire, const QPointF& sc
             m_dragEndpointPortMeta = meta;
             m_dragEndpointPortDynamic = (meta.role == PortRole::Dynamic);
             m_dragEndpointPortShared = Support::countPortAttachments(*m_doc, ref.itemId, ref.portId, wire->id()) > 0;
+            m_dragEndpointPortPaired = Support::isPairedProducerPort(meta);
 
             if (auto* block = dynamic_cast<CanvasBlock*>(m_doc->findItem(ref.itemId))) {
                 Detail::findPortIndex(*block, ref.portId, m_dragEndpointPortIndex);
@@ -285,8 +292,13 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
 
     bool attached = false;
     bool movedPort = false;
+    std::optional<PortRef> attachedRef;
 
     if (target && !Support::isPortAvailable(*m_doc, target->itemId, target->portId, wire->id())) {
+        target.reset();
+    }
+    if (target && m_dragEndpointPortPaired && m_dragEndpointPort.itemId &&
+        target->itemId != m_dragEndpointPort.itemId) {
         target.reset();
     }
 
@@ -299,9 +311,30 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
         else
             wire->setEndpointB(next);
         attached = true;
+        attachedRef = *target;
     } else if (edge.has_value()) {
         auto* targetBlock = dynamic_cast<CanvasBlock*>(m_doc->findItem(edge->itemId));
         if (targetBlock) {
+            if (m_dragEndpointPortPaired && m_dragEndpointPort.itemId) {
+                auto* sourceBlock = dynamic_cast<CanvasBlock*>(m_doc->findItem(m_dragEndpointPort.itemId));
+                if (sourceBlock && sourceBlock->id() == targetBlock->id()) {
+                    CanvasPort moved = m_dragEndpointPortMeta;
+                    moved.side = edge->side;
+                    moved.t = Support::clampT(edge->t);
+                    sourceBlock->updatePort(m_dragEndpointPort.portId, moved.side, moved.t);
+                    CanvasWire::Endpoint next;
+                    next.attached = PortRef{sourceBlock->id(), m_dragEndpointPort.portId};
+                    next.freeScene = scenePos;
+                    if (m_dragEndpointIsA)
+                        wire->setEndpointA(next);
+                    else
+                        wire->setEndpointB(next);
+                    attached = true;
+                    movedPort = true;
+                    attachedRef = PortRef{sourceBlock->id(), m_dragEndpointPort.portId};
+                }
+            }
+
             if (m_dragEndpointPortDynamic && !m_dragEndpointPortShared && m_dragEndpointPort.itemId) {
                 CanvasPort moved = m_dragEndpointPortMeta;
                 moved.side = edge->side;
@@ -309,6 +342,7 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
 
                 auto* sourceBlock = dynamic_cast<CanvasBlock*>(m_doc->findItem(m_dragEndpointPort.itemId));
                 if (sourceBlock) {
+                    const bool allowCrossBlock = !sourceBlock->autoOppositeProducerPort();
                     if (sourceBlock->id() == targetBlock->id()) {
                         sourceBlock->updatePort(m_dragEndpointPort.portId, moved.side, moved.t);
                         CanvasWire::Endpoint next;
@@ -320,7 +354,8 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
                             wire->setEndpointB(next);
                         attached = true;
                         movedPort = true;
-                    } else {
+                        attachedRef = PortRef{sourceBlock->id(), m_dragEndpointPort.portId};
+                    } else if (allowCrossBlock) {
                         const bool removed = sourceBlock->removePort(m_dragEndpointPort.portId).has_value();
                         if (removed) {
                             targetBlock->insertPort(targetBlock->ports().size(), moved);
@@ -333,6 +368,7 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
                                 wire->setEndpointB(next);
                             attached = true;
                             movedPort = true;
+                            attachedRef = PortRef{targetBlock->id(), m_dragEndpointPort.portId};
                         }
                     }
                 }
@@ -349,6 +385,7 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
                     else
                         wire->setEndpointB(next);
                     attached = true;
+                    attachedRef = PortRef{targetBlock->id(), newPort};
                 }
             }
         }
@@ -367,6 +404,17 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
         }
     }
 
+    const bool samePort = attachedRef.has_value()
+        && attachedRef->itemId == m_dragEndpointPort.itemId
+        && attachedRef->portId == m_dragEndpointPort.portId;
+    if (!samePort && m_dragEndpointPort.itemId &&
+        Support::countPortAttachments(*m_doc, m_dragEndpointPort.itemId, m_dragEndpointPort.portId, wire->id()) == 0) {
+        Support::removeOppositeProducerPort(*m_doc, m_dragEndpointPort.itemId, m_dragEndpointPort.portId);
+    }
+
+    if (attachedRef.has_value())
+        Support::ensureOppositeProducerPort(*m_doc, attachedRef->itemId, attachedRef->portId);
+
     wire->clearRouteOverride();
     m_doc->notifyChanged();
     m_view->clearHoveredEdge();
@@ -377,6 +425,7 @@ void CanvasDragController::endEndpointDrag(const QPointF& scenePos)
     m_dragEndpointOriginal = CanvasWire::Endpoint{};
     m_dragEndpointPortDynamic = false;
     m_dragEndpointPortShared = false;
+    m_dragEndpointPortPaired = false;
     m_dragEndpointPort = PortRef{};
     m_dragEndpointPortMeta = CanvasPort{};
     m_dragEndpointPortIndex = 0;
@@ -437,16 +486,20 @@ void CanvasDragController::endBlockDrag()
         return;
 
     auto batch = std::make_unique<CompositeCommand>(QStringLiteral("Move Blocks"));
+    bool moved = false;
     for (const auto& state : m_dragBlocks) {
         if (!state.block)
             continue;
         const QPointF endTopLeft = state.block->boundsScene().topLeft();
         if (endTopLeft == state.startTopLeft)
             continue;
+        moved = true;
         batch->add(std::make_unique<MoveItemCommand>(state.block->id(), state.startTopLeft, endTopLeft));
     }
     if (!batch->empty())
         m_doc->commands().execute(std::move(batch));
+    if (moved)
+        m_doc->notifyChanged();
 
     m_dragBlocks.clear();
     m_dragPrimary = nullptr;

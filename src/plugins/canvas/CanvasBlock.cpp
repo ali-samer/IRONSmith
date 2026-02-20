@@ -1,10 +1,15 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/CanvasBlock.hpp"
 
 #include "canvas/CanvasConstants.hpp"
 #include "canvas/CanvasBlockContent.hpp"
 #include "canvas/CanvasStyle.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
+#include "canvas/utils/CanvasAutoPorts.hpp"
 
+#include <QtCore/QHash>
 #include <QtGui/QPainter>
 #include <algorithm>
 #include <cmath>
@@ -20,6 +25,10 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
     blk->setPorts(m_ports);
     blk->m_showPorts = m_showPorts;
     blk->m_allowMultiplePorts = m_allowMultiplePorts;
+    blk->m_hasAutoPortRole = m_hasAutoPortRole;
+    blk->m_autoPortRole = m_autoPortRole;
+    blk->m_autoOppositeProducerPort = m_autoOppositeProducerPort;
+    blk->m_showPortLabels = m_showPortLabels;
     blk->m_autoPortLayout = m_autoPortLayout;
     blk->m_portSnapStep = m_portSnapStep;
     blk->m_isLinkHub = m_isLinkHub;
@@ -106,6 +115,19 @@ bool CanvasBlock::updatePort(PortId id, PortSide side, double t)
         if (port.id == id) {
             port.side = side;
             port.t = t;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CanvasBlock::updatePortName(PortId id, QString name)
+{
+    for (auto& port : m_ports) {
+        if (port.id == id) {
+            if (port.name == name)
+                return false;
+            port.name = std::move(name);
             return true;
         }
     }
@@ -224,11 +246,53 @@ void CanvasBlock::draw(QPainter& p, const CanvasRenderContext& ctx) const
     }
 
     if (m_showPorts && s_globalShowPorts) {
+        QHash<QString, int> labelIndices;
+        if (m_showPortLabels) {
+            int nextIndex = 1;
+            for (const auto& port : m_ports) {
+                if (!Support::isPairedProducerPort(port))
+                    continue;
+                const auto key = Support::pairedPortKey(port);
+                if (!key || key->isEmpty())
+                    continue;
+                if (!labelIndices.contains(*key))
+                    labelIndices.insert(*key, nextIndex++);
+            }
+        }
+
         for (const auto& port : m_ports) {
             const QPointF a = portAnchorScene(port.id);
             const bool hovered = ctx.portHovered(id(), port.id);
             const bool selected = ctx.portSelected(id(), port.id);
             CanvasStyle::drawPort(p, a, port.side, port.role, ctx.zoom, hovered || selected);
+
+            if (m_showPortLabels) {
+                QString label;
+                QString key;
+                if (auto k = Support::pairedPortKey(port); k && !k->isEmpty()) {
+                    key = *k;
+                } else if (port.role == PortRole::Consumer) {
+                    const QString legacyKey = port.id.toString();
+                    if (labelIndices.contains(legacyKey))
+                        key = legacyKey;
+                }
+
+                if (!key.isEmpty()) {
+                    const int index = labelIndices.value(key, 0);
+                    if (index > 0) {
+                        const bool isProducer = (port.role == PortRole::Producer);
+                        label = (isProducer ? QStringLiteral("OUT_%1")
+                                            : QStringLiteral("IN_%1"))
+                                    .arg(index);
+                    }
+                }
+
+                if (!label.isEmpty()) {
+                    const QColor labelColor = m_hasCustomColors ? m_labelColor
+                                                                : QColor(Constants::kBlockTextColor);
+                    CanvasStyle::drawPortLabel(p, a, port.side, ctx.zoom, label, labelColor);
+                }
+            }
         }
     }
 }

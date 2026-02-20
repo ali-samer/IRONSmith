@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samer Ali
+# SPDX-License-Identifier: GPL-3.0-only
+
 ironsmith_add_plugin(CanvasPlugin
         PLUGIN_NAME Canvas
         PLUGIN_CLASS Canvas::CanvasPlugin
@@ -42,6 +45,8 @@ ironsmith_add_plugin(CanvasPlugin
             CanvasController.hpp
             CanvasController.cpp
             utils/CanvasGeometry.hpp
+            utils/CanvasAutoPorts.hpp
+            utils/CanvasAutoPorts.cpp
             utils/CanvasPortHitTest.hpp
             utils/CanvasPortHitTest.cpp
             utils/CanvasLinkHubStyle.hpp

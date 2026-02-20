@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasPorts.hpp"
@@ -79,6 +82,7 @@ private:
     CanvasWire::Endpoint m_dragEndpointOriginal;
     bool m_dragEndpointPortDynamic = false;
     bool m_dragEndpointPortShared = false;
+    bool m_dragEndpointPortPaired = false;
     PortRef m_dragEndpointPort{};
     CanvasPort m_dragEndpointPortMeta{};
     size_t m_dragEndpointPortIndex = 0;

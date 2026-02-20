@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include <QtCore/QPointer>
@@ -8,6 +11,9 @@
 namespace Core {
 class CoreImpl;
 class IUiHost;
+namespace Internal {
+class HeaderInfoService;
+}
 
 class CorePlugin final : public ExtensionSystem::IPlugin
 {
@@ -30,6 +36,7 @@ private:
 	void setupOutputPageCommands(Core::IUiHost* uiHost);
 
 	QPointer<CoreImpl> m_core;
+	QPointer<Internal::HeaderInfoService> m_headerInfo;
 };
 
 } // namespace Core

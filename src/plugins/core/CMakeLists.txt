@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Samer Ali
+# SPDX-License-Identifier: GPL-3.0-only
+
 ironsmith_add_plugin(CorePlugin
         PLUGIN_NAME Core
         PLUGIN_CLASS Core::CorePlugin
@@ -24,6 +27,8 @@ ironsmith_add_plugin(CorePlugin
         #-== Status Bar ==-#
             StatusBarField.hpp
             StatusBarField.cpp
+            HeaderInfoService.hpp
+            HeaderInfoService.cpp
 
         #-== Side Bar ==-#
             SidebarModel.hpp

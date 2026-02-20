@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include <gtest/gtest.h>
 
 #include "aieplugin/NpuProfileLoader.hpp"
@@ -15,6 +18,7 @@ TEST(NpuProfileLoaderTests, ParsesMinimalCatalog)
       "name": "Device",
       "vendor": "AMD",
       "family": "XDNA",
+      "aieArch": "AIE-ML",
       "grid": {
         "columns": 2,
         "rows": { "shim": 1, "mem": 1, "aie": 0 },
@@ -38,6 +42,7 @@ TEST(NpuProfileLoaderTests, ParsesMinimalCatalog)
     ASSERT_EQ(catalog.devices.size(), 1);
     const auto& profile = catalog.devices.front();
     EXPECT_EQ(profile.id, QStringLiteral("dev1"));
+    EXPECT_EQ(profile.aieArch, QStringLiteral("AIE-ML"));
     EXPECT_EQ(profile.grid.columns, 2);
     EXPECT_EQ(profile.grid.rows.total(), 2);
     EXPECT_EQ(profile.tiles.coordinateSystem, QStringLiteral("col_row"));

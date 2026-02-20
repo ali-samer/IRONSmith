@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/AieService.hpp"
 
 #include "aieplugin/AieCanvasCoordinator.hpp"
@@ -58,6 +61,8 @@ Utils::Result AieService::setProfileId(const QString& id)
     if (m_coordinator)
         m_coordinator->setBaseModel(model);
     applyBaseStyles();
+    if (m_coordinator)
+        m_coordinator->flushApply();
     emit profileIdChanged(m_profileId);
     return Utils::Result::success();
 }

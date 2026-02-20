@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 namespace Canvas::Constants {
@@ -35,6 +38,8 @@ inline constexpr double kPortBoxHalf = 3.0 * kWorldScale;
 inline constexpr double kPortBoxHalfHover = 4.0 * kWorldScale;
 inline constexpr double kPortHitStubLengthPx = kPortStubLengthHover;
 inline constexpr double kPortHitBoxHalfPx = kPortBoxHalfHover;
+inline constexpr double kPortLabelPointSize = 8.0 * kWorldScale;
+inline constexpr double kPortLabelOffset = 6.0 * kWorldScale;
 
 inline constexpr double kBlockKeepoutMargin = kGridStep;
 

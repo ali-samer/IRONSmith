@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/internal/CanvasGridHostImpl.hpp"
 
 #include "canvas/CanvasBlock.hpp"
@@ -120,6 +123,26 @@ bool applyBlockSpec(Canvas::CanvasBlock* block,
 
     if (block->allowMultiplePorts() != spec.allowMultiplePorts) {
         block->setAllowMultiplePorts(spec.allowMultiplePorts);
+        changed = true;
+    }
+
+    if (spec.hasAutoPortRole) {
+        if (!block->hasAutoPortRole() || block->autoPortRole() != spec.autoPortRole) {
+            block->setAutoPortRole(spec.autoPortRole);
+            changed = true;
+        }
+    } else if (block->hasAutoPortRole()) {
+        block->clearAutoPortRole();
+        changed = true;
+    }
+
+    if (block->autoOppositeProducerPort() != spec.autoOppositeProducerPort) {
+        block->setAutoOppositeProducerPort(spec.autoOppositeProducerPort);
+        changed = true;
+    }
+
+    if (block->showPortLabels() != spec.showPortLabels) {
+        block->setShowPortLabels(spec.showPortLabels);
         changed = true;
     }
 

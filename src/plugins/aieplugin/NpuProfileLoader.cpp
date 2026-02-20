@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/NpuProfileLoader.hpp"
 
 #include <QtCore/QFile>
@@ -271,6 +274,11 @@ NpuProfile parseProfile(const QJsonObject& obj, const QString& path, ParseContex
     profile.name = requireString(obj, QStringLiteral("name"), path, ctx);
     profile.vendor = requireString(obj, QStringLiteral("vendor"), path, ctx);
     profile.family = requireString(obj, QStringLiteral("family"), path, ctx);
+    const QJsonValue archValue = obj.value(QStringLiteral("aieArch"));
+    if (archValue.isString())
+        profile.aieArch = archValue.toString();
+    else if (!archValue.isUndefined() && !archValue.isNull())
+        ctx.addError(QStringLiteral("Expected string at %1").arg(pathKey(path, QStringLiteral("aieArch"))));
 
     const QJsonValue matchValue = obj.value(QStringLiteral("match"));
     if (matchValue.isObject())

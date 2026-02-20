@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "canvas/controllers/CanvasSelectionController.hpp"
 
 #include "canvas/CanvasConstants.hpp"
@@ -122,6 +125,8 @@ void CanvasSelectionController::beginMarqueeSelection(const QPointF& scenePos, Q
     if (!m_view || !m_doc)
         return;
 
+    m_marqueeBasePorts = m_selection ? m_selection->selectedPorts() : QSet<PortRef>{};
+
     m_marqueeActive = true;
     m_marqueeStartScene = scenePos;
     m_marqueeStartView = m_view->sceneToView(scenePos);
@@ -132,7 +137,8 @@ void CanvasSelectionController::beginMarqueeSelection(const QPointF& scenePos, Q
     if (!mods.testFlag(Qt::ShiftModifier) && !mods.testFlag(Qt::ControlModifier))
         m_marqueeBaseSelection.clear();
 
-    clearSelectedPort();
+    if (!mods.testFlag(Qt::ShiftModifier) && !mods.testFlag(Qt::ControlModifier))
+        m_marqueeBasePorts.clear();
     m_view->setMarqueeRect(m_marqueeRectScene);
     updateMarqueeSelection(scenePos);
 }
@@ -146,7 +152,9 @@ void CanvasSelectionController::updateMarqueeSelection(const QPointF& scenePos)
     m_view->setMarqueeRect(m_marqueeRectScene);
 
     const QSet<ObjectId> hits = collectItemsInRect(m_marqueeRectScene);
+    const QSet<PortRef> portHits = collectPortsInRect(m_marqueeRectScene);
     QSet<ObjectId> next = m_marqueeBaseSelection;
+    QSet<PortRef> nextPorts = m_marqueeBasePorts;
 
     if (m_marqueeMods.testFlag(Qt::ControlModifier)) {
         for (const auto& id : hits) {
@@ -155,13 +163,23 @@ void CanvasSelectionController::updateMarqueeSelection(const QPointF& scenePos)
             else
                 next.insert(id);
         }
+        for (const auto& port : portHits) {
+            if (nextPorts.contains(port))
+                nextPorts.remove(port);
+            else
+                nextPorts.insert(port);
+        }
     } else if (m_marqueeMods.testFlag(Qt::ShiftModifier)) {
         next.unite(hits);
+        nextPorts.unite(portHits);
     } else {
         next = hits;
+        nextPorts = portHits;
     }
 
     setSelection(next);
+    if (m_selection)
+        m_selection->setSelectedPorts(nextPorts);
 }
 
 void CanvasSelectionController::endMarqueeSelection(const QPointF& scenePos)
@@ -174,8 +192,11 @@ void CanvasSelectionController::endMarqueeSelection(const QPointF& scenePos)
     if (dist < Canvas::Constants::kMarqueeDragThresholdPx) {
         if (m_marqueeMods.testFlag(Qt::ShiftModifier) || m_marqueeMods.testFlag(Qt::ControlModifier)) {
             setSelection(m_marqueeBaseSelection);
+            if (m_selection)
+                m_selection->setSelectedPorts(m_marqueeBasePorts);
         } else {
             clearSelection();
+            clearSelectedPort();
         }
     } else {
         updateMarqueeSelection(scenePos);
@@ -210,6 +231,26 @@ QSet<ObjectId> CanvasSelectionController::collectItemsInRect(const QRectF& scene
             ids.insert(it->id());
     }
     return ids;
+}
+
+QSet<PortRef> CanvasSelectionController::collectPortsInRect(const QRectF& sceneRect) const
+{
+    QSet<PortRef> ports;
+    if (!m_doc)
+        return ports;
+
+    const double half = Constants::kPortHitBoxHalfPx;
+    const QRectF rect = sceneRect.normalized().adjusted(-half, -half, half, half);
+    for (const auto& it : m_doc->items()) {
+        if (!it || !it->hasPorts())
+            continue;
+        for (const auto& port : it->ports()) {
+            const QPointF anchor = it->portAnchorScene(port.id);
+            if (rect.contains(anchor))
+                ports.insert(PortRef{it->id(), port.id});
+        }
+    }
+    return ports;
 }
 
 } // namespace Canvas::Controllers

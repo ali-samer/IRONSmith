@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "canvas/CanvasGlobal.hpp"
@@ -47,6 +50,7 @@ public:
     ObjectId selectedItem() const noexcept;
     const QSet<ObjectId>& selectedItems() const noexcept;
     bool isSelected(ObjectId id) const noexcept;
+    bool isPortSelected(ObjectId itemId, PortId portId) const noexcept;
     void setSelectedItem(ObjectId id);
     void setSelectedItems(const QSet<ObjectId>& items);
     void clearSelectedItems();

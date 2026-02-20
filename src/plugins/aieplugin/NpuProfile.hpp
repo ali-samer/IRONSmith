@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include <QtCore/QMap>
@@ -96,6 +99,7 @@ struct NpuProfile final {
     QString name;
     QString vendor;
     QString family;
+    QString aieArch;
     DeviceMatch match;
     GridDefinition grid;
     TileLayout tiles;

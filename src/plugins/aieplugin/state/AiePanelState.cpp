@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/state/AiePanelState.hpp"
 
 #include "aieplugin/AieCanvasCoordinator.hpp"
@@ -20,6 +23,7 @@ const QString kAutoCellSizeKey = u"autoCellSize"_s;
 const QString kCellSizeKey = u"cellSize"_s;
 const QString kShowPortsKey = u"showPorts"_s;
 const QString kShowLabelsKey = u"showLabels"_s;
+const QString kShowAnnotationsKey = u"showAnnotations"_s;
 const QString kKeepoutKey = u"keepoutMargin"_s;
 const QString kUseCustomColorsKey = u"useCustomColors"_s;
 const QString kFillKey = u"fillColor"_s;
@@ -76,6 +80,7 @@ void AiePanelState::setCoordinator(AieCanvasCoordinator* coordinator)
     connect(m_coordinator, &AieCanvasCoordinator::cellSizeChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::showPortsChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::showLabelsChanged, this, &AiePanelState::scheduleSave);
+    connect(m_coordinator, &AieCanvasCoordinator::showAnnotationsChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::keepoutMarginChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::useCustomColorsChanged, this, &AiePanelState::scheduleSave);
     connect(m_coordinator, &AieCanvasCoordinator::fillColorChanged, this, &AiePanelState::scheduleSave);
@@ -83,6 +88,11 @@ void AiePanelState::setCoordinator(AieCanvasCoordinator* coordinator)
     connect(m_coordinator, &AieCanvasCoordinator::labelColorChanged, this, &AiePanelState::scheduleSave);
 
     loadState();
+}
+
+void AiePanelState::setDefaultsPersistenceEnabled(bool enabled)
+{
+    m_persistDefaults = enabled;
 }
 
 void AiePanelState::loadState()
@@ -122,6 +132,8 @@ void AiePanelState::apply(const QJsonObject& state)
         m_coordinator->setShowPorts(state.value(kShowPortsKey).toBool(m_coordinator->showPorts()));
     if (state.contains(kShowLabelsKey))
         m_coordinator->setShowLabels(state.value(kShowLabelsKey).toBool(m_coordinator->showLabels()));
+    if (state.contains(kShowAnnotationsKey))
+        m_coordinator->setShowAnnotations(state.value(kShowAnnotationsKey).toBool(m_coordinator->showAnnotations()));
     if (state.contains(kKeepoutKey))
         m_coordinator->setKeepoutMargin(state.value(kKeepoutKey).toDouble(m_coordinator->keepoutMargin()));
     if (state.contains(kUseCustomColorsKey))
@@ -150,6 +162,7 @@ QJsonObject AiePanelState::snapshot() const
     obj.insert(kCellSizeKey, m_coordinator->cellSize());
     obj.insert(kShowPortsKey, m_coordinator->showPorts());
     obj.insert(kShowLabelsKey, m_coordinator->showLabels());
+    obj.insert(kShowAnnotationsKey, m_coordinator->showAnnotations());
     obj.insert(kKeepoutKey, m_coordinator->keepoutMargin());
     obj.insert(kUseCustomColorsKey, m_coordinator->useCustomColors());
     obj.insert(kFillKey, colorToString(m_coordinator->fillColor()));
@@ -161,6 +174,8 @@ QJsonObject AiePanelState::snapshot() const
 void AiePanelState::scheduleSave()
 {
     if (m_applying)
+        return;
+    if (!m_persistDefaults)
         return;
     if (!m_saveTimer.isActive())
         m_saveTimer.start();

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #pragma once
 
 #include "aieplugin/NpuProfileCanvasMapper.hpp"
@@ -11,6 +14,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 #include <QtCore/QHash>
+#include <QtCore/QtGlobal>
 #include <QtGui/QColor>
 #include <memory>
 
@@ -29,6 +33,7 @@ class AieCanvasCoordinator final : public QObject
     Q_PROPERTY(double cellSize READ cellSize WRITE setCellSize NOTIFY cellSizeChanged)
     Q_PROPERTY(bool showPorts READ showPorts WRITE setShowPorts NOTIFY showPortsChanged)
     Q_PROPERTY(bool showLabels READ showLabels WRITE setShowLabels NOTIFY showLabelsChanged)
+    Q_PROPERTY(bool showAnnotations READ showAnnotations WRITE setShowAnnotations NOTIFY showAnnotationsChanged)
     Q_PROPERTY(double keepoutMargin READ keepoutMargin WRITE setKeepoutMargin NOTIFY keepoutMarginChanged)
     Q_PROPERTY(bool useCustomColors READ useCustomColors WRITE setUseCustomColors NOTIFY useCustomColorsChanged)
     Q_PROPERTY(QColor fillColor READ fillColor WRITE setFillColor NOTIFY fillColorChanged)
@@ -62,46 +67,50 @@ public:
     double tileSpacing() const;
     void setTileSpacing(double spacing);
 
-    double horizontalSpacing() const { return m_horizontalSpacing; }
+    double horizontalSpacing() const { return m_layout.horizontalSpacing; }
     void setHorizontalSpacing(double spacing);
 
-    double verticalSpacing() const { return m_verticalSpacing; }
+    double verticalSpacing() const { return m_layout.verticalSpacing; }
     void setVerticalSpacing(double spacing);
 
-    double outwardSpread() const { return m_outwardSpread; }
+    double outwardSpread() const { return m_layout.outwardSpread; }
     void setOutwardSpread(double spread);
 
-    double outerMargin() const { return m_outwardSpread; }
+    double outerMargin() const { return m_layout.outwardSpread; }
     void setOuterMargin(double margin);
 
-    bool autoCellSize() const { return m_autoCellSize; }
+    bool autoCellSize() const { return hasFlag(FlagBit::AutoCellSize); }
     void setAutoCellSize(bool enabled);
 
-    double cellSize() const { return m_cellSize; }
+    double cellSize() const { return m_layout.cellSize; }
     void setCellSize(double size);
 
-    bool showPorts() const { return m_showPorts; }
+    bool showPorts() const { return hasFlag(FlagBit::ShowPorts); }
     void setShowPorts(bool enabled);
 
-    bool showLabels() const { return m_showLabels; }
+    bool showLabels() const { return hasFlag(FlagBit::ShowLabels); }
     void setShowLabels(bool enabled);
 
-    double keepoutMargin() const { return m_keepoutMargin; }
+    bool showAnnotations() const { return hasFlag(FlagBit::ShowAnnotations); }
+    void setShowAnnotations(bool enabled);
+
+    double keepoutMargin() const { return m_layout.keepoutMargin; }
     void setKeepoutMargin(double margin);
 
-    bool useCustomColors() const { return m_useCustomColors; }
+    bool useCustomColors() const { return hasFlag(FlagBit::UseCustomColors); }
     void setUseCustomColors(bool enabled);
 
-    QColor fillColor() const { return m_fillColor; }
+    QColor fillColor() const { return m_colors.fill; }
     void setFillColor(const QColor& color);
 
-    QColor outlineColor() const { return m_outlineColor; }
+    QColor outlineColor() const { return m_colors.outline; }
     void setOutlineColor(const QColor& color);
 
-    QColor labelColor() const { return m_labelColor; }
+    QColor labelColor() const { return m_colors.label; }
     void setLabelColor(const QColor& color);
 
     void apply();
+    void flushApply();
     void beginSelectionSpacing(SelectionSpacingAxis axis);
     void updateSelectionSpacing(SelectionSpacingAxis axis, double value);
     void endSelectionSpacing(SelectionSpacingAxis axis);
@@ -117,6 +126,7 @@ signals:
     void cellSizeChanged(double size);
     void showPortsChanged(bool enabled);
     void showLabelsChanged(bool enabled);
+    void showAnnotationsChanged(bool enabled);
     void keepoutMarginChanged(double margin);
     void useCustomColorsChanged(bool enabled);
     void fillColorChanged(const QColor& color);
@@ -124,6 +134,37 @@ signals:
     void labelColorChanged(const QColor& color);
 
 private:
+    struct LayoutState final {
+        double horizontalSpacing = 0.0;
+        double verticalSpacing = 0.0;
+        double outwardSpread = 0.0;
+        double cellSize = 0.0;
+        double keepoutMargin = -1.0;
+    };
+
+    struct ColorState final {
+        QColor fill;
+        QColor outline;
+        QColor label;
+    };
+
+    enum class FlagBit : quint8 {
+        Dirty = 1u << 0,
+        AutoCellSize = 1u << 1,
+        ShowPorts = 1u << 2,
+        ShowLabels = 1u << 3,
+        ShowAnnotations = 1u << 4,
+        UseCustomColors = 1u << 5
+    };
+
+    static constexpr quint8 kDefaultFlags =
+        static_cast<quint8>(FlagBit::AutoCellSize) |
+        static_cast<quint8>(FlagBit::ShowPorts) |
+        static_cast<quint8>(FlagBit::ShowLabels);
+
+    bool hasFlag(FlagBit flag) const;
+    bool setFlag(FlagBit flag, bool enabled);
+
     struct SelectionSnapshot;
     void requestApply();
     void applyNow();
@@ -135,22 +176,11 @@ private:
     QHash<QString, Canvas::Api::CanvasBlockStyle> m_baseStyles;
     QHash<QString, QPointF> m_blockOffsets;
 
-    bool m_dirty = false;
     Utils::Async::DebouncedInvoker m_applyDebounce;
 
-    double m_horizontalSpacing = 0.0;
-    double m_verticalSpacing = 0.0;
-    double m_outwardSpread = 0.0;
-    bool m_autoCellSize = true;
-    double m_cellSize = 0.0;
-    bool m_showPorts = true;
-    bool m_showLabels = true;
-    double m_keepoutMargin = -1.0;
-
-    bool m_useCustomColors = false;
-    QColor m_fillColor;
-    QColor m_outlineColor;
-    QColor m_labelColor;
+    quint8 m_flags = kDefaultFlags;
+    LayoutState m_layout;
+    ColorState m_colors;
 
     std::unique_ptr<SelectionSnapshot> m_selectionSnapshot;
 };

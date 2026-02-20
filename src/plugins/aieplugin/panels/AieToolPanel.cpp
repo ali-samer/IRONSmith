@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Samer Ali
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "aieplugin/panels/AieToolPanel.hpp"
 
 #include "aieplugin/AieCanvasCoordinator.hpp"
@@ -108,12 +111,14 @@ void AieToolPanel::buildUi()
 
     m_showPortsCheck = new QCheckBox(QStringLiteral("Show ports"), displayGroup);
     m_showLabelsCheck = new QCheckBox(QStringLiteral("Show labels"), displayGroup);
+    m_showAnnotationsCheck = new QCheckBox(QStringLiteral("Show annotations"), displayGroup);
     m_keepoutSlider = makeSlider(-1, 40, 1);
     m_keepoutSlider->setSpecialValue(-1, QStringLiteral("Auto"));
     m_keepoutSlider->setValue(-1);
 
     displayForm->addRow(QString(), m_showPortsCheck);
     displayForm->addRow(QString(), m_showLabelsCheck);
+    displayForm->addRow(QString(), m_showAnnotationsCheck);
     displayForm->addRow(QStringLiteral("Keepout"), m_keepoutSlider);
 
     auto* styleGroup = new QGroupBox(QStringLiteral("Style"), content);
@@ -241,6 +246,8 @@ void AieToolPanel::buildUi()
             m_coordinator, &AieCanvasCoordinator::setShowPorts);
     connect(m_showLabelsCheck, &QCheckBox::toggled,
             m_coordinator, &AieCanvasCoordinator::setShowLabels);
+    connect(m_showAnnotationsCheck, &QCheckBox::toggled,
+            m_coordinator, &AieCanvasCoordinator::setShowAnnotations);
     connect(m_keepoutSlider, &Utils::LabeledSlider::valueChanged,
             this, [this](int value) {
                 if (m_coordinator)
@@ -308,6 +315,11 @@ void AieToolPanel::buildUi()
                 QSignalBlocker block(m_showLabelsCheck);
                 m_showLabelsCheck->setChecked(enabled);
             });
+    connect(m_coordinator, &AieCanvasCoordinator::showAnnotationsChanged, this,
+            [this](bool enabled) {
+                QSignalBlocker block(m_showAnnotationsCheck);
+                m_showAnnotationsCheck->setChecked(enabled);
+            });
     connect(m_coordinator, &AieCanvasCoordinator::keepoutMarginChanged, this,
             [this](double value) {
                 QSignalBlocker block(m_keepoutSlider);
@@ -350,6 +362,7 @@ void AieToolPanel::syncFromCoordinator()
     QSignalBlocker blockCell(m_cellSizeSlider);
     QSignalBlocker blockPorts(m_showPortsCheck);
     QSignalBlocker blockLabels(m_showLabelsCheck);
+    QSignalBlocker blockAnnotations(m_showAnnotationsCheck);
     QSignalBlocker blockKeepout(m_keepoutSlider);
     QSignalBlocker blockCustom(m_useCustomColorsCheck);
     QSignalBlocker blockFill(m_fillColorButton);
@@ -364,6 +377,7 @@ void AieToolPanel::syncFromCoordinator()
     m_cellSizeSlider->setEnabled(!m_coordinator->autoCellSize());
     m_showPortsCheck->setChecked(m_coordinator->showPorts());
     m_showLabelsCheck->setChecked(m_coordinator->showLabels());
+    m_showAnnotationsCheck->setChecked(m_coordinator->showAnnotations());
     m_keepoutSlider->setValue(static_cast<int>(std::lround(m_coordinator->keepoutMargin())));
     m_useCustomColorsCheck->setChecked(m_coordinator->useCustomColors());
     m_fillColorButton->setColor(m_coordinator->fillColor());
