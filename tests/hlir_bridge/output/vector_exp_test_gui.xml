@@ -61,12 +61,14 @@
             <num_outputs>4</num_outputs>
             <output_type>tile_ty</output_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 1024, 2048, 3072</offsets>
         </ObjectFifoSplit>
         <ObjectFifoJoin name="join_c_col0" column="0" context="L1_L2" data="C">
             <dest>of_out_c</dest>
             <num_inputs>4</num_inputs>
             <input_type>tile_ty</input_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 1024, 2048, 3072</offsets>
         </ObjectFifoJoin>
         <Worker name="worker0" column="0" operation="exp" worker_index="0">
             <core_function>corefunc_exp</core_function>

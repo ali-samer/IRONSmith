@@ -18,9 +18,11 @@ from aie.helpers.taplib import TensorAccessPattern
 
 @iron.jit(is_placed=False)
 def passthrough_test_jit(inputA, outputC):
+    N = 4096
+
     # Define tensor types
-    vector_ty = np.ndarray[(inputA.numel(),), np.dtype[np.int32]]
-    line_ty = np.ndarray[(inputA.numel() // 4,), np.dtype[np.int32]]
+    vector_ty = np.ndarray[(N,), np.dtype[np.int32]]
+    line_ty = np.ndarray[(N // 4,), np.dtype[np.int32]]
 
     # Data movement with ObjectFifos
     of_in = ObjectFifo(obj_type=line_ty, depth=2, name="of_in")

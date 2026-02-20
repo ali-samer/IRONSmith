@@ -155,72 +155,84 @@
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_a_col1" column="1" context="L2_L1" data="A">
             <source>of_in_a_col1</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(1, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_a_col2" column="2" context="L2_L1" data="A">
             <source>of_in_a_col2</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(2, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_a_col3" column="3" context="L2_L1" data="A">
             <source>of_in_a_col3</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(3, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_b_col0" column="0" context="L2_L1" data="B">
             <source>of_in_b_col0</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_b_col1" column="1" context="L2_L1" data="B">
             <source>of_in_b_col1</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(1, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_b_col2" column="2" context="L2_L1" data="B">
             <source>of_in_b_col2</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(2, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_b_col3" column="3" context="L2_L1" data="B">
             <source>of_in_b_col3</source>
             <num_outputs>2</num_outputs>
             <output_type>worker_chunk_ty</output_type>
             <placement>Tile(3, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoSplit>
         <ObjectFifoJoin name="join_d_col0" column="0" context="L1_L2" data="D">
             <dest>of_out_d_col0</dest>
             <num_inputs>2</num_inputs>
             <input_type>worker_chunk_ty</input_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoJoin>
         <ObjectFifoJoin name="join_d_col1" column="1" context="L1_L2" data="D">
             <dest>of_out_d_col1</dest>
             <num_inputs>2</num_inputs>
             <input_type>worker_chunk_ty</input_type>
             <placement>Tile(1, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoJoin>
         <ObjectFifoJoin name="join_d_col2" column="2" context="L1_L2" data="D">
             <dest>of_out_d_col2</dest>
             <num_inputs>2</num_inputs>
             <input_type>worker_chunk_ty</input_type>
             <placement>Tile(2, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoJoin>
         <ObjectFifoJoin name="join_d_col3" column="3" context="L1_L2" data="D">
             <dest>of_out_d_col3</dest>
             <num_inputs>2</num_inputs>
             <input_type>worker_chunk_ty</input_type>
             <placement>Tile(3, 1)</placement>
+            <offsets>0, 16</offsets>
         </ObjectFifoJoin>
         <Worker name="worker_add_col0_w0" column="0" operation="add" worker_index="0">
             <core_function>corefunc1</core_function>
@@ -306,7 +318,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_1" index="0" mode="consumer"/>
+                <arg ref="of_inter_1" mode="consumer"/>
                 <arg ref="join_d_col0" index="0" mode="producer"/>
             </arguments>
             <placement>Tile(0, 4)</placement>
@@ -315,7 +327,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_2" index="0" mode="consumer"/>
+                <arg ref="of_inter_2" mode="consumer"/>
                 <arg ref="join_d_col0" index="1" mode="producer"/>
             </arguments>
             <placement>Tile(0, 2)</placement>
@@ -324,7 +336,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_3" index="0" mode="consumer"/>
+                <arg ref="of_inter_3" mode="consumer"/>
                 <arg ref="join_d_col1" index="0" mode="producer"/>
             </arguments>
             <placement>Tile(1, 4)</placement>
@@ -333,7 +345,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_4" index="0" mode="consumer"/>
+                <arg ref="of_inter_4" mode="consumer"/>
                 <arg ref="join_d_col1" index="1" mode="producer"/>
             </arguments>
             <placement>Tile(1, 2)</placement>
@@ -342,7 +354,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_5" index="0" mode="consumer"/>
+                <arg ref="of_inter_5" mode="consumer"/>
                 <arg ref="join_d_col2" index="0" mode="producer"/>
             </arguments>
             <placement>Tile(2, 4)</placement>
@@ -351,7 +363,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_6" index="0" mode="consumer"/>
+                <arg ref="of_inter_6" mode="consumer"/>
                 <arg ref="join_d_col2" index="1" mode="producer"/>
             </arguments>
             <placement>Tile(2, 2)</placement>
@@ -360,7 +372,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_7" index="0" mode="consumer"/>
+                <arg ref="of_inter_7" mode="consumer"/>
                 <arg ref="join_d_col3" index="0" mode="producer"/>
             </arguments>
             <placement>Tile(3, 4)</placement>
@@ -369,7 +381,7 @@
             <core_function>corefunc2</core_function>
             <arguments>
                 <arg ref="externalfunc2"/>
-                <arg ref="of_inter_8" index="0" mode="consumer"/>
+                <arg ref="of_inter_8" mode="consumer"/>
                 <arg ref="join_d_col3" index="1" mode="producer"/>
             </arguments>
             <placement>Tile(3, 2)</placement>

@@ -19,8 +19,9 @@ from .core import (
 )
 from .operations import (
     SplitOperation, JoinOperation, ForwardOperation,
-    TensorAccessPattern, FillOperation, DrainOperation
+    TensorAccessPattern, TensorTiler2DSpec, FillOperation, DrainOperation
 )
+from .core import Assignment, ForLoop
 from .types import DataType, TensorType, AnyType, make_tensor_type
 from .builder_result import BuilderResult, ErrorCode
 
@@ -519,6 +520,7 @@ class ProgramBuilder:
         return BuilderResult.ok(comp_id, join_op)
 
     def add_fifo_forward(self, name: str, source: Union[ObjectFifo, str],
+                        placement: Optional[Union[Tile, str]] = None,
                         provided_id: Optional[str] = None, **metadata) -> BuilderResult:
         """
         Add or update a forward operation on a FIFO.
@@ -526,6 +528,7 @@ class ProgramBuilder:
         Args:
             name: Name of forward result
             source: Source FIFO to forward
+            placement: Optional tile where the forward occurs (e.g., a mem tile)
             provided_id: Optional ID for update operation
             **metadata: Additional properties
 
@@ -551,10 +554,13 @@ class ProgramBuilder:
 
         if isinstance(source, str):
             source = self.program.fifos.get(source, source)
+        if isinstance(placement, str):
+            placement = self.program.tiles.get(placement, placement)
 
         forward_op = ForwardOperation(
             name=name,
             source=source,
+            placement=placement,
             metadata=metadata
         )
 
@@ -566,6 +572,68 @@ class ProgramBuilder:
         comp_id = self._register_component('fifo_forward', name, symbol, provided_id=provided_id)
 
         return BuilderResult.ok(comp_id, forward_op)
+
+    def add_tiler2d(self, name: str,
+                    tensor_dims: List[Union[int, str]],
+                    tile_dims: List[Union[int, str]],
+                    tile_counts: List[Union[int, str]],
+                    pattern_repeat: Optional[Union[int, str]] = None,
+                    prune_step: bool = False,
+                    index: int = 0,
+                    provided_id: Optional[str] = None,
+                    **metadata) -> BuilderResult:
+        """
+        Add a TensorTiler2D.group_tiler() specification.
+
+        Creates a TensorTiler2DSpec that generates the Python call:
+            name = TensorTiler2D.group_tiler(
+                tensor_dims, tile_dims, tile_counts,
+                [pattern_repeat=<value>,]
+                prune_step=<bool>
+            )[index]
+
+        Args:
+            name: Variable name for this tiler (e.g., "a_tap")
+            tensor_dims: Full tensor dimensions (2 elements, can be symbolic)
+            tile_dims: Tile dimensions (2 elements)
+            tile_counts: Number of tiles per dimension (2 elements, can be symbolic)
+            pattern_repeat: Optional repeat count
+            prune_step: Whether to prune steps (usually False)
+            index: Index into the returned list (usually 0)
+            provided_id: Optional ID for update operation
+            **metadata: Additional properties
+
+        Returns:
+            BuilderResult with component ID and TensorTiler2DSpec object
+        """
+        # If ID provided and exists, remove old component from program dict
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        elif name in self.program.symbols:
+            name_key = ('tiler2d', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'tiler2d', existing_id)
+
+        tiler = TensorTiler2DSpec(
+            name=name,
+            tensor_dims=tensor_dims,
+            tile_dims=tile_dims,
+            tile_counts=tile_counts,
+            pattern_repeat=pattern_repeat,
+            prune_step=prune_step,
+            index=index,
+            metadata=metadata
+        )
+
+        symbol = Symbol(name=name, value=tiler, type_hint="TensorTiler2DSpec")
+        self.program.symbols[name] = symbol
+
+        comp_id = self._register_component('tiler2d', name, symbol, provided_id=provided_id)
+
+        return BuilderResult.ok(comp_id, tiler)
 
     def add_external_kernel(self, name: str, kernel_name: str,
                            source_file: str, arg_types: List[Union[AnyType, str]],
@@ -623,6 +691,7 @@ class ProgramBuilder:
                          acquires: Optional[List[tuple]] = None,
                          kernel_call: Optional[tuple] = None,
                          releases: Optional[List[tuple]] = None,
+                         body_stmts: Optional[List[Any]] = None,
                          provided_id: Optional[str] = None,
                          **metadata) -> BuilderResult:
         """
@@ -631,9 +700,11 @@ class ProgramBuilder:
         Args:
             name: Function name
             parameters: Parameter names (first is kernel, rest are FIFOs)
-            acquires: List of (fifo_param, count, local_var) tuples
-            kernel_call: Tuple of (kernel_param, args_list)
-            releases: List of (fifo_param, count) tuples
+            acquires: List of (fifo_param, count, local_var) tuples (flat mode)
+            kernel_call: Tuple of (kernel_param, args_list) (flat mode)
+            releases: List of (fifo_param, count) tuples (flat mode)
+            body_stmts: Explicit body statement list (body mode, overrides flat fields).
+                        May contain Acquire, Release, KernelCall, ForLoop, Assignment objects.
             provided_id: Optional ID for update operation
             **metadata: Additional properties
 
@@ -645,13 +716,32 @@ class ProgramBuilder:
             If provided_id is new or None, creates a new component.
             If name exists without provided_id, returns duplicate error.
 
-        Example:
+        Example (flat mode):
             >>> builder.add_core_function(
             ...     "add_fn",
             ...     parameters=["kernel", "fifoA", "fifoB", "fifoC"],
             ...     acquires=[("fifoA", 1, "elemA"), ("fifoB", 1, "elemB"), ("fifoC", 1, "elemC")],
             ...     kernel_call=("kernel", ["elemA", "elemB", "elemC"]),
             ...     releases=[("fifoA", 1), ("fifoB", 1), ("fifoC", 1)]
+            ... )
+
+        Example (body mode with nested loops):
+            >>> from hlir.core import Acquire, Release, KernelCall, ForLoop, Assignment
+            >>> builder.add_core_function(
+            ...     "core_fn",
+            ...     parameters=["a_in", "b_in", "c_out", "matvec"],
+            ...     body_stmts=[
+            ...         Acquire("c_out", 1, "elem_out"),
+            ...         ForLoop("i", "m", [Assignment("elem_out", "i", 0)]),
+            ...         ForLoop("_", "K_div_k", [
+            ...             Acquire("a_in", 1, "elem_a"),
+            ...             Acquire("b_in", 1, "elem_b"),
+            ...             KernelCall("matvec", ["elem_a", "elem_b", "elem_out"]),
+            ...             Release("a_in", 1),
+            ...             Release("b_in", 1),
+            ...         ]),
+            ...         Release("c_out", 1),
+            ...     ]
             ... )
         """
         # If ID provided and exists, remove old component from program dict (update operation)
@@ -666,30 +756,40 @@ class ProgramBuilder:
             existing_id = self._name_index.get(name_key, "")
             return BuilderResult.duplicate(name, 'core_function', existing_id)
 
-        # Convert tuples to proper objects
-        acquire_objs = []
-        if acquires:
-            for fifo_param, count, local_var in acquires:
-                acquire_objs.append(Acquire(fifo_param, count, local_var))
+        # If body_stmts is provided, use body mode
+        if body_stmts is not None:
+            func = CoreFunction(
+                name=name,
+                parameters=parameters,
+                body_stmts=body_stmts,
+                metadata=metadata
+            )
+        else:
+            # Convert tuples to proper objects (flat mode)
+            acquire_objs = []
+            if acquires:
+                for fifo_param, count, local_var in acquires:
+                    acquire_objs.append(Acquire(fifo_param, count, local_var))
 
-        kernel_call_obj = None
-        if kernel_call:
-            kernel_param, args = kernel_call
-            kernel_call_obj = KernelCall(kernel_param, args)
+            kernel_call_obj = None
+            if kernel_call:
+                kernel_param, args = kernel_call
+                kernel_call_obj = KernelCall(kernel_param, args)
 
-        release_objs = []
-        if releases:
-            for fifo_param, count in releases:
-                release_objs.append(Release(fifo_param, count))
+            release_objs = []
+            if releases:
+                for fifo_param, count in releases:
+                    release_objs.append(Release(fifo_param, count))
 
-        func = CoreFunction(
-            name=name,
-            parameters=parameters,
-            acquires=acquire_objs,
-            kernel_call=kernel_call_obj,
-            releases=release_objs,
-            metadata=metadata
-        )
+            func = CoreFunction(
+                name=name,
+                parameters=parameters,
+                acquires=acquire_objs,
+                kernel_call=kernel_call_obj,
+                releases=release_objs,
+                metadata=metadata
+            )
+
         self.program.core_functions[name] = func
 
         # Register with provided ID or generate new one
@@ -905,7 +1005,7 @@ class RuntimeBuilder:
 
     def add_fill(self, name: str, fifo: Union[ObjectFifo, str],
                  source_param: str, placement: Union[Tile, str],
-                 tap: Optional[TensorAccessPattern] = None,
+                 tap: Optional[Union[TensorAccessPattern, TensorTiler2DSpec]] = None,
                  **metadata) -> 'RuntimeBuilder':
         """
         Add a fill operation.
@@ -915,7 +1015,7 @@ class RuntimeBuilder:
             fifo: Target FIFO
             source_param: Source parameter name
             placement: Tile where fill occurs
-            tap: Optional tensor access pattern
+            tap: Optional tensor access pattern (TensorAccessPattern or TensorTiler2DSpec)
             **metadata: Additional properties
 
         Returns:
@@ -938,7 +1038,8 @@ class RuntimeBuilder:
 
     def add_drain(self, name: str, fifo: Union[ObjectFifo, str],
                   dest_param: str, placement: Union[Tile, str],
-                  wait: bool = True, tap: Optional[TensorAccessPattern] = None,
+                  wait: bool = True,
+                  tap: Optional[Union[TensorAccessPattern, TensorTiler2DSpec]] = None,
                   **metadata) -> 'RuntimeBuilder':
         """
         Add a drain operation.
@@ -949,7 +1050,7 @@ class RuntimeBuilder:
             dest_param: Destination parameter name
             placement: Tile where drain occurs
             wait: Whether to wait for completion
-            tap: Optional tensor access pattern
+            tap: Optional tensor access pattern (TensorAccessPattern or TensorTiler2DSpec)
             **metadata: Additional properties
 
         Returns:

@@ -69,18 +69,21 @@
             <num_outputs>4</num_outputs>
             <output_type>tile_ty</output_type>
             <placement>Tile(0, 1)</placement>
+            <offsets>0, 1024, 2048, 3072</offsets>
         </ObjectFifoSplit>
         <ObjectFifoSplit name="split_b" column="1" context="L2_L1" data="B">
             <source>of_in_b</source>
             <num_outputs>4</num_outputs>
             <output_type>tile_ty</output_type>
             <placement>Tile(1, 1)</placement>
+            <offsets>0, 1024, 2048, 3072</offsets>
         </ObjectFifoSplit>
         <ObjectFifoJoin name="join_c" column="2" context="L1_L2" data="C">
             <dest>of_out_c</dest>
             <num_inputs>4</num_inputs>
             <input_type>tile_ty</input_type>
             <placement>Tile(2, 1)</placement>
+            <offsets>0, 1024, 2048, 3072</offsets>
         </ObjectFifoJoin>
         <Worker name="worker0" column="0" operation="mul" worker_index="0">
             <core_function>corefunc_mul</core_function>

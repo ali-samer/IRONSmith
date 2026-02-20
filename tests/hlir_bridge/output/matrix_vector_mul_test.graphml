@@ -1,0 +1,3265 @@
+<?xml version='1.0' encoding='utf-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"><key id="d17" for="edge" attr.name="type" attr.type="string"/>
+<key id="d16" for="node" attr.name="condition_text" attr.type="string"/>
+<key id="d15" for="node" attr.name="target" attr.type="string"/>
+<key id="d14" for="node" attr.name="decorator" attr.type="string"/>
+<key id="d13" for="node" attr.name="constructor" attr.type="string"/>
+<key id="d12" for="node" attr.name="object_ref" attr.type="string"/>
+<key id="d11" for="node" attr.name="type_ref" attr.type="string"/>
+<key id="d10" for="node" attr.name="name" attr.type="string"/>
+<key id="d9" for="node" attr.name="pattern_repeat" attr.type="string"/>
+<key id="d8" for="node" attr.name="index" attr.type="string"/>
+<key id="d7" for="node" attr.name="prune_step" attr.type="string"/>
+<key id="d6" for="node" attr.name="tile_counts" attr.type="string"/>
+<key id="d5" for="node" attr.name="tile_dims" attr.type="string"/>
+<key id="d4" for="node" attr.name="tensor_dims" attr.type="string"/>
+<key id="d3" for="node" attr.name="value" attr.type="string"/>
+<key id="d2" for="node" attr.name="alias" attr.type="string"/>
+<key id="d1" for="node" attr.name="kind" attr.type="string"/>
+<key id="d0" for="node" attr.name="label" attr.type="string"/>
+<graph edgedefault="directed"><node id="Module_1">
+  <data key="d0">matrix_vector_mul_test</data>
+  <data key="d1">Module</data>
+</node>
+<node id="Section_2">
+  <data key="d0">Symbols</data>
+  <data key="d1">Section</data>
+</node>
+<node id="Import_3">
+  <data key="d0">numpy</data>
+  <data key="d1">Import</data>
+  <data key="d2">np</data>
+</node>
+<node id="Import_4">
+  <data key="d0">ml_dtypes</data>
+  <data key="d1">Import</data>
+  <data key="d2">ml_dtypes</data>
+</node>
+<node id="Import_5">
+  <data key="d0">aie.iron</data>
+  <data key="d1">Import</data>
+  <data key="d2">iron</data>
+</node>
+<node id="Import_6">
+  <data key="d0">aie.helpers.taplib</data>
+  <data key="d1">Import</data>
+</node>
+<node id="Import_7">
+  <data key="d0">aie.iron.controlflow</data>
+  <data key="d1">Import</data>
+</node>
+<node id="Const_8">
+  <data key="d0">M</data>
+  <data key="d1">Const</data>
+  <data key="d3">256</data>
+</node>
+<node id="Const_9">
+  <data key="d0">K</data>
+  <data key="d1">Const</data>
+  <data key="d3">256</data>
+</node>
+<node id="Const_10">
+  <data key="d0">m</data>
+  <data key="d1">Const</data>
+  <data key="d3">32</data>
+</node>
+<node id="Const_11">
+  <data key="d0">k</data>
+  <data key="d1">Const</data>
+  <data key="d3">32</data>
+</node>
+<node id="Const_12">
+  <data key="d0">n_cores</data>
+  <data key="d1">Const</data>
+  <data key="d3">4</data>
+</node>
+<node id="Const_13">
+  <data key="d0">M_div_m</data>
+  <data key="d1">Const</data>
+  <data key="d3">M // m</data>
+</node>
+<node id="Const_14">
+  <data key="d0">K_div_k</data>
+  <data key="d1">Const</data>
+  <data key="d3">K // k</data>
+</node>
+<node id="Const_15">
+  <data key="d0">rows_per_core</data>
+  <data key="d1">Const</data>
+  <data key="d3">M_div_m // n_cores</data>
+</node>
+<node id="Const_16">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">Const</data>
+  <data key="d3">rows_per_core * K_div_k</data>
+</node>
+<node id="Const_17">
+  <data key="d0">A_elem_size</data>
+  <data key="d1">Const</data>
+  <data key="d3">n_cores * m * k</data>
+</node>
+<node id="TypeAbstraction_18">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_19">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_20">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_21">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_22">
+  <data key="d0">m * k</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_23">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_24">
+  <data key="d0">int16</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_25">
+  <data key="d0">inB_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_26">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_27">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_28">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_29">
+  <data key="d0">k</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_30">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_31">
+  <data key="d0">int16</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_32">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_33">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_34">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_35">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_36">
+  <data key="d0">m</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_37">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_38">
+  <data key="d0">int32</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_39">
+  <data key="d0">A_mem_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_40">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_41">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_42">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_43">
+  <data key="d0">n_cores * m * k</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_44">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_45">
+  <data key="d0">int16</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_46">
+  <data key="d0">C_mem_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_47">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_48">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_49">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_50">
+  <data key="d0">n_cores * m</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_51">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_52">
+  <data key="d0">int32</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_53">
+  <data key="d0">A_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_54">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_55">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_56">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_57">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_58">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_59">
+  <data key="d0">A_elem_size</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_60">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_61">
+  <data key="d0">int16</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_62">
+  <data key="d0">B_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_63">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_64">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_65">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_66">
+  <data key="d0">1</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_67">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_68">
+  <data key="d0">K</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_69">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_70">
+  <data key="d0">int16</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TypeAbstraction_71">
+  <data key="d0">C_ty</data>
+  <data key="d1">TypeAbstraction</data>
+</node>
+<node id="TypeNode_72">
+  <data key="d0">ndarray</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_73">
+  <data key="d0">shape</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="TypeNode_74">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_75">
+  <data key="d0">1</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_76">
+  <data key="d0">tuple</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="Expr_77">
+  <data key="d0">M</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="TypeNode_78">
+  <data key="d0">dtype</data>
+  <data key="d1">TypeNode</data>
+</node>
+<node id="NumpyDtype_79">
+  <data key="d0">int32</data>
+  <data key="d1">NumpyDtype</data>
+</node>
+<node id="TensorTiler2D_80">
+  <data key="d0">a_tap</data>
+  <data key="d1">TensorTiler2D</data>
+  <data key="d4">rows_per_core * K_div_k, n_cores * m * k</data>
+  <data key="d5">1, 512</data>
+  <data key="d6">rows_per_core * K_div_k, A_elem_size // 512</data>
+  <data key="d7">False</data>
+  <data key="d8">0</data>
+</node>
+<node id="TensorTiler2D_81">
+  <data key="d0">b_tap</data>
+  <data key="d1">TensorTiler2D</data>
+  <data key="d4">1, 256</data>
+  <data key="d5">1, 32</data>
+  <data key="d6">1, K // k</data>
+  <data key="d7">False</data>
+  <data key="d8">0</data>
+  <data key="d9">M_div_m // n_cores</data>
+</node>
+<node id="TensorTiler2D_82">
+  <data key="d0">c_tap</data>
+  <data key="d1">TensorTiler2D</data>
+  <data key="d4">1, 256</data>
+  <data key="d5">1, n_cores * m</data>
+  <data key="d6">1, M_div_m // n_cores</data>
+  <data key="d7">False</data>
+  <data key="d8">0</data>
+</node>
+<node id="Section_83">
+  <data key="d0">DataFlow</data>
+  <data key="d1">Section</data>
+</node>
+<node id="ExternalFunction_84">
+  <data key="d0">matvec_vectorized_i16_i32</data>
+  <data key="d1">ExternalFunction</data>
+</node>
+<node id="Kwarg_85">
+  <data key="d0">name=matvec_vectorized_i16_i32</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">name</data>
+  <data key="d3">matvec_vectorized_i16_i32</data>
+</node>
+<node id="Kwarg_86">
+  <data key="d0">source_file=/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/mv.cc</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">source_file</data>
+  <data key="d3">/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/mv.cc</data>
+</node>
+<node id="Kwarg_87">
+  <data key="d0">arg_types=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">arg_types</data>
+</node>
+<node id="List_88">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="TypeRef_89">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_90">
+  <data key="d0">inB_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_91">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="Kwarg_92">
+  <data key="d0">include_dirs=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">include_dirs</data>
+</node>
+<node id="List_93">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="String_94">
+  <data key="d0">/scratch/IRONSmithTesting/mlir-aie/aie_kernels</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_95">
+  <data key="d0">/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_96">
+  <data key="d0">/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2</data>
+  <data key="d1">String</data>
+</node>
+<node id="CoreFunction_97">
+  <data key="d0">core_fn</data>
+  <data key="d1">CoreFunction</data>
+</node>
+<node id="Parameter_98">
+  <data key="d0">a_in</data>
+  <data key="d1">Parameter</data>
+</node>
+<node id="Parameter_99">
+  <data key="d0">b_in</data>
+  <data key="d1">Parameter</data>
+</node>
+<node id="Parameter_100">
+  <data key="d0">c_out</data>
+  <data key="d1">Parameter</data>
+</node>
+<node id="Parameter_101">
+  <data key="d0">matvec</data>
+  <data key="d1">Parameter</data>
+</node>
+<node id="For_102">
+  <data key="d0">for _ in range_(K // k)</data>
+  <data key="d1">For</data>
+</node>
+<node id="Acquire_103">
+  <data key="d0">elem_out</data>
+  <data key="d1">Acquire</data>
+</node>
+<node id="Call_104">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_105">
+  <data key="d0">c_out.acquire</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_106">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Acquire_107">
+  <data key="d0">elem_a</data>
+  <data key="d1">Acquire</data>
+</node>
+<node id="Call_108">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_109">
+  <data key="d0">a_in.acquire</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_110">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Acquire_111">
+  <data key="d0">elem_b</data>
+  <data key="d1">Acquire</data>
+</node>
+<node id="Call_112">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_113">
+  <data key="d0">b_in.acquire</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_114">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Call_115">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="FunctionCall_116">
+  <data key="d0">matvec</data>
+  <data key="d1">FunctionCall</data>
+</node>
+<node id="VarRef_117">
+  <data key="d0">elem_a</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_118">
+  <data key="d0">elem_b</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_119">
+  <data key="d0">elem_out</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Release_120">
+  <data key="d0">release</data>
+  <data key="d1">Release</data>
+</node>
+<node id="Call_121">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_122">
+  <data key="d0">a_in.release</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_123">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Release_124">
+  <data key="d0">release</data>
+  <data key="d1">Release</data>
+</node>
+<node id="Call_125">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_126">
+  <data key="d0">b_in.release</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_127">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Release_128">
+  <data key="d0">release</data>
+  <data key="d1">Release</data>
+</node>
+<node id="Call_129">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_130">
+  <data key="d0">c_out.release</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstExpr_131">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="ObjectFifo_132">
+  <data key="d0">inA</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="Kwarg_133">
+  <data key="d0">depth=2</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">depth</data>
+  <data key="d3">2</data>
+</node>
+<node id="Kwarg_134">
+  <data key="d0">name=inA</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">name</data>
+  <data key="d3">inA</data>
+</node>
+<node id="ObjectFifo_135">
+  <data key="d0">inB</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="Kwarg_136">
+  <data key="d0">depth=2</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">depth</data>
+  <data key="d3">2</data>
+</node>
+<node id="Kwarg_137">
+  <data key="d0">name=inB</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">name</data>
+  <data key="d3">inB</data>
+</node>
+<node id="ObjectFifo_138">
+  <data key="d0">outC</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="Kwarg_139">
+  <data key="d0">depth=2</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">depth</data>
+  <data key="d3">2</data>
+</node>
+<node id="Kwarg_140">
+  <data key="d0">name=outC</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">name</data>
+  <data key="d3">outC</data>
+</node>
+<node id="ObjectFifo_141">
+  <data key="d0">MEM_L2_L1_A1A2A3A4_col0</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="MethodChain_142">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="MethodCall_143">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodCall_144">
+  <data key="d0">split</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="Kwarg_145">
+  <data key="d0">obj_types=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">obj_types</data>
+</node>
+<node id="List_146">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="TypeRef_147">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_148">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_149">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_150">
+  <data key="d0">inA_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="Kwarg_151">
+  <data key="d0">offsets=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">offsets</data>
+</node>
+<node id="List_152">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="Const_153">
+  <data key="d0">0</data>
+  <data key="d1">Const</data>
+  <data key="d3">0</data>
+</node>
+<node id="Const_154">
+  <data key="d0">1024</data>
+  <data key="d1">Const</data>
+  <data key="d3">1024</data>
+</node>
+<node id="Const_155">
+  <data key="d0">2048</data>
+  <data key="d1">Const</data>
+  <data key="d3">2048</data>
+</node>
+<node id="Const_156">
+  <data key="d0">3072</data>
+  <data key="d1">Const</data>
+  <data key="d3">3072</data>
+</node>
+<node id="Kwarg_157">
+  <data key="d0">names=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">names</data>
+</node>
+<node id="List_158">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="String_159">
+  <data key="d0">MEM_L2_L1_A1_col0</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_160">
+  <data key="d0">MEM_L2_L1_A2_col0</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_161">
+  <data key="d0">MEM_L2_L1_A3_col0</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_162">
+  <data key="d0">MEM_L2_L1_A4_col0</data>
+  <data key="d1">String</data>
+</node>
+<node id="Kwarg_163">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="ConstructorCall_164">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_165">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_166">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Expr_167">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_168">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="ObjectFifo_169">
+  <data key="d0">B_fwd</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="MethodChain_170">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="MethodCall_171">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodCall_172">
+  <data key="d0">forward</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="Kwarg_173">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="ConstructorCall_174">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_175">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_176">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Expr_177">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_178">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="ObjectFifo_179">
+  <data key="d0">MEM_L1_L2_C9C10C11C12_col2</data>
+  <data key="d1">ObjectFifo</data>
+</node>
+<node id="MethodChain_180">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="MethodCall_181">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodCall_182">
+  <data key="d0">join</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="Kwarg_183">
+  <data key="d0">obj_types=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">obj_types</data>
+</node>
+<node id="List_184">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="TypeRef_185">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_186">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_187">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="TypeRef_188">
+  <data key="d0">outC_ty</data>
+  <data key="d1">TypeRef</data>
+</node>
+<node id="Kwarg_189">
+  <data key="d0">names=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">names</data>
+</node>
+<node id="List_190">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="String_191">
+  <data key="d0">MEM_L1_L2_C9_col2</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_192">
+  <data key="d0">MEM_L1_L2_C10_col2</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_193">
+  <data key="d0">MEM_L1_L2_C11_col2</data>
+  <data key="d1">String</data>
+</node>
+<node id="String_194">
+  <data key="d0">MEM_L1_L2_C12_col2</data>
+  <data key="d1">String</data>
+</node>
+<node id="Kwarg_195">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="ConstructorCall_196">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_197">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_198">
+  <data key="d0">2</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">2</data>
+</node>
+<node id="Expr_199">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_200">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="Kwarg_201">
+  <data key="d0">offsets=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">offsets</data>
+</node>
+<node id="List_202">
+  <data key="d0">list</data>
+  <data key="d1">List</data>
+</node>
+<node id="Const_203">
+  <data key="d0">0</data>
+  <data key="d1">Const</data>
+  <data key="d3">0</data>
+</node>
+<node id="Const_204">
+  <data key="d0">32</data>
+  <data key="d1">Const</data>
+  <data key="d3">32</data>
+</node>
+<node id="Const_205">
+  <data key="d0">64</data>
+  <data key="d1">Const</data>
+  <data key="d3">64</data>
+</node>
+<node id="Const_206">
+  <data key="d0">96</data>
+  <data key="d1">Const</data>
+  <data key="d3">96</data>
+</node>
+<node id="Worker_207">
+  <data key="d0">worker0</data>
+  <data key="d1">Worker</data>
+</node>
+<node id="MethodChain_208">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_210">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_209"/>
+<node id="ConstExpr_211">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="MethodCall_212">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_213">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="temp_214"/>
+<node id="MethodCall_215">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_216">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_218">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_217"/>
+<node id="ConstExpr_219">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="MethodCall_220">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstructorCall_221">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_222">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_223">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Expr_224">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_225">
+  <data key="d0">2</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">2</data>
+</node>
+<node id="Worker_226">
+  <data key="d0">worker1</data>
+  <data key="d1">Worker</data>
+</node>
+<node id="MethodChain_227">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_229">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_228"/>
+<node id="ConstExpr_230">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="MethodCall_231">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_232">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="temp_233"/>
+<node id="MethodCall_234">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_235">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_237">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_236"/>
+<node id="ConstExpr_238">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="MethodCall_239">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstructorCall_240">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_241">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_242">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Expr_243">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_244">
+  <data key="d0">3</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">3</data>
+</node>
+<node id="Worker_245">
+  <data key="d0">worker2</data>
+  <data key="d1">Worker</data>
+</node>
+<node id="MethodChain_246">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_248">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_247"/>
+<node id="ConstExpr_249">
+  <data key="d0">2</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">2</data>
+</node>
+<node id="MethodCall_250">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_251">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="temp_252"/>
+<node id="MethodCall_253">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_254">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_256">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_255"/>
+<node id="ConstExpr_257">
+  <data key="d0">2</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">2</data>
+</node>
+<node id="MethodCall_258">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstructorCall_259">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_260">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_261">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Expr_262">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_263">
+  <data key="d0">4</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">4</data>
+</node>
+<node id="Worker_264">
+  <data key="d0">worker3</data>
+  <data key="d1">Worker</data>
+</node>
+<node id="MethodChain_265">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_267">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_266"/>
+<node id="ConstExpr_268">
+  <data key="d0">3</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">3</data>
+</node>
+<node id="MethodCall_269">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_270">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="temp_271"/>
+<node id="MethodCall_272">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="MethodChain_273">
+  <data key="d0">method_chain</data>
+  <data key="d1">MethodChain</data>
+</node>
+<node id="IndexExpr_275">
+  <data key="d0">[]</data>
+  <data key="d1">IndexExpr</data>
+</node>
+<node id="temp_274"/>
+<node id="ConstExpr_276">
+  <data key="d0">3</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">3</data>
+</node>
+<node id="MethodCall_277">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="ConstructorCall_278">
+  <data key="d0">Tile()</data>
+  <data key="d1">ConstructorCall</data>
+</node>
+<node id="Expr_279">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_280">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Expr_281">
+  <data key="d0">arg</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_282">
+  <data key="d0">5</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">5</data>
+</node>
+<node id="Runtime_283">
+  <data key="d0">rt</data>
+  <data key="d1">Runtime</data>
+</node>
+<node id="List_284">
+  <data key="d0">Workers</data>
+  <data key="d1">List</data>
+</node>
+<node id="SequenceBlock_285">
+  <data key="d0">SequenceBlock</data>
+  <data key="d1">SequenceBlock</data>
+</node>
+<node id="Call_286">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_287">
+  <data key="d0">sequence</data>
+  <data key="d1">MethodCall</data>
+</node>
+<node id="Binding_288">
+  <data key="d0">inputa_in</data>
+  <data key="d1">Binding</data>
+  <data key="d11">A_ty</data>
+</node>
+<node id="Binding_289">
+  <data key="d0">inputb_in</data>
+  <data key="d1">Binding</data>
+  <data key="d11">B_ty</data>
+</node>
+<node id="Binding_290">
+  <data key="d0">outputc_out</data>
+  <data key="d1">Binding</data>
+  <data key="d11">C_ty</data>
+</node>
+<node id="Operation_291">
+  <data key="d0">start</data>
+  <data key="d1">Operation</data>
+</node>
+<node id="MethodCall_292">
+  <data key="d0">start</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">rt</data>
+</node>
+<node id="Operation_293">
+  <data key="d0">fill_inputa_in_col0</data>
+  <data key="d1">Operation</data>
+</node>
+<node id="MethodCall_294">
+  <data key="d0">fill</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">rt</data>
+</node>
+<node id="Kwarg_295">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="Constructor_296">
+  <data key="d0">Tile</data>
+  <data key="d1">Constructor</data>
+</node>
+<node id="ConstExpr_297">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="ConstExpr_298">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Kwarg_299">
+  <data key="d0">in_fifo=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">in_fifo</data>
+</node>
+<node id="Call_300">
+  <data key="d0">inA.prod</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_301">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">inA</data>
+</node>
+<node id="Kwarg_302">
+  <data key="d0">source=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">source</data>
+</node>
+<node id="Kwarg_303">
+  <data key="d0">tap=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">tap</data>
+</node>
+<node id="Operation_304">
+  <data key="d0">fill_inputb_in_col1</data>
+  <data key="d1">Operation</data>
+</node>
+<node id="MethodCall_305">
+  <data key="d0">fill</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">rt</data>
+</node>
+<node id="Kwarg_306">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="Constructor_307">
+  <data key="d0">Tile</data>
+  <data key="d1">Constructor</data>
+</node>
+<node id="ConstExpr_308">
+  <data key="d0">1</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">1</data>
+</node>
+<node id="ConstExpr_309">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Kwarg_310">
+  <data key="d0">in_fifo=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">in_fifo</data>
+</node>
+<node id="Call_311">
+  <data key="d0">inB.prod</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_312">
+  <data key="d0">prod</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">inB</data>
+</node>
+<node id="Kwarg_313">
+  <data key="d0">source=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">source</data>
+</node>
+<node id="Kwarg_314">
+  <data key="d0">tap=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">tap</data>
+</node>
+<node id="Operation_315">
+  <data key="d0">drain_outputc_out_col2</data>
+  <data key="d1">Operation</data>
+</node>
+<node id="MethodCall_316">
+  <data key="d0">drain</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">rt</data>
+</node>
+<node id="Kwarg_317">
+  <data key="d0">placement=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">placement</data>
+</node>
+<node id="Constructor_318">
+  <data key="d0">Tile</data>
+  <data key="d1">Constructor</data>
+</node>
+<node id="ConstExpr_319">
+  <data key="d0">2</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">2</data>
+</node>
+<node id="ConstExpr_320">
+  <data key="d0">0</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">0</data>
+</node>
+<node id="Kwarg_321">
+  <data key="d0">out_fifo=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">out_fifo</data>
+</node>
+<node id="Call_322">
+  <data key="d0">outC.cons</data>
+  <data key="d1">Call</data>
+</node>
+<node id="MethodCall_323">
+  <data key="d0">cons</data>
+  <data key="d1">MethodCall</data>
+  <data key="d12">outC</data>
+</node>
+<node id="Kwarg_324">
+  <data key="d0">dest=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">dest</data>
+</node>
+<node id="Kwarg_325">
+  <data key="d0">wait=True</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">wait</data>
+  <data key="d3">True</data>
+</node>
+<node id="Kwarg_326">
+  <data key="d0">tap=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">tap</data>
+</node>
+<node id="Program_327">
+  <data key="d0">my_program</data>
+  <data key="d1">Program</data>
+</node>
+<node id="Call_328">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="ResolveProgram_329">
+  <data key="d0">resolve_program</data>
+  <data key="d1">ResolveProgram</data>
+</node>
+<node id="Call_330">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="ConstructorExpr_331">
+  <data key="d0">SequentialPlacer()</data>
+  <data key="d1">ConstructorExpr</data>
+  <data key="d13">SequentialPlacer</data>
+</node>
+<node id="Function_332">
+  <data key="d0">matrix_vector_mul_test_jit</data>
+  <data key="d1">Function</data>
+  <data key="d14">iron.jit</data>
+</node>
+<node id="Parameter_333">
+  <data key="d0">inputA</data>
+  <data key="d1">Parameter</data>
+  <data key="d11">A_ty</data>
+</node>
+<node id="Parameter_334">
+  <data key="d0">inputB</data>
+  <data key="d1">Parameter</data>
+  <data key="d11">B_ty</data>
+</node>
+<node id="Parameter_335">
+  <data key="d0">outputC</data>
+  <data key="d1">Parameter</data>
+  <data key="d11">C_ty</data>
+</node>
+<node id="FunctionBodyElement_336">
+  <data key="d0">UseDataFlow</data>
+  <data key="d1">FunctionBodyElement</data>
+</node>
+<node id="FunctionBodyElement_337">
+  <data key="d0">Return</data>
+  <data key="d1">FunctionBodyElement</data>
+</node>
+<node id="Function_338">
+  <data key="d0">main</data>
+  <data key="d1">Function</data>
+</node>
+<node id="Expr_339">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_340">
+  <data key="d0">256</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">256</data>
+</node>
+<node id="Assign_341">
+  <data key="d0">M=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">M</data>
+</node>
+<node id="Variable_342">
+  <data key="d0">M</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_343">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_344">
+  <data key="d0">256</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">256</data>
+</node>
+<node id="Assign_345">
+  <data key="d0">K=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">K</data>
+</node>
+<node id="Variable_346">
+  <data key="d0">K</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_347">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_348">
+  <data key="d0">32</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">32</data>
+</node>
+<node id="Assign_349">
+  <data key="d0">m=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">m</data>
+</node>
+<node id="Variable_350">
+  <data key="d0">m</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_351">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_352">
+  <data key="d0">32</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">32</data>
+</node>
+<node id="Assign_353">
+  <data key="d0">k=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">k</data>
+</node>
+<node id="Variable_354">
+  <data key="d0">k</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_355">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="ConstExpr_356">
+  <data key="d0">4</data>
+  <data key="d1">ConstExpr</data>
+  <data key="d3">4</data>
+</node>
+<node id="Assign_357">
+  <data key="d0">n_cores=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">n_cores</data>
+</node>
+<node id="Variable_358">
+  <data key="d0">n_cores</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_359">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="VarRef_360">
+  <data key="d0">M // m</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Assign_361">
+  <data key="d0">M_div_m=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">M_div_m</data>
+</node>
+<node id="Variable_362">
+  <data key="d0">M_div_m</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_363">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="VarRef_364">
+  <data key="d0">K // k</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Assign_365">
+  <data key="d0">K_div_k=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">K_div_k</data>
+</node>
+<node id="Variable_366">
+  <data key="d0">K_div_k</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_367">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="VarRef_368">
+  <data key="d0">M_div_m // n_cores</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Assign_369">
+  <data key="d0">rows_per_core=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">rows_per_core</data>
+</node>
+<node id="Variable_370">
+  <data key="d0">rows_per_core</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_371">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="VarRef_372">
+  <data key="d0">rows_per_core * K_div_k</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Assign_373">
+  <data key="d0">n_fifo_elems=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">n_fifo_elems</data>
+</node>
+<node id="Variable_374">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_375">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="VarRef_376">
+  <data key="d0">n_cores * m * k</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Assign_377">
+  <data key="d0">A_elem_size=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">A_elem_size</data>
+</node>
+<node id="Variable_378">
+  <data key="d0">A_elem_size</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_379">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="Call_380">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="FunctionCall_381">
+  <data key="d0">iron.arange</data>
+  <data key="d1">FunctionCall</data>
+</node>
+<node id="VarRef_382">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_383">
+  <data key="d0">np.int16</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Kwarg_384">
+  <data key="d0">dtype=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">dtype</data>
+</node>
+<node id="String_385">
+  <data key="d0">npu</data>
+  <data key="d1">String</data>
+  <data key="d3">npu</data>
+</node>
+<node id="Kwarg_386">
+  <data key="d0">device=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">device</data>
+</node>
+<node id="Assign_387">
+  <data key="d0">inputA=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">inputA</data>
+</node>
+<node id="Variable_388">
+  <data key="d0">inputA</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_389">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="Call_390">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="FunctionCall_391">
+  <data key="d0">iron.arange</data>
+  <data key="d1">FunctionCall</data>
+</node>
+<node id="VarRef_392">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_393">
+  <data key="d0">np.int16</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Kwarg_394">
+  <data key="d0">dtype=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">dtype</data>
+</node>
+<node id="String_395">
+  <data key="d0">npu</data>
+  <data key="d1">String</data>
+  <data key="d3">npu</data>
+</node>
+<node id="Kwarg_396">
+  <data key="d0">device=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">device</data>
+</node>
+<node id="Assign_397">
+  <data key="d0">inputB=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">inputB</data>
+</node>
+<node id="Variable_398">
+  <data key="d0">inputB</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Expr_399">
+  <data key="d0">source</data>
+  <data key="d1">Expr</data>
+</node>
+<node id="Call_400">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="FunctionCall_401">
+  <data key="d0">iron.zeros</data>
+  <data key="d1">FunctionCall</data>
+</node>
+<node id="VarRef_402">
+  <data key="d0">n_fifo_elems</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_403">
+  <data key="d0">np.int16</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="Kwarg_404">
+  <data key="d0">dtype=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">dtype</data>
+</node>
+<node id="String_405">
+  <data key="d0">npu</data>
+  <data key="d1">String</data>
+  <data key="d3">npu</data>
+</node>
+<node id="Kwarg_406">
+  <data key="d0">device=...</data>
+  <data key="d1">Kwarg</data>
+  <data key="d10">device</data>
+</node>
+<node id="Assign_407">
+  <data key="d0">outputC=…</data>
+  <data key="d1">Assign</data>
+  <data key="d15">outputC</data>
+</node>
+<node id="Variable_408">
+  <data key="d0">outputC</data>
+  <data key="d1">Variable</data>
+</node>
+<node id="Call_409">
+  <data key="d0">call</data>
+  <data key="d1">Call</data>
+</node>
+<node id="FunctionCall_410">
+  <data key="d0">matrix_vector_mul_test_jit</data>
+  <data key="d1">FunctionCall</data>
+</node>
+<node id="VarRef_411">
+  <data key="d0">inputA</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_412">
+  <data key="d0">inputB</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="VarRef_413">
+  <data key="d0">outputC</data>
+  <data key="d1">VarRef</data>
+</node>
+<node id="EntryPoint_414">
+  <data key="d0">EntryPoint</data>
+  <data key="d1">EntryPoint</data>
+</node>
+<node id="ConditionExpr_415">
+  <data key="d0">__name__ == '__main__'</data>
+  <data key="d1">ConditionExpr</data>
+  <data key="d16">__name__ == '__main__'</data>
+</node>
+<node id="If_416">
+  <data key="d0">if</data>
+  <data key="d1">If</data>
+  <data key="d16">__name__ == '__main__'</data>
+</node>
+<edge source="Module_1" target="Section_2">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Module_1" target="Section_83">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Module_1" target="Function_332">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Module_1" target="Function_338">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Module_1" target="EntryPoint_414">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Import_3">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Import_4">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Import_5">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Import_6">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Import_7">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_8">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_9">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_10">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_11">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_12">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_13">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_14">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_15">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_16">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="Const_17">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_18">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_25">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_32">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_39">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_46">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_53">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_62">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TypeAbstraction_71">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TensorTiler2D_80">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TensorTiler2D_81">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_2" target="TensorTiler2D_82">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeAbstraction_18" target="TypeNode_19">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_19" target="TypeNode_20">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_19" target="TypeNode_23">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_20" target="TypeNode_21">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_21" target="Expr_22">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_23" target="NumpyDtype_24">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_25" target="TypeNode_26">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_26" target="TypeNode_27">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_26" target="TypeNode_30">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_27" target="TypeNode_28">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_28" target="Expr_29">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_30" target="NumpyDtype_31">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_32" target="TypeNode_33">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_33" target="TypeNode_34">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_33" target="TypeNode_37">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_34" target="TypeNode_35">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_35" target="Expr_36">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_37" target="NumpyDtype_38">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_39" target="TypeNode_40">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_40" target="TypeNode_41">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_40" target="TypeNode_44">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_41" target="TypeNode_42">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_42" target="Expr_43">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_44" target="NumpyDtype_45">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_46" target="TypeNode_47">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_47" target="TypeNode_48">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_47" target="TypeNode_51">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_48" target="TypeNode_49">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_49" target="Expr_50">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_51" target="NumpyDtype_52">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_53" target="TypeNode_54">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_54" target="TypeNode_55">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_54" target="TypeNode_60">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_55" target="TypeNode_56">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_55" target="TypeNode_58">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_56" target="Expr_57">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_58" target="Expr_59">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_60" target="NumpyDtype_61">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_62" target="TypeNode_63">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_63" target="TypeNode_64">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_63" target="TypeNode_69">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_64" target="TypeNode_65">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_64" target="TypeNode_67">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_65" target="Expr_66">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_67" target="Expr_68">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_69" target="NumpyDtype_70">
+  <data key="d17">is</data>
+</edge>
+<edge source="TypeAbstraction_71" target="TypeNode_72">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_72" target="TypeNode_73">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_72" target="TypeNode_78">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_73" target="TypeNode_74">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_73" target="TypeNode_76">
+  <data key="d17">has</data>
+</edge>
+<edge source="TypeNode_74" target="Expr_75">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_76" target="Expr_77">
+  <data key="d17">contains</data>
+</edge>
+<edge source="TypeNode_78" target="NumpyDtype_79">
+  <data key="d17">is</data>
+</edge>
+<edge source="Section_83" target="ExternalFunction_84">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="CoreFunction_97">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_132">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_135">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_138">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_141">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_169">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ObjectFifo_179">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Worker_207">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Worker_226">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Worker_245">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Worker_264">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Runtime_283">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="List_284">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="SequenceBlock_285">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="Program_327">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Section_83" target="ResolveProgram_329">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ExternalFunction_84" target="Kwarg_85">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ExternalFunction_84" target="Kwarg_86">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ExternalFunction_84" target="Kwarg_87">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ExternalFunction_84" target="Kwarg_92">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_87" target="List_88">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_88" target="TypeRef_89">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_88" target="TypeRef_90">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_88" target="TypeRef_91">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_92" target="List_93">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_93" target="String_94">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_93" target="String_95">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_93" target="String_96">
+  <data key="d17">contains</data>
+</edge>
+<edge source="CoreFunction_97" target="Parameter_98">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="CoreFunction_97" target="Parameter_99">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="CoreFunction_97" target="Parameter_100">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="CoreFunction_97" target="Parameter_101">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="CoreFunction_97" target="For_102">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Acquire_103">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Acquire_107">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Acquire_111">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Call_115">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Release_120">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Release_124">
+  <data key="d17">contains</data>
+</edge>
+<edge source="For_102" target="Release_128">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Acquire_103" target="Call_104">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_104" target="MethodCall_105">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_104" target="ConstExpr_106">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Acquire_107" target="Call_108">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_108" target="MethodCall_109">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_108" target="ConstExpr_110">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Acquire_111" target="Call_112">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_112" target="MethodCall_113">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_112" target="ConstExpr_114">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_115" target="FunctionCall_116">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_115" target="VarRef_117">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_115" target="VarRef_118">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_115" target="VarRef_119">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Release_120" target="Call_121">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_121" target="MethodCall_122">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_121" target="ConstExpr_123">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Release_124" target="Call_125">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_125" target="MethodCall_126">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_125" target="ConstExpr_127">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Release_128" target="Call_129">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_129" target="MethodCall_130">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_129" target="ConstExpr_131">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ObjectFifo_132" target="TypeAbstraction_39">
+  <data key="d17">uses_type</data>
+</edge>
+<edge source="ObjectFifo_132" target="Kwarg_133">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_132" target="Kwarg_134">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_132" target="MethodCall_143">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_135" target="TypeAbstraction_25">
+  <data key="d17">uses_type</data>
+</edge>
+<edge source="ObjectFifo_135" target="Kwarg_136">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_135" target="Kwarg_137">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_135" target="MethodCall_171">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_138" target="TypeAbstraction_46">
+  <data key="d17">uses_type</data>
+</edge>
+<edge source="ObjectFifo_138" target="Kwarg_139">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_138" target="Kwarg_140">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="ObjectFifo_138" target="MethodCall_181">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_141" target="ObjectFifo_132">
+  <data key="d17">uses</data>
+</edge>
+<edge source="ObjectFifo_141" target="MethodChain_142">
+  <data key="d17">source_expr</data>
+</edge>
+<edge source="MethodChain_142" target="ObjectFifo_132">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_142" target="MethodCall_143">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodChain_142" target="MethodCall_144">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodCall_143" target="MethodCall_144">
+  <data key="d17">calls</data>
+</edge>
+<edge source="MethodCall_144" target="Kwarg_145">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_144" target="Kwarg_151">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_144" target="Kwarg_157">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_144" target="Kwarg_163">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_145" target="List_146">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_146" target="TypeRef_147">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_146" target="TypeRef_148">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_146" target="TypeRef_149">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_146" target="TypeRef_150">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_151" target="List_152">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_152" target="Const_153">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_152" target="Const_154">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_152" target="Const_155">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_152" target="Const_156">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_157" target="List_158">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_158" target="String_159">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_158" target="String_160">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_158" target="String_161">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_158" target="String_162">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_163" target="ConstructorCall_164">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ConstructorCall_164" target="Expr_165">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_164" target="Expr_167">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_165" target="ConstExpr_166">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_167" target="ConstExpr_168">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ObjectFifo_169" target="ObjectFifo_135">
+  <data key="d17">uses</data>
+</edge>
+<edge source="ObjectFifo_169" target="MethodChain_170">
+  <data key="d17">source_expr</data>
+</edge>
+<edge source="ObjectFifo_169" target="MethodCall_215">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_169" target="MethodCall_234">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_169" target="MethodCall_253">
+  <data key="d17">calls</data>
+</edge>
+<edge source="ObjectFifo_169" target="MethodCall_272">
+  <data key="d17">calls</data>
+</edge>
+<edge source="MethodChain_170" target="ObjectFifo_135">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_170" target="MethodCall_171">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodChain_170" target="MethodCall_172">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodCall_171" target="MethodCall_172">
+  <data key="d17">calls</data>
+</edge>
+<edge source="MethodCall_172" target="Kwarg_173">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_173" target="ConstructorCall_174">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ConstructorCall_174" target="Expr_175">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_174" target="Expr_177">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_175" target="ConstExpr_176">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_177" target="ConstExpr_178">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ObjectFifo_179" target="ObjectFifo_138">
+  <data key="d17">uses</data>
+</edge>
+<edge source="ObjectFifo_179" target="MethodChain_180">
+  <data key="d17">source_expr</data>
+</edge>
+<edge source="MethodChain_180" target="ObjectFifo_138">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_180" target="MethodCall_181">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodChain_180" target="MethodCall_182">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="MethodCall_181" target="MethodCall_182">
+  <data key="d17">calls</data>
+</edge>
+<edge source="MethodCall_182" target="Kwarg_183">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_182" target="Kwarg_189">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_182" target="Kwarg_195">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="MethodCall_182" target="Kwarg_201">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_183" target="List_184">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_184" target="TypeRef_185">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_184" target="TypeRef_186">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_184" target="TypeRef_187">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_184" target="TypeRef_188">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_189" target="List_190">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_190" target="String_191">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_190" target="String_192">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_190" target="String_193">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_190" target="String_194">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_195" target="ConstructorCall_196">
+  <data key="d17">contains</data>
+</edge>
+<edge source="ConstructorCall_196" target="Expr_197">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_196" target="Expr_199">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_197" target="ConstExpr_198">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_199" target="ConstExpr_200">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_201" target="List_202">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_202" target="Const_203">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_202" target="Const_204">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_202" target="Const_205">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_202" target="Const_206">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Worker_207" target="CoreFunction_97">
+  <data key="d17">core_fn</data>
+</edge>
+<edge source="Worker_207" target="MethodChain_208">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_207" target="MethodChain_213">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_207" target="MethodChain_216">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_207" target="ExternalFunction_84">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_207" target="ConstructorCall_221">
+  <data key="d17">placed_by</data>
+</edge>
+<edge source="MethodChain_208" target="IndexExpr_210">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_208" target="MethodCall_212">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_210" target="ObjectFifo_141">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_210" target="ConstExpr_211">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_210" target="MethodCall_212">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_209" target="IndexExpr_210">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="MethodChain_213" target="ObjectFifo_169">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_213" target="MethodCall_215">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="temp_214" target="ObjectFifo_169">
+  <data key="d17">uses</data>
+</edge>
+<edge source="MethodChain_216" target="IndexExpr_218">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_216" target="MethodCall_220">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_218" target="ObjectFifo_179">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_218" target="ConstExpr_219">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_218" target="MethodCall_220">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_217" target="IndexExpr_218">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_221" target="Expr_222">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_221" target="Expr_224">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_222" target="ConstExpr_223">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_224" target="ConstExpr_225">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Worker_226" target="CoreFunction_97">
+  <data key="d17">core_fn</data>
+</edge>
+<edge source="Worker_226" target="MethodChain_227">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_226" target="MethodChain_232">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_226" target="MethodChain_235">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_226" target="ExternalFunction_84">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_226" target="ConstructorCall_240">
+  <data key="d17">placed_by</data>
+</edge>
+<edge source="MethodChain_227" target="IndexExpr_229">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_227" target="MethodCall_231">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_229" target="ObjectFifo_141">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_229" target="ConstExpr_230">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_229" target="MethodCall_231">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_228" target="IndexExpr_229">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="MethodChain_232" target="ObjectFifo_169">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_232" target="MethodCall_234">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="temp_233" target="ObjectFifo_169">
+  <data key="d17">uses</data>
+</edge>
+<edge source="MethodChain_235" target="IndexExpr_237">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_235" target="MethodCall_239">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_237" target="ObjectFifo_179">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_237" target="ConstExpr_238">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_237" target="MethodCall_239">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_236" target="IndexExpr_237">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_240" target="Expr_241">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_240" target="Expr_243">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_241" target="ConstExpr_242">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_243" target="ConstExpr_244">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Worker_245" target="CoreFunction_97">
+  <data key="d17">core_fn</data>
+</edge>
+<edge source="Worker_245" target="MethodChain_246">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_245" target="MethodChain_251">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_245" target="MethodChain_254">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_245" target="ExternalFunction_84">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_245" target="ConstructorCall_259">
+  <data key="d17">placed_by</data>
+</edge>
+<edge source="MethodChain_246" target="IndexExpr_248">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_246" target="MethodCall_250">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_248" target="ObjectFifo_141">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_248" target="ConstExpr_249">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_248" target="MethodCall_250">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_247" target="IndexExpr_248">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="MethodChain_251" target="ObjectFifo_169">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_251" target="MethodCall_253">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="temp_252" target="ObjectFifo_169">
+  <data key="d17">uses</data>
+</edge>
+<edge source="MethodChain_254" target="IndexExpr_256">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_254" target="MethodCall_258">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_256" target="ObjectFifo_179">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_256" target="ConstExpr_257">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_256" target="MethodCall_258">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_255" target="IndexExpr_256">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_259" target="Expr_260">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_259" target="Expr_262">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_260" target="ConstExpr_261">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_262" target="ConstExpr_263">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Worker_264" target="CoreFunction_97">
+  <data key="d17">core_fn</data>
+</edge>
+<edge source="Worker_264" target="MethodChain_265">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_264" target="MethodChain_270">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_264" target="MethodChain_273">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_264" target="ExternalFunction_84">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Worker_264" target="ConstructorCall_278">
+  <data key="d17">placed_by</data>
+</edge>
+<edge source="MethodChain_265" target="IndexExpr_267">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_265" target="MethodCall_269">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_267" target="ObjectFifo_141">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_267" target="ConstExpr_268">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_267" target="MethodCall_269">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_266" target="IndexExpr_267">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="MethodChain_270" target="ObjectFifo_169">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_270" target="MethodCall_272">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="temp_271" target="ObjectFifo_169">
+  <data key="d17">uses</data>
+</edge>
+<edge source="MethodChain_273" target="IndexExpr_275">
+  <data key="d17">base</data>
+</edge>
+<edge source="MethodChain_273" target="MethodCall_277">
+  <data key="d17">has_call</data>
+</edge>
+<edge source="IndexExpr_275" target="ObjectFifo_179">
+  <data key="d17">base</data>
+</edge>
+<edge source="IndexExpr_275" target="ConstExpr_276">
+  <data key="d17">index</data>
+</edge>
+<edge source="IndexExpr_275" target="MethodCall_277">
+  <data key="d17">calls</data>
+</edge>
+<edge source="temp_274" target="IndexExpr_275">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_278" target="Expr_279">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="ConstructorCall_278" target="Expr_281">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Expr_279" target="ConstExpr_280">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_281" target="ConstExpr_282">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_284" target="Worker_207">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_284" target="Worker_226">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_284" target="Worker_245">
+  <data key="d17">contains</data>
+</edge>
+<edge source="List_284" target="Worker_264">
+  <data key="d17">contains</data>
+</edge>
+<edge source="SequenceBlock_285" target="Call_286">
+  <data key="d17">context</data>
+</edge>
+<edge source="SequenceBlock_285" target="Binding_288">
+  <data key="d17">binds</data>
+</edge>
+<edge source="SequenceBlock_285" target="Binding_289">
+  <data key="d17">binds</data>
+</edge>
+<edge source="SequenceBlock_285" target="Binding_290">
+  <data key="d17">binds</data>
+</edge>
+<edge source="SequenceBlock_285" target="Operation_291">
+  <data key="d17">contains</data>
+</edge>
+<edge source="SequenceBlock_285" target="Operation_293">
+  <data key="d17">contains</data>
+</edge>
+<edge source="SequenceBlock_285" target="Operation_304">
+  <data key="d17">contains</data>
+</edge>
+<edge source="SequenceBlock_285" target="Operation_315">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_286" target="MethodCall_287">
+  <data key="d17">calls</data>
+</edge>
+<edge source="MethodCall_287" target="Runtime_283">
+  <data key="d17">object</data>
+</edge>
+<edge source="Operation_291" target="MethodCall_292">
+  <data key="d17">target</data>
+</edge>
+<edge source="Operation_291" target="List_284">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Operation_293" target="MethodCall_294">
+  <data key="d17">target</data>
+</edge>
+<edge source="Operation_293" target="Kwarg_295">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_293" target="Kwarg_299">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_293" target="Kwarg_302">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_293" target="Kwarg_303">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_295" target="Constructor_296">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Constructor_296" target="ConstExpr_297">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Constructor_296" target="ConstExpr_298">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Kwarg_299" target="Call_300">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_300" target="MethodCall_301">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Kwarg_302" target="Binding_288">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_303" target="TensorTiler2D_80">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Operation_304" target="MethodCall_305">
+  <data key="d17">target</data>
+</edge>
+<edge source="Operation_304" target="Kwarg_306">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_304" target="Kwarg_310">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_304" target="Kwarg_313">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_304" target="Kwarg_314">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_306" target="Constructor_307">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Constructor_307" target="ConstExpr_308">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Constructor_307" target="ConstExpr_309">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Kwarg_310" target="Call_311">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_311" target="MethodCall_312">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Kwarg_313" target="Binding_289">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_314" target="TensorTiler2D_81">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Operation_315" target="MethodCall_316">
+  <data key="d17">target</data>
+</edge>
+<edge source="Operation_315" target="Kwarg_317">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_315" target="Kwarg_321">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_315" target="Kwarg_324">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_315" target="Kwarg_325">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Operation_315" target="Kwarg_326">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_317" target="Constructor_318">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Constructor_318" target="ConstExpr_319">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Constructor_318" target="ConstExpr_320">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Kwarg_321" target="Call_322">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_322" target="MethodCall_323">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Kwarg_324" target="Binding_290">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_326" target="TensorTiler2D_82">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Program_327" target="Call_328">
+  <data key="d17">constructed_by</data>
+</edge>
+<edge source="ResolveProgram_329" target="Call_330">
+  <data key="d17">target</data>
+</edge>
+<edge source="Call_330" target="ConstructorExpr_331">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Function_332" target="Parameter_333">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="Function_332" target="Parameter_334">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="Function_332" target="Parameter_335">
+  <data key="d17">has_param</data>
+</edge>
+<edge source="Function_332" target="FunctionBodyElement_336">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_332" target="FunctionBodyElement_337">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_341">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_345">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_349">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_353">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_357">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_361">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_365">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_369">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_373">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_377">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_387">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_397">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Assign_407">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Function_338" target="Call_409">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Expr_339" target="ConstExpr_340">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_341" target="Expr_339">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_341" target="Variable_342">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_342" target="Const_8">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_343" target="ConstExpr_344">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_345" target="Expr_343">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_345" target="Variable_346">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_346" target="Const_9">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_347" target="ConstExpr_348">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_349" target="Expr_347">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_349" target="Variable_350">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_350" target="Const_10">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_351" target="ConstExpr_352">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_353" target="Expr_351">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_353" target="Variable_354">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_354" target="Const_11">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_355" target="ConstExpr_356">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_357" target="Expr_355">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_357" target="Variable_358">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_358" target="Const_12">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_359" target="VarRef_360">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_361" target="Expr_359">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_361" target="Variable_362">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_362" target="Const_13">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_363" target="VarRef_364">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_365" target="Expr_363">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_365" target="Variable_366">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_366" target="Const_14">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_367" target="VarRef_368">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_369" target="Expr_367">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_369" target="Variable_370">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_370" target="Const_15">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_371" target="VarRef_372">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_373" target="Expr_371">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_373" target="Variable_374">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_374" target="Const_16">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_375" target="VarRef_376">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_377" target="Expr_375">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_377" target="Variable_378">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_378" target="Const_17">
+  <data key="d17">refers_to</data>
+</edge>
+<edge source="Expr_379" target="Call_380">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_380" target="FunctionCall_381">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_380" target="VarRef_382">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_380" target="Kwarg_384">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Call_380" target="Kwarg_386">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_384" target="VarRef_383">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_386" target="String_385">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_387" target="Expr_379">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_387" target="Variable_388">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_388" target="Variable_388">
+  <data key="d17">defines</data>
+</edge>
+<edge source="Expr_389" target="Call_390">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_390" target="FunctionCall_391">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_390" target="VarRef_392">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_390" target="Kwarg_394">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Call_390" target="Kwarg_396">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_394" target="VarRef_393">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_396" target="String_395">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_397" target="Expr_389">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_397" target="Variable_398">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_398" target="Variable_398">
+  <data key="d17">defines</data>
+</edge>
+<edge source="Expr_399" target="Call_400">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Call_400" target="FunctionCall_401">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_400" target="VarRef_402">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_400" target="Kwarg_404">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Call_400" target="Kwarg_406">
+  <data key="d17">has_kwarg</data>
+</edge>
+<edge source="Kwarg_404" target="VarRef_403">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Kwarg_406" target="String_405">
+  <data key="d17">contains</data>
+</edge>
+<edge source="Assign_407" target="Expr_399">
+  <data key="d17">source</data>
+</edge>
+<edge source="Assign_407" target="Variable_408">
+  <data key="d17">assigns</data>
+</edge>
+<edge source="Variable_408" target="Variable_408">
+  <data key="d17">defines</data>
+</edge>
+<edge source="Call_409" target="FunctionCall_410">
+  <data key="d17">calls</data>
+</edge>
+<edge source="Call_409" target="VarRef_411">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_409" target="VarRef_412">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="Call_409" target="VarRef_413">
+  <data key="d17">has_arg</data>
+</edge>
+<edge source="EntryPoint_414" target="If_416">
+  <data key="d17">contains</data>
+</edge>
+<edge source="If_416" target="ConditionExpr_415">
+  <data key="d17">condition</data>
+</edge>
+</graph></graphml>

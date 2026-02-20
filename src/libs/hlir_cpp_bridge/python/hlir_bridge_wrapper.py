@@ -268,6 +268,30 @@ class BuilderWrapper:
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
+    def add_tiler2d(self, name: str, tensor_dims: list, tile_dims: list, tile_counts: list,
+                    prune_step: bool = False, index: int = 0,
+                    pattern_repeat: str = "", metadata: dict = None, provided_id: str = None) -> str:
+        """Add a TensorTiler2D.group_tiler() specification."""
+        try:
+            metadata = metadata or {}
+            result = self.builder.add_tiler2d(
+                name, tensor_dims, tile_dims, tile_counts,
+                prune_step=prune_step, index=index,
+                pattern_repeat=pattern_repeat if pattern_repeat else None,
+                provided_id=provided_id, **metadata
+            )
+            if result.success:
+                return success_response(result.id)
+            else:
+                return error_response(
+                    error_code_to_string(result.error_code),
+                    result.error_message or "Unknown error",
+                    result.id or "",
+                    result.dependencies or []
+                )
+        except Exception as e:
+            return error_response("PYTHON_EXCEPTION", str(e))
+
     def add_fifo_forward(self, name: str, source_id: str, metadata: dict = None, provided_id: str = None) -> str:
         """Add or update a FIFO forward operation with ID-based reference.
 
@@ -382,15 +406,20 @@ class BuilderWrapper:
                     # arg_component is a Symbol wrapping JoinOperation, get the name
                     join_name = arg_component.name if hasattr(arg_component, 'name') else str(arg_component)
                     fn_args.append((join_name, direction, index))
+                elif arg_type == "forward":
+                    # Forward operation consumer - reference by NAME, no index
+                    # This allows proper serialization as <arg ref="fwd_name" mode="consumer"/>
+                    forward_name = arg_component.name if hasattr(arg_component, 'name') else str(arg_component)
+                    fn_args.append((forward_name, "cons", None))
                 elif arg_type == "fifo":
                     direction = arg_data.get("direction", "prod")
-                    index = arg_data.get("index")
                     if direction == "prod":
-                        # Producer tuples use 3-tuple format: (fifo, "prod", None)
+                        # Producer tuples: (fifo, "prod", None) — no subscript for plain FIFOs
                         fn_args.append((arg_component, "prod", None))
                     else:
-                        # Consumer tuples use 3-tuple format: (fifo, "cons", index)
-                        fn_args.append((arg_component, "cons", index))
+                        # Consumer tuples: (fifo, "cons", None) — plain FIFOs are not subscriptable.
+                        # Only split/join results use subscript indices; those go through arg_type=="split"/"join".
+                        fn_args.append((arg_component, "cons", None))
 
             result = self.builder.add_worker(name, core_fn, fn_args, placement, provided_id=provided_id, **metadata)
             if result.success:
@@ -534,35 +563,59 @@ class BuilderWrapper:
             return error_response("PYTHON_EXCEPTION", str(e))
 
     def runtime_add_fill(self, name: str, fifo_id: str, input_name: str, tile_id: str,
-                         column: int = -1, use_tap: bool = False) -> str:
+                         column: int = -1, use_tap: bool = False, tap_id: str = "") -> str:
         """Add fill operation to runtime with ID-based references."""
         try:
             fifo = self._lookup_component(fifo_id)
             tile = self._lookup_component(tile_id)
-            # Build metadata with column and use_tap
+
+            # Look up TensorTiler2DSpec if tap_id provided
+            tap = None
+            if tap_id:
+                tap_component = self._lookup_component(tap_id)
+                # Tiler2D specs are stored as Symbol(value=TensorTiler2DSpec); unwrap if needed
+                tap = tap_component.value if hasattr(tap_component, 'value') else tap_component
+
+            # Build metadata with column
             metadata = {}
             if column >= 0:
                 metadata['column'] = column
-            if use_tap:
+            # When use_tap=True but no explicit tap object, preserve the flag in metadata
+            # so GUIXMLSerializer writes use_tap="true" and XMLGenerator auto-generates
+            # a TensorAccessPattern from the FIFO context and column info.
+            if use_tap and not tap_id:
                 metadata['use_tap'] = True
-            self.runtime.add_fill(name, fifo, input_name, tile, **metadata)
+
+            self.runtime.add_fill(name, fifo, input_name, tile, tap=tap, **metadata)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))
 
     def runtime_add_drain(self, name: str, fifo_id: str, output_name: str, tile_id: str,
-                          column: int = -1, use_tap: bool = False) -> str:
+                          column: int = -1, use_tap: bool = False, tap_id: str = "") -> str:
         """Add drain operation to runtime with ID-based references."""
         try:
             fifo = self._lookup_component(fifo_id)
             tile = self._lookup_component(tile_id)
-            # Build metadata with column and use_tap
+
+            # Look up TensorTiler2DSpec if tap_id provided
+            tap = None
+            if tap_id:
+                tap_component = self._lookup_component(tap_id)
+                # Tiler2D specs are stored as Symbol(value=TensorTiler2DSpec); unwrap if needed
+                tap = tap_component.value if hasattr(tap_component, 'value') else tap_component
+
+            # Build metadata with column
             metadata = {}
             if column >= 0:
                 metadata['column'] = column
-            if use_tap:
+            # When use_tap=True but no explicit tap object, preserve the flag in metadata
+            # so GUIXMLSerializer writes use_tap="true" and XMLGenerator auto-generates
+            # a TensorAccessPattern from the FIFO context and column info.
+            if use_tap and not tap_id:
                 metadata['use_tap'] = True
-            self.runtime.add_drain(name, fifo, output_name, tile, **metadata)
+
+            self.runtime.add_drain(name, fifo, output_name, tile, tap=tap, **metadata)
             return success_response()
         except Exception as e:
             return error_response("PYTHON_EXCEPTION", str(e))

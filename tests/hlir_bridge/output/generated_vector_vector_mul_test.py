@@ -19,10 +19,12 @@ from aie.iron.controlflow import range_
 
 @iron.jit(is_placed=False)
 def vector_vector_mul_test_jit(inputA, inputB, outputC):
+    N = 65536
+
     # Define tensor types
-    data_ty = np.ndarray[(inputA.numel(),), np.dtype[bfloat16]]
-    memtile_ty = np.ndarray[(inputA.numel() // 16,), np.dtype[bfloat16]]
-    tile_ty = np.ndarray[(inputA.numel() // 64,), np.dtype[bfloat16]]
+    data_ty = np.ndarray[(N,), np.dtype[bfloat16]]
+    memtile_ty = np.ndarray[(N // 16,), np.dtype[bfloat16]]
+    tile_ty = np.ndarray[(N // 64,), np.dtype[bfloat16]]
     data_a_ty = np.ndarray[(inputA.numel(),), np.dtype[bfloat16]]
     data_b_ty = np.ndarray[(inputB.numel(),), np.dtype[bfloat16]]
     data_c_ty = np.ndarray[(outputC.numel(),), np.dtype[bfloat16]]
@@ -31,9 +33,9 @@ def vector_vector_mul_test_jit(inputA, inputB, outputC):
     of_in_a = ObjectFifo(obj_type=memtile_ty, depth=2, name="of_in_a")
     of_in_b = ObjectFifo(obj_type=memtile_ty, depth=2, name="of_in_b")
     of_out_c = ObjectFifo(obj_type=memtile_ty, depth=2, name="of_out_c")
-    MEM_L2_L1_A1A2A3A4_col0 = of_in_a.cons().split(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], offsets=[((inputA.numel() // 64) * 0), ((inputA.numel() // 64) * 1), ((inputA.numel() // 64) * 2), ((inputA.numel() // 64) * 3)], names=["MEM_L2_L1_A1_col0", "MEM_L2_L1_A2_col0", "MEM_L2_L1_A3_col0", "MEM_L2_L1_A4_col0"], placement=Tile(0, 1))
-    MEM_L2_L1_B5B6B7B8_col1 = of_in_b.cons().split(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], offsets=[((inputB.numel() // 64) * 0), ((inputB.numel() // 64) * 1), ((inputB.numel() // 64) * 2), ((inputB.numel() // 64) * 3)], names=["MEM_L2_L1_B5_col1", "MEM_L2_L1_B6_col1", "MEM_L2_L1_B7_col1", "MEM_L2_L1_B8_col1"], placement=Tile(1, 1))
-    MEM_L1_L2_C9C10C11C12_col2 = of_out_c.prod().join(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], names=["MEM_L1_L2_C9_col2", "MEM_L1_L2_C10_col2", "MEM_L1_L2_C11_col2", "MEM_L1_L2_C12_col2"], placement=Tile(2, 1), offsets=[((outputC.numel() // 64) * 0), ((outputC.numel() // 64) * 1), ((outputC.numel() // 64) * 2), ((outputC.numel() // 64) * 3)])
+    MEM_L2_L1_A1A2A3A4_col0 = of_in_a.cons().split(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], offsets=[0, 1024, 2048, 3072], names=["MEM_L2_L1_A1_col0", "MEM_L2_L1_A2_col0", "MEM_L2_L1_A3_col0", "MEM_L2_L1_A4_col0"], placement=Tile(0, 1))
+    MEM_L2_L1_B5B6B7B8_col1 = of_in_b.cons().split(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], offsets=[0, 1024, 2048, 3072], names=["MEM_L2_L1_B5_col1", "MEM_L2_L1_B6_col1", "MEM_L2_L1_B7_col1", "MEM_L2_L1_B8_col1"], placement=Tile(1, 1))
+    MEM_L1_L2_C9C10C11C12_col2 = of_out_c.prod().join(obj_types=[tile_ty, tile_ty, tile_ty, tile_ty], names=["MEM_L1_L2_C9_col2", "MEM_L1_L2_C10_col2", "MEM_L1_L2_C11_col2", "MEM_L1_L2_C12_col2"], placement=Tile(2, 1), offsets=[0, 1024, 2048, 3072])
 
     #Define kernels here... ------------------------------------------------\/
     eltwise_mul_bf16_vector = ExternalFunction(

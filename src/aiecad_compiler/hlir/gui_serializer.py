@@ -18,8 +18,9 @@ from .core import (
 )
 from .operations import (
     SplitOperation, JoinOperation, ForwardOperation,
-    TensorAccessPattern
+    TensorAccessPattern, TensorTiler2DSpec
 )
+from .core import Assignment, ForLoop, Acquire, Release, KernelCall
 from .types import TensorType, DataType
 
 
@@ -172,6 +173,11 @@ class GUIXMLSerializer:
         for symbol in program.symbols.values():
             if isinstance(symbol.value, TensorType):
                 self._add_gui_type_abstraction(parent, symbol.name, symbol.value)
+
+        # Add TensorTiler2D specs (after types, before runtime)
+        for symbol in program.symbols.values():
+            if isinstance(symbol.value, TensorTiler2DSpec):
+                self._add_gui_tiler2d(parent, symbol.value)
 
     def _add_gui_const(self, parent: Element, symbol: Symbol):
         """Add constant in GUI XML format."""
@@ -341,27 +347,29 @@ class GUIXMLSerializer:
         body_elem.text = '\n'
         body_elem.tail = '\n'
 
-        # Acquires
-        for acquire in func.acquires:
-            acq_elem = SubElement(body_elem, 'Acquire')
-            acq_elem.set('source', acquire.fifo_param)
-            acq_elem.set('count', str(acquire.count))
-            acq_elem.set('name', acquire.local_var)
-            acq_elem.tail = '\n'
+        if func.body_stmts is not None:
+            # Body mode: serialize explicit statement list
+            self._add_gui_body_stmts(body_elem, func.body_stmts)
+        else:
+            # Flat mode: serialize acquires → call → releases
+            for acquire in func.acquires:
+                acq_elem = SubElement(body_elem, 'Acquire')
+                acq_elem.set('source', acquire.fifo_param)
+                acq_elem.set('count', str(acquire.count))
+                acq_elem.set('name', acquire.local_var)
+                acq_elem.tail = '\n'
 
-        # Kernel call
-        if func.kernel_call:
-            call_elem = SubElement(body_elem, 'Call')
-            call_elem.set('function', func.kernel_call.kernel_param)
-            call_elem.set('args', ', '.join(func.kernel_call.args))
-            call_elem.tail = '\n'
+            if func.kernel_call:
+                call_elem = SubElement(body_elem, 'Call')
+                call_elem.set('function', func.kernel_call.kernel_param)
+                call_elem.set('args', ', '.join(func.kernel_call.args))
+                call_elem.tail = '\n'
 
-        # Releases
-        for release in func.releases:
-            rel_elem = SubElement(body_elem, 'Release')
-            rel_elem.set('source', release.fifo_param)
-            rel_elem.set('count', str(release.count))
-            rel_elem.tail = '\n'
+            for release in func.releases:
+                rel_elem = SubElement(body_elem, 'Release')
+                rel_elem.set('source', release.fifo_param)
+                rel_elem.set('count', str(release.count))
+                rel_elem.tail = '\n'
 
     def _add_gui_object_fifo(self, parent: Element, fifo: ObjectFifo):
         """Add ObjectFifo in GUI XML format."""
@@ -386,6 +394,8 @@ class GUIXMLSerializer:
         forward_elem.set('name', forward_op.name)
         source_name = forward_op.source if isinstance(forward_op.source, str) else forward_op.source.name
         forward_elem.set('source', source_name)
+        if forward_op.placement is not None:
+            forward_elem.set('placement', f"Tile({forward_op.placement.x}, {forward_op.placement.y})")
         forward_elem.tail = '\n'
 
     def _add_gui_split_operation(self, parent: Element, split_op: SplitOperation):
@@ -421,6 +431,12 @@ class GUIXMLSerializer:
         place_elem.text = f"Tile({split_op.placement.x}, {split_op.placement.y})"
         place_elem.tail = '\n'
 
+        # Explicit offsets (if provided and non-trivial)
+        if split_op.offsets:
+            offsets_elem = SubElement(split_elem, 'offsets')
+            offsets_elem.text = ', '.join(str(o) for o in split_op.offsets)
+            offsets_elem.tail = '\n'
+
     def _add_gui_join_operation(self, parent: Element, join_op: JoinOperation):
         """Add join operation in GUI XML format."""
         join_elem = SubElement(parent, 'ObjectFifoJoin')
@@ -453,6 +469,12 @@ class GUIXMLSerializer:
         place_elem = SubElement(join_elem, 'placement')
         place_elem.text = f"Tile({join_op.placement.x}, {join_op.placement.y})"
         place_elem.tail = '\n'
+
+        # Explicit offsets (if provided and non-trivial)
+        if join_op.offsets:
+            offsets_elem = SubElement(join_elem, 'offsets')
+            offsets_elem.text = ', '.join(str(o) for o in join_op.offsets)
+            offsets_elem.tail = '\n'
 
     def _add_gui_worker(self, parent: Element, worker: Worker):
         """Add Worker in GUI XML format."""
@@ -581,6 +603,13 @@ class GUIXMLSerializer:
         use_tap = fill_op.metadata.get('use_tap', fill_op.tap is not None) if fill_op.metadata else (fill_op.tap is not None)
         fill_elem.set('use_tap', "true" if use_tap else "false")
 
+        # Annotate tap type (tiler2d vs standard tap)
+        if isinstance(fill_op.tap, TensorTiler2DSpec):
+            fill_elem.set('tap_type', 'tiler2d')
+            fill_elem.set('tap_var', fill_op.tap.name)
+        elif fill_op.tap is not None:
+            fill_elem.set('tap_type', 'tap')
+
         fill_elem.text = '\n'
         fill_elem.tail = '\n'
 
@@ -589,8 +618,8 @@ class GUIXMLSerializer:
         place_elem.text = f"Tile({fill_op.placement.x}, {fill_op.placement.y})"
         place_elem.tail = '\n'
 
-        # TAP if present
-        if fill_op.tap:
+        # TAP if present and not tiler2d (tiler2d is a variable reference, not inline)
+        if fill_op.tap and not isinstance(fill_op.tap, TensorTiler2DSpec):
             self._add_gui_tap(fill_elem, fill_op.tap)
 
     def _add_gui_drain_operation(self, parent: Element, drain_op: RuntimeDrain):
@@ -618,6 +647,13 @@ class GUIXMLSerializer:
         use_tap = drain_op.metadata.get('use_tap', drain_op.tap is not None) if drain_op.metadata else (drain_op.tap is not None)
         drain_elem.set('use_tap', "true" if use_tap else "false")
 
+        # Annotate tap type (tiler2d vs standard tap)
+        if isinstance(drain_op.tap, TensorTiler2DSpec):
+            drain_elem.set('tap_type', 'tiler2d')
+            drain_elem.set('tap_var', drain_op.tap.name)
+        elif drain_op.tap is not None:
+            drain_elem.set('tap_type', 'tap')
+
         drain_elem.text = '\n'
         drain_elem.tail = '\n'
 
@@ -632,8 +668,8 @@ class GUIXMLSerializer:
             wait_elem.text = "true"
             wait_elem.tail = '\n'
 
-        # TAP if present
-        if drain_op.tap:
+        # TAP if present and not tiler2d (tiler2d is a variable reference, not inline)
+        if drain_op.tap and not isinstance(drain_op.tap, TensorTiler2DSpec):
             self._add_gui_tap(drain_elem, drain_op.tap)
 
     def _add_gui_tap(self, parent: Element, tap: TensorAccessPattern):
@@ -661,6 +697,73 @@ class GUIXMLSerializer:
         strides_elem = SubElement(tap_elem, 'strides')
         strides_elem.text = ', '.join(str(s) for s in tap.strides)
         strides_elem.tail = '\n'
+
+    def _add_gui_tiler2d(self, parent: Element, tiler: TensorTiler2DSpec):
+        """Add TensorTiler2DSpec in GUI XML format."""
+        tiler_elem = SubElement(parent, 'TensorTiler2D')
+        tiler_elem.set('name', tiler.name)
+        tiler_elem.set('prune_step', 'true' if tiler.prune_step else 'false')
+        tiler_elem.set('index', str(tiler.index))
+        if tiler.pattern_repeat is not None:
+            tiler_elem.set('pattern_repeat', str(tiler.pattern_repeat))
+        tiler_elem.text = '\n'
+        tiler_elem.tail = '\n'
+
+        # tensor_dims
+        dims_elem = SubElement(tiler_elem, 'tensor_dims')
+        dims_elem.text = ', '.join(str(d) for d in tiler.tensor_dims)
+        dims_elem.tail = '\n'
+
+        # tile_dims
+        tile_dims_elem = SubElement(tiler_elem, 'tile_dims')
+        tile_dims_elem.text = ', '.join(str(d) for d in tiler.tile_dims)
+        tile_dims_elem.tail = '\n'
+
+        # tile_counts
+        tile_counts_elem = SubElement(tiler_elem, 'tile_counts')
+        tile_counts_elem.text = ', '.join(str(c) for c in tiler.tile_counts)
+        tile_counts_elem.tail = '\n'
+
+    def _add_gui_body_stmts(self, parent: Element, stmts: list):
+        """Serialize a list of body statements recursively."""
+        for stmt in stmts:
+            self._add_gui_body_stmt(parent, stmt)
+
+    def _add_gui_body_stmt(self, parent: Element, stmt):
+        """Serialize a single body statement."""
+        if isinstance(stmt, Acquire):
+            acq_elem = SubElement(parent, 'Acquire')
+            acq_elem.set('source', stmt.fifo_param)
+            acq_elem.set('count', str(stmt.count))
+            acq_elem.set('name', stmt.local_var)
+            acq_elem.tail = '\n'
+
+        elif isinstance(stmt, Release):
+            rel_elem = SubElement(parent, 'Release')
+            rel_elem.set('source', stmt.fifo_param)
+            rel_elem.set('count', str(stmt.count))
+            rel_elem.tail = '\n'
+
+        elif isinstance(stmt, KernelCall):
+            call_elem = SubElement(parent, 'Call')
+            call_elem.set('function', stmt.kernel_param)
+            call_elem.set('args', ', '.join(stmt.args))
+            call_elem.tail = '\n'
+
+        elif isinstance(stmt, ForLoop):
+            loop_elem = SubElement(parent, 'ForLoop')
+            loop_elem.set('var', stmt.var)
+            loop_elem.set('count', str(stmt.count))
+            loop_elem.text = '\n'
+            loop_elem.tail = '\n'
+            self._add_gui_body_stmts(loop_elem, stmt.body)
+
+        elif isinstance(stmt, Assignment):
+            assign_elem = SubElement(parent, 'Assignment')
+            assign_elem.set('target', stmt.target)
+            assign_elem.set('index', str(stmt.index))
+            assign_elem.set('value', str(stmt.value))
+            assign_elem.tail = '\n'
 
     def _add_gui_program(self, parent: Element, program: Program):
         """Add Program definition in GUI XML format."""

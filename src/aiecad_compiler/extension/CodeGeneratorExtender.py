@@ -205,6 +205,14 @@ class CoreFunctionCodeGen(CodeGenExtension):
                 if call_expr:
                     lines.append(f"{indent}{call_expr}")
 
+            elif child_kind == 'Assignment':
+                # Indexed assignment: target[index] = value
+                target = self._get_node_attr(child_id, 'target')
+                index = self._get_node_attr(child_id, 'index')
+                value = self._get_node_attr(child_id, 'value')
+                if target is not None and index is not None and value is not None:
+                    lines.append(f"{indent}{target}[{index}] = {value}")
+
         return lines
     
     def _reconstruct_core_function_call(self, call_id: str) -> str:
@@ -384,8 +392,8 @@ class WorkerCodeGen(CodeGenExtension):
                             elif item_kind == 'String':
                                 item_val = self._get_node_attr(item_id, 'label')
                                 items.append(f'"{item_val}"')
-                            elif item_kind in ['BinaryOp', 'ConstExpr']:
-                                # Reconstruct expression
+                            elif item_kind in ['BinaryOp', 'ConstExpr', 'Const']:
+                                # Reconstruct expression (includes symbolic constants)
                                 expr = self._reconstruct_expression(item_id)
                                 if expr:
                                     items.append(expr)

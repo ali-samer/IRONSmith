@@ -26,9 +26,7 @@
       <ndarray>
         <shape>
           <tuple>
-            <expr>
-              <method ref="inputA" name="numel"/>
-            </expr>
+            <expr>N</expr>
           </tuple>
         </shape>
         <dtype>
@@ -40,12 +38,7 @@
       <ndarray>
         <shape>
           <tuple>
-            <expr>
-              <binary_op op="//">
-                <method ref="inputA" name="numel"/>
-                <const>4</const>
-              </binary_op>
-            </expr>
+            <expr>N // 4</expr>
           </tuple>
         </shape>
         <dtype>

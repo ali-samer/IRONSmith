@@ -1603,6 +1603,396 @@ static bool testVectorVectorMulExample() {
     }
 }
 
+static bool testMatrixVectorMulExample() {
+    std::cout << "\n=== Testing Matrix Vector Multiply Example (Full Pipeline) ===\n";
+
+    try {
+        hlir::HlirBridge bridge("matrix_vector_mul_test");
+
+        // Step 1: Add constants
+        // M=256, K=256, m=32, k=32, n_cores=4, derived expressions
+        std::cout << "  [1/15] Adding constants... ";
+        auto constM      = bridge.addConstant("M",            "256",                  "int");
+        auto constK      = bridge.addConstant("K",            "256",                  "int");
+        auto constm      = bridge.addConstant("m",            "32",                   "int");
+        auto constk      = bridge.addConstant("k",            "32",                   "int");
+        auto constNcores = bridge.addConstant("n_cores",      "4",                    "int");
+        auto constMdivm  = bridge.addConstant("M_div_m",      "M // m",               "int");
+        auto constKdivk  = bridge.addConstant("K_div_k",      "K // k",               "int");
+        auto constRpc    = bridge.addConstant("rows_per_core","M_div_m // n_cores",   "int");
+        auto constNfe    = bridge.addConstant("n_fifo_elems", "rows_per_core * K_div_k", "int");
+        auto constAes    = bridge.addConstant("A_elem_size",  "n_cores * m * k",      "int");
+        if (!constM || !constK || !constm || !constk || !constNcores ||
+            !constMdivm || !constKdivk || !constRpc || !constNfe || !constAes) {
+            std::cerr << "FAILED\n";
+            return false;
+        }
+        std::cout << "OK (10 constants)\n";
+
+        // Step 2: Add tensor types
+        // Per-tile types
+        std::cout << "  [2/15] Adding tensor types... ";
+        auto inATy  = bridge.addTensorType("inA_ty",   {"m * k"},          "int16");
+        auto inBTy  = bridge.addTensorType("inB_ty",   {"k"},              "int16");
+        auto outCTy = bridge.addTensorType("outC_ty",  {"m"},              "int32");
+        // Memtile buffer types
+        auto aMemTy = bridge.addTensorType("A_mem_ty", {"n_cores * m * k"},"int16");
+        auto cMemTy = bridge.addTensorType("C_mem_ty", {"n_cores * m"},    "int32");
+        // Host buffer types (2D for TensorTiler2D)
+        auto aTy    = bridge.addTensorType("A_ty",     {"n_fifo_elems", "A_elem_size"}, "int16");
+        auto bTy    = bridge.addTensorType("B_ty",     {"1", "K"},         "int16");
+        auto cTy    = bridge.addTensorType("C_ty",     {"1", "M"},         "int32");
+        if (!inATy || !inBTy || !outCTy || !aMemTy || !cMemTy || !aTy || !bTy || !cTy) {
+            std::cerr << "FAILED\n";
+            return false;
+        }
+        std::cout << "OK (8 types)\n";
+
+        // Step 3: Add tiles
+        // 3 SHIMs: (0,0) fill A, (1,0) fill B, (2,0) drain C
+        // 3 MEMs:  (0,1) split A, (1,1) forward B, (2,1) join C
+        // 4 COMPUTE: (0,2)-(0,5)
+        std::cout << "  [3/15] Adding tiles... ";
+        auto shim0   = bridge.addTile("shim0",   hlir::TileKind::SHIM,    0, 0);
+        auto shim1   = bridge.addTile("shim1",   hlir::TileKind::SHIM,    1, 0);
+        auto shim2   = bridge.addTile("shim2",   hlir::TileKind::SHIM,    2, 0);
+        auto mem0    = bridge.addTile("mem0",    hlir::TileKind::MEM,     0, 1);
+        auto mem1    = bridge.addTile("mem1",    hlir::TileKind::MEM,     1, 1);
+        auto mem2    = bridge.addTile("mem2",    hlir::TileKind::MEM,     2, 1);
+        auto tile02  = bridge.addTile("tile_0_2",hlir::TileKind::COMPUTE, 0, 2);
+        auto tile03  = bridge.addTile("tile_0_3",hlir::TileKind::COMPUTE, 0, 3);
+        auto tile04  = bridge.addTile("tile_0_4",hlir::TileKind::COMPUTE, 0, 4);
+        auto tile05  = bridge.addTile("tile_0_5",hlir::TileKind::COMPUTE, 0, 5);
+        if (!shim0 || !shim1 || !shim2 || !mem0 || !mem1 || !mem2 ||
+            !tile02 || !tile03 || !tile04 || !tile05) {
+            std::cerr << "FAILED\n";
+            return false;
+        }
+        std::cout << "OK (3 SHIM, 3 MEM, 4 COMPUTE)\n";
+
+        // Step 4: Add input FIFO for A (A_mem_ty, depth 2, col 0)
+        std::cout << "  [4/15] Adding input FIFO A... ";
+        std::map<std::string, std::string> metaInA = {
+            {"context", "L3_L2"}, {"direction", "input"}, {"data", "A"}, {"column", "0"}};
+        auto of_in_a = bridge.addFifo("inA", *aMemTy, 2, std::nullopt, {}, hlir::ComponentId(), metaInA);
+        if (!of_in_a) {
+            std::cerr << "FAILED\n    " << of_in_a.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 5: Add input FIFO for B (inB_ty, depth 2, col 1)
+        std::cout << "  [5/15] Adding input FIFO B... ";
+        std::map<std::string, std::string> metaInB = {
+            {"context", "L3_L2"}, {"direction", "input"}, {"data", "B"}, {"column", "1"}};
+        auto of_in_b = bridge.addFifo("inB", *inBTy, 2, std::nullopt, {}, hlir::ComponentId(), metaInB);
+        if (!of_in_b) {
+            std::cerr << "FAILED\n    " << of_in_b.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 6: Add output FIFO for C (C_mem_ty, depth 2, col 2)
+        std::cout << "  [6/15] Adding output FIFO C... ";
+        std::map<std::string, std::string> metaOutC = {
+            {"context", "L2_L3"}, {"direction", "output"}, {"data", "C"}, {"column", "2"}};
+        auto of_out_c = bridge.addFifo("outC", *cMemTy, 2, std::nullopt, {}, hlir::ComponentId(), metaOutC);
+        if (!of_out_c) {
+            std::cerr << "FAILED\n    " << of_out_c.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 7: Split A at mem(0,1)
+        // Offsets: [0, m*k=1024, 2*m*k=2048, 3*m*k=3072]
+        std::cout << "  [7/15] Adding split A at mem(0,1)... ";
+        std::map<std::string, std::string> splitMetaA = {
+            {"context", "L2_L1"}, {"data", "A"}, {"column", "0"}};
+        auto splitA = bridge.addFifoSplit("a_fifos", *of_in_a, 4, *inATy,
+            {"a_fifos_0", "a_fifos_1", "a_fifos_2", "a_fifos_3"},
+            {0, 1024, 2048, 3072}, *mem0, hlir::ComponentId(), splitMetaA);
+        if (!splitA) {
+            std::cerr << "FAILED\n";
+            if (splitA.error().size() > 0) std::cerr << "    " << splitA.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 8: Forward B at mem(1,1) (broadcast to all 4 compute tiles)
+        std::cout << "  [8/15] Adding forward B at mem(1,1)... ";
+        std::map<std::string, std::string> fwdMetaB = {{"placement", "mem1"}};
+        auto b_fwd = bridge.addFifoForward("B_fwd", *of_in_b, hlir::ComponentId(), fwdMetaB);
+        if (!b_fwd) {
+            std::cerr << "FAILED\n";
+            if (b_fwd.error().size() > 0) std::cerr << "    " << b_fwd.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 9: Join C at mem(2,1)
+        // Offsets: [0, m=32, 2*m=64, 3*m=96]
+        std::cout << "  [9/15] Adding join C at mem(2,1)... ";
+        std::map<std::string, std::string> joinMetaC = {
+            {"context", "L1_L2"}, {"data", "C"}, {"column", "2"}};
+        auto joinC = bridge.addFifoJoin("c_fifos", *of_out_c, 4, *outCTy,
+            {"c_fifos_0", "c_fifos_1", "c_fifos_2", "c_fifos_3"},
+            {0, 32, 64, 96}, *mem2, hlir::ComponentId(), joinMetaC);
+        if (!joinC) {
+            std::cerr << "FAILED\n";
+            if (joinC.error().size() > 0) std::cerr << "    " << joinC.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 10: Add external kernel (inA_ty, inB_ty, outC_ty)
+        std::cout << "  [10/15] Adding external kernel... ";
+        std::map<std::string, std::string> kernelMeta = {{"operation", "matvec"}};
+        auto matvec = bridge.addExternalKernel(
+            "matvec_vectorized_i16_i32", "matvec_vectorized_i16_i32",
+            "/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2/mv.cc",
+            {*inATy, *inBTy, *outCTy},
+            {"/scratch/IRONSmithTesting/mlir-aie/aie_kernels",
+             "/scratch/IRONSmithTesting/mlir-aie/aie_kernels/aie2",
+             "/scratch/IRONSmithTesting/mlir-aie/aie_runtime_lib/AIE2"},
+            hlir::ComponentId(), kernelMeta);
+        if (!matvec) {
+            std::cerr << "FAILED\n";
+            if (matvec.error().size() > 0) std::cerr << "    " << matvec.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 11: Add core function
+        // Simplified flat representation:
+        //   elem_out = c_out.acquire(1)      <- outer acquire first
+        //   [loop K_div_k]:
+        //     elem_a = a_in.acquire(1)
+        //     elem_b = b_in.acquire(1)
+        //     matvec(elem_a, elem_b, elem_out)
+        //     a_in.release(1)
+        //     b_in.release(1)
+        //   c_out.release(1)                 <- outer release last
+        std::cout << "  [11/15] Adding core function... ";
+        std::map<std::string, std::string> coreFuncMeta = {
+            {"operation", "matvec"}, {"loop_count", "K_div_k"}};
+        auto corefunc_matvec = bridge.addCoreFunction(
+            "core_fn",
+            {"a_in", "b_in", "c_out", "matvec"},
+            {{"c_out", 1, "elem_out"}, {"a_in", 1, "elem_a"}, {"b_in", 1, "elem_b"}},
+            {"matvec", {"elem_a", "elem_b", "elem_out"}},
+            {{"a_in", 1}, {"b_in", 1}, {"c_out", 1}},
+            hlir::ComponentId(), coreFuncMeta);
+        if (!corefunc_matvec) {
+            std::cerr << "FAILED\n";
+            if (corefunc_matvec.error().size() > 0)
+                std::cerr << "    " << corefunc_matvec.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 12: Add workers (4 compute tiles, col 0 rows 2-5)
+        std::cout << "  [12/15] Adding workers... ";
+        std::map<std::string, std::string> w0Meta = {{"operation","matvec"},{"column","0"},{"worker_index","0"}};
+        std::map<std::string, std::string> w1Meta = {{"operation","matvec"},{"column","0"},{"worker_index","1"}};
+        std::map<std::string, std::string> w2Meta = {{"operation","matvec"},{"column","0"},{"worker_index","2"}};
+        std::map<std::string, std::string> w3Meta = {{"operation","matvec"},{"column","0"},{"worker_index","3"}};
+
+        auto worker0 = bridge.addWorker("worker0", *corefunc_matvec,
+            {hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 0),
+             hlir::HlirBridge::FunctionArg::forwardConsumer(*b_fwd),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 0),
+             hlir::HlirBridge::FunctionArg::kernel(*matvec)},
+            *tile02, hlir::ComponentId(), w0Meta);
+        auto worker1 = bridge.addWorker("worker1", *corefunc_matvec,
+            {hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 1),
+             hlir::HlirBridge::FunctionArg::forwardConsumer(*b_fwd),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 1),
+             hlir::HlirBridge::FunctionArg::kernel(*matvec)},
+            *tile03, hlir::ComponentId(), w1Meta);
+        auto worker2 = bridge.addWorker("worker2", *corefunc_matvec,
+            {hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 2),
+             hlir::HlirBridge::FunctionArg::forwardConsumer(*b_fwd),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 2),
+             hlir::HlirBridge::FunctionArg::kernel(*matvec)},
+            *tile04, hlir::ComponentId(), w2Meta);
+        auto worker3 = bridge.addWorker("worker3", *corefunc_matvec,
+            {hlir::HlirBridge::FunctionArg::splitConsumer(*splitA, 3),
+             hlir::HlirBridge::FunctionArg::forwardConsumer(*b_fwd),
+             hlir::HlirBridge::FunctionArg::joinProducer(*joinC, 3),
+             hlir::HlirBridge::FunctionArg::kernel(*matvec)},
+            *tile05, hlir::ComponentId(), w3Meta);
+
+        if (!worker0 || !worker1 || !worker2 || !worker3) {
+            std::cerr << "FAILED\n";
+            if (!worker0 && worker0.error().size() > 0) std::cerr << "    " << worker0.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK (4 workers)\n";
+
+        // Step 13: Add TensorTiler2D access patterns (required for DMA BD sizing)
+        // a_tap: tile (n_fifo_elems x A_elem_size) into (1 x 512) chunks
+        // b_tap: tile (1 x K) into (1 x k) chunks, repeat rows_per_core times
+        // c_tap: tile (1 x M) into (1 x n_cores*m) chunks
+        std::cout << "  [13/16] Adding TensorTiler2D access patterns... ";
+        auto a_tap = bridge.addTensorTiler2D(
+            "a_tap",
+            {"n_fifo_elems", "A_elem_size"},       // tensor_dims
+            {"1", "512"},                           // tile_dims
+            {"n_fifo_elems", "A_elem_size // 512"}, // tile_counts
+            false, 0);                              // prune_step=false, index=0
+        auto b_tap = bridge.addTensorTiler2D(
+            "b_tap",
+            {"1", "K"},                            // tensor_dims
+            {"1", "k"},                            // tile_dims
+            {"1", "K_div_k"},                      // tile_counts
+            false, 0,                              // prune_step=false, index=0
+            "rows_per_core");                      // pattern_repeat
+        auto c_tap = bridge.addTensorTiler2D(
+            "c_tap",
+            {"1", "M"},                            // tensor_dims
+            {"1", "n_cores * m"},                  // tile_dims
+            {"1", "rows_per_core"},                // tile_counts
+            false, 0);                             // prune_step=false, index=0
+        if (!a_tap || !b_tap || !c_tap) {
+            std::cerr << "FAILED\n";
+            if (!a_tap && a_tap.error().size() > 0) std::cerr << "    a_tap: " << a_tap.error()[0].message << "\n";
+            if (!b_tap && b_tap.error().size() > 0) std::cerr << "    b_tap: " << b_tap.error()[0].message << "\n";
+            if (!c_tap && c_tap.error().size() > 0) std::cerr << "    c_tap: " << c_tap.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK (a_tap, b_tap, c_tap)\n";
+
+        // Step 14: Create runtime
+        std::cout << "  [14/16] Creating runtime... ";
+        auto runtime = bridge.createRuntime("runtime");
+        if (!runtime) {
+            std::cerr << "FAILED\n    " << runtime.error()[0].message << "\n";
+            return false;
+        }
+
+        // Input types: A_ty (2D int16), B_ty (2D int16)
+        // Output type: C_ty (2D int32)
+        auto addInA  = bridge.runtimeAddInputType(*aTy);
+        auto addInB  = bridge.runtimeAddInputType(*bTy);
+        auto addOutC = bridge.runtimeAddOutputType(*cTy);
+        if (!addInA || !addInB || !addOutC) {
+            std::cerr << "FAILED (types)\n";
+            return false;
+        }
+
+        // Parameters
+        auto addParamA = bridge.runtimeAddParam("inputA");
+        auto addParamB = bridge.runtimeAddParam("inputB");
+        auto addParamC = bridge.runtimeAddParam("outputC");
+        if (!addParamA || !addParamB || !addParamC) {
+            std::cerr << "FAILED (params)\n";
+            return false;
+        }
+
+        // Workers
+        if (!bridge.runtimeAddWorker(*worker0) || !bridge.runtimeAddWorker(*worker1) ||
+            !bridge.runtimeAddWorker(*worker2) || !bridge.runtimeAddWorker(*worker3)) {
+            std::cerr << "FAILED (workers)\n";
+            return false;
+        }
+
+        // Fill A from shim(0,0) with a_tap, Fill B from shim(1,0) with b_tap,
+        // Drain C from shim(2,0) with c_tap
+        auto fillA = bridge.runtimeAddFill("fill_a", *of_in_a, "inputA", *shim0, 0, true, *a_tap);
+        if (!fillA) {
+            std::cerr << "FAILED (fill A)\n    " << fillA.error()[0].message << "\n";
+            return false;
+        }
+        auto fillB = bridge.runtimeAddFill("fill_b", *of_in_b, "inputB", *shim1, 1, true, *b_tap);
+        if (!fillB) {
+            std::cerr << "FAILED (fill B)\n    " << fillB.error()[0].message << "\n";
+            return false;
+        }
+        auto drainC = bridge.runtimeAddDrain("drain_c", *of_out_c, "outputC", *shim2, 2, true, *c_tap);
+        if (!drainC) {
+            std::cerr << "FAILED (drain C)\n    " << drainC.error()[0].message << "\n";
+            return false;
+        }
+
+        auto buildRuntime = bridge.runtimeBuild();
+        if (!buildRuntime) {
+            std::cerr << "FAILED (build runtime)\n    " << buildRuntime.error()[0].message << "\n";
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 15: Build and validate
+        std::cout << "  [15/16] Building and validating program... ";
+        auto buildResult = bridge.build();
+        if (!buildResult) {
+            std::cerr << "FAILED\n";
+            for (const auto& diag : buildResult.error()) {
+                std::cerr << "    " << diag.message << "\n";
+            }
+            return false;
+        }
+        std::cout << "OK\n";
+
+        // Step 16: Export to XML and run code generator
+        std::cout << "  [16/16] Exporting to GUI XML and running code generator... ";
+        ensureOutputDir();
+        std::string xmlPath = OUTPUT_DIR + "matrix_vector_mul_test_gui.xml";
+        auto exportResult = bridge.exportToGuiXml(xmlPath);
+        if (!exportResult) {
+            std::cerr << "FAILED\n    " << exportResult.error()[0].message << "\n";
+            return false;
+        }
+        if (!std::filesystem::exists(xmlPath)) {
+            std::cerr << "FAILED (file not created)\n";
+            return false;
+        }
+
+        // Run code generator
+        codegen::CodeGenBridge codegenBridge;
+        codegen::CodeGenOptions options;
+        options.outputDir = OUTPUT_DIR;
+
+        auto codegenResult = codegenBridge.runCodeGen(xmlPath, options);
+        if (!codegenResult) {
+            std::cerr << "FAILED (codegen)\n";
+            for (const auto& diag : codegenResult.error()) {
+                std::cerr << "    " << diag.message << "\n";
+            }
+            return false;
+        }
+
+        const auto& output = codegenResult.value();
+        bool foundGraphML = false;
+        bool foundPython  = false;
+        for (const auto& file : output.generatedFiles) {
+            std::string filename = file.filename().string();
+            if (filename.ends_with(".graphml")) foundGraphML = true;
+            if (filename.starts_with("generated_") && filename.ends_with(".py")) foundPython = true;
+        }
+
+        if (!foundGraphML || !foundPython) {
+            std::cerr << "FAILED (missing output files)\n";
+            std::cerr << "    GraphML: " << (foundGraphML ? "Found" : "Missing") << "\n";
+            std::cerr << "    Python:  " << (foundPython  ? "Found" : "Missing") << "\n";
+            return false;
+        }
+        std::cout << "OK (" << output.generatedFiles.size() << " files)\n";
+
+        std::cout << "\n  Matrix Vector Multiply Example: ALL TESTS PASSED\n";
+        std::cout << "  Generated files saved to: " << OUTPUT_DIR << "\n";
+        std::cout << "    - " << xmlPath << "\n";
+        for (const auto& file : output.generatedFiles) {
+            std::cout << "    - " << file.filename().string() << "\n";
+        }
+
+        return true;
+
+    } catch (const std::exception& e) {
+        std::cerr << "EXCEPTION: " << e.what() << "\n";
+        return false;
+    }
+}
+
 bool runBridgeTests() {
     std::cout << "\n";
     std::cout << "========================================\n";
@@ -1615,19 +2005,22 @@ bool runBridgeTests() {
     bool addActivatePassed = testAddActivateExample();
     bool vectorExpPassed = testVectorExpExample();
     bool vectorMulPassed = testVectorVectorMulExample();
+    bool matVecMulPassed = testMatrixVectorMulExample();
 
     std::cout << "\n========================================\n";
     std::cout << "  Test Summary\n";
     std::cout << "========================================\n";
-    std::cout << "  HLIR Bridge:          " << (hlirPassed ? "PASSED" : "FAILED") << "\n";
-    std::cout << "  CodeGen Bridge:       " << (codegenPassed ? "PASSED" : "FAILED") << "\n";
-    std::cout << "  Passthrough Example:  " << (passthroughPassed ? "PASSED" : "FAILED") << "\n";
-    std::cout << "  Add-Activate Example: " << (addActivatePassed ? "PASSED" : "FAILED") << "\n";
-    std::cout << "  Vector Exp Example:   " << (vectorExpPassed ? "PASSED" : "FAILED") << "\n";
-    std::cout << "  Vector Mul Example:   " << (vectorMulPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  HLIR Bridge:             " << (hlirPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  CodeGen Bridge:          " << (codegenPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Passthrough Example:     " << (passthroughPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Add-Activate Example:    " << (addActivatePassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Vector Exp Example:      " << (vectorExpPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Vector Mul Example:      " << (vectorMulPassed ? "PASSED" : "FAILED") << "\n";
+    std::cout << "  Matrix-Vector Mul Exmpl: " << (matVecMulPassed ? "PASSED" : "FAILED") << "\n";
     std::cout << "========================================\n";
 
-    bool allPassed = hlirPassed && codegenPassed && passthroughPassed && addActivatePassed && vectorExpPassed && vectorMulPassed;
+    bool allPassed = hlirPassed && codegenPassed && passthroughPassed && addActivatePassed
+                  && vectorExpPassed && vectorMulPassed && matVecMulPassed;
     std::cout << "\n  Overall: " << (allPassed ? "SUCCESS" : "FAILURE") << "\n\n";
 
     return allPassed;

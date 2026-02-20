@@ -572,20 +572,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -628,20 +616,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -684,20 +660,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -740,20 +704,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="A" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -796,20 +748,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -852,20 +792,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -908,20 +836,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -964,20 +880,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="B" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -1036,20 +940,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
             </method>
@@ -1092,20 +984,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
             </method>
@@ -1148,20 +1028,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
             </method>
@@ -1204,20 +1072,8 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="D" name="numel"/>
-                      <const>8</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>16</const>
                 </list>
               </kwarg>
             </method>
@@ -1730,14 +1586,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_1"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_1"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1782,14 +1631,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_2"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_2"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1834,14 +1676,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_3"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_3"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1886,14 +1721,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_4"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_4"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1938,14 +1766,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_5"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_5"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1990,14 +1811,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_6"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_6"/>
             </base>
             <call>
               <method name="cons"/>
@@ -2042,14 +1856,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_7"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_7"/>
             </base>
             <call>
               <method name="cons"/>
@@ -2094,14 +1901,7 @@
         <arg>
           <method_chain>
             <base>
-              <index>
-                <base>
-                  <var ref="of_inter_8"/>
-                </base>
-                <index_value>
-                  <const>0</const>
-                </index_value>
-              </index>
+              <var ref="of_inter_8"/>
             </base>
             <call>
               <method name="cons"/>

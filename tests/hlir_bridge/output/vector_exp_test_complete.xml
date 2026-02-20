@@ -29,9 +29,7 @@
       <ndarray>
         <shape>
           <tuple>
-            <expr>
-              <method ref="inputA" name="numel"/>
-            </expr>
+            <expr>N</expr>
           </tuple>
         </shape>
         <dtype>
@@ -43,12 +41,7 @@
       <ndarray>
         <shape>
           <tuple>
-            <expr>
-              <binary_op op="//">
-                <method ref="inputA" name="numel"/>
-                <const>16</const>
-              </binary_op>
-            </expr>
+            <expr>N // 16</expr>
           </tuple>
         </shape>
         <dtype>
@@ -60,12 +53,7 @@
       <ndarray>
         <shape>
           <tuple>
-            <expr>
-              <binary_op op="//">
-                <method ref="inputA" name="numel"/>
-                <const>64</const>
-              </binary_op>
-            </expr>
+            <expr>N // 64</expr>
           </tuple>
         </shape>
         <dtype>
@@ -217,34 +205,10 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="inputA" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="inputA" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="inputA" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>2</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="inputA" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>3</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>1024</const>
+                  <const>2048</const>
+                  <const>3072</const>
                 </list>
               </kwarg>
               <kwarg name="names">
@@ -309,34 +273,10 @@
               </kwarg>
               <kwarg name="offsets">
                 <list>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="outputC" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>0</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="outputC" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>1</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="outputC" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>2</const>
-                  </binary_op>
-                  <binary_op op="*">
-                    <binary_op op="//">
-                      <method ref="outputC" name="numel"/>
-                      <const>64</const>
-                    </binary_op>
-                    <const>3</const>
-                  </binary_op>
+                  <const>0</const>
+                  <const>1024</const>
+                  <const>2048</const>
+                  <const>3072</const>
                 </list>
               </kwarg>
             </method>
