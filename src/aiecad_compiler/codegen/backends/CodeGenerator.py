@@ -222,6 +222,9 @@ class CodeGenerator:
                     # Import TensorAccessPattern
                     self._emit()
                     self._emit("from aie.helpers.taplib import TensorAccessPattern")
+                elif name == 'aie.iron.controlflow':
+                    # Import range_ for core function loops
+                    self._emit("from aie.iron.controlflow import range_")
                 elif alias:
                     self._emit(f"import {name} as {alias}")
                 else:

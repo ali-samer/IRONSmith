@@ -1,6 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brock Sorenson
-// SPDX-License-Identifier: GPL-3.0-only
-
 #pragma once
 
 #include <expected>

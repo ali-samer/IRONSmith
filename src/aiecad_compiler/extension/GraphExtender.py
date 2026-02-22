@@ -603,7 +603,19 @@ class CoreFunctionExtension(GraphExtension):
                                     except NameError:
                                         var_nid = self._add_node(var_ref, "VarRef")
                                         self._link(call_nid, var_nid, "has_arg")
-    
+
+        elif tag == "For":
+            # <For var="_" range="range_(...)">...</For>
+            loop_var = elem.get("var", "_")
+            range_expr = elem.get("range", "range_(...)")
+            for_nid = self._add_node(f"for {loop_var} in {range_expr}", "For")
+            self._link(parent_nid, for_nid, "contains")
+
+            # Process nested body statements inside the For loop
+            for child in elem:
+                if child.tag is not etree.Comment:
+                    self._process_body_statement(child, for_nid)
+
     def _walk_call(self, elem: etree.Element, parent_nid: NodeId) -> NodeId:
         """Walk a call element and create call node"""
         call_nid = self._add_node("call", "Call")

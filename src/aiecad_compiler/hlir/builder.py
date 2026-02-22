@@ -65,24 +65,67 @@ class ProgramBuilder:
         return str(uuid4())
 
     def _register_component(self, comp_type: str, name: str, component: Any,
-                           inject: bool = True) -> Tuple[str, bool]:
+                           inject: bool = True, provided_id: Optional[str] = None) -> str:
         """
         Register a component with ID tracking.
 
+        Args:
+            comp_type: Component type string
+            name: Component name
+            component: Component object
+            inject: Whether to inject into program
+            provided_id: Optional ID to use (for updates)
+
         Returns:
-            (component_id, is_new) - is_new is False if duplicate
+            component_id (UUID string)
         """
         name_key = (comp_type, name)
+
+        # If ID is provided, this is an update operation
+        if provided_id:
+            if provided_id in self._id_map:
+                # Update: replace the component but keep the same ID
+                old_type, old_component = self._id_map[provided_id]
+
+                # Remove old component from tracking
+                old_obj_id = id(old_component)
+                if old_obj_id in self._component_to_id:
+                    del self._component_to_id[old_obj_id]
+
+                # If name changed, update name index
+                if old_type == comp_type:
+                    old_name = getattr(old_component, 'name', None)
+                    if old_name and old_name != name:
+                        old_name_key = (comp_type, old_name)
+                        if old_name_key in self._name_index:
+                            del self._name_index[old_name_key]
+
+                # Register new component with existing ID
+                self._id_map[provided_id] = (comp_type, component)
+                self._name_index[name_key] = provided_id
+                self._component_to_id[id(component)] = provided_id
+
+                return provided_id
+            else:
+                # Provided ID doesn't exist, use it as new
+                comp_id = provided_id
+                self._id_map[comp_id] = (comp_type, component)
+                self._name_index[name_key] = comp_id
+                self._component_to_id[id(component)] = comp_id
+                return comp_id
+
+        # Check for duplicate name
         if name_key in self._name_index:
             existing_id = self._name_index[name_key]
-            return (existing_id, False)
+            return existing_id
 
+        # Normal registration with generated ID
         comp_id = self._generate_id()
         self._id_map[comp_id] = (comp_type, component)
         self._name_index[name_key] = comp_id
         self._component_to_id[id(component)] = comp_id
 
-        return (comp_id, True)
+        return comp_id
 
     def _check_dependencies(self, comp_id: str, comp_type: str, component: Any) -> List[str]:
         """Check what components depend on this component."""
@@ -140,25 +183,40 @@ class ProgramBuilder:
         return deps
 
     def add_symbol(self, name: str, value: Any, type_hint: Optional[str] = None,
-                   is_constant: bool = False) -> 'ProgramBuilder':
+                   is_constant: bool = False, provided_id: Optional[str] = None) -> BuilderResult:
         """
-        Add a symbol (variable, constant, type alias) to the program.
+        Add or update a symbol (variable, constant, type alias) in the program.
 
         Args:
             name: Symbol name
             value: Symbol value
             type_hint: Optional type hint
             is_constant: Whether this is a constant
+            provided_id: Optional ID for update operation
 
         Returns:
-            Self for chaining
+            BuilderResult with component ID and symbol object.
 
-        Raises:
-            ValueError: If symbol name already exists
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
         """
-        if name in self.program.symbols:
-            raise ValueError(f"Symbol '{name}' already exists")
+        comp_type = 'constant' if is_constant else 'symbol'
 
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.symbols:
+            name_key = (comp_type, name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, comp_type, existing_id)
+
+        # Create new symbol
         symbol = Symbol(
             name=name,
             value=value,
@@ -167,92 +225,115 @@ class ProgramBuilder:
         )
         self.program.symbols[name] = symbol
 
-        # Track ID for interactive editing
-        comp_type = 'constant' if is_constant else 'symbol'
-        self._register_component(comp_type, name, symbol)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component(comp_type, name, symbol, provided_id=provided_id)
 
-        return self
+        return BuilderResult.ok(comp_id, symbol)
 
     def add_constant(self, name: str, value: Union[int, float, str],
-                    type_hint: Optional[str] = None) -> 'ProgramBuilder':
+                    type_hint: Optional[str] = None, provided_id: Optional[str] = None) -> BuilderResult:
         """
-        Add a constant to the program.
+        Add or update a constant in the program.
 
         Args:
             name: Constant name
             value: Constant value
             type_hint: Optional type hint
+            provided_id: Optional ID for update operation
 
         Returns:
-            Self for chaining
+            BuilderResult with component ID and symbol object
         """
-        return self.add_symbol(name, value, type_hint, is_constant=True)
+        return self.add_symbol(name, value, type_hint, is_constant=True, provided_id=provided_id)
 
     def add_tensor_type(self, name: str, shape: List[Union[int, str]],
                        dtype: Union[str, DataType],
-                       layout: Optional[str] = None) -> TensorType:
+                       layout: Optional[str] = None, provided_id: Optional[str] = None) -> BuilderResult:
         """
-        Add a tensor type definition to the program.
+        Add or update a tensor type definition in the program.
 
         Args:
             name: Type name
             shape: Shape dimensions (can be symbolic)
             dtype: Data type
             layout: Optional layout hint
+            provided_id: Optional ID for update operation
 
         Returns:
-            Created TensorType
+            BuilderResult with component ID and TensorType object
 
         Example:
-            >>> builder.add_tensor_type("chunk_ty", shape=[1024], dtype="int32")
+            >>> result = builder.add_tensor_type("chunk_ty", shape=[1024], dtype="int32")
+            >>> tensor_id = result.id  # Use this ID for further operations
         """
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.symbols:
+            name_key = ('tensor_type', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'tensor_type', existing_id)
+
+        # Create new tensor type
         tensor_ty = make_tensor_type(shape, dtype, layout)
         symbol = Symbol(name=name, value=tensor_ty, type_hint="TensorType")
         self.program.symbols[name] = symbol
 
-        # Track ID for interactive editing
-        self._register_component('tensor_type', name, symbol)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('tensor_type', name, symbol, provided_id=provided_id)
 
-        return tensor_ty
+        return BuilderResult.ok(comp_id, tensor_ty)
 
     def add_tile(self, name: str, kind: Union[str, TileKind],
-                 x: int, y: int, **metadata) -> Tile:
+                 x: int, y: int, provided_id: Optional[str] = None, **metadata) -> BuilderResult:
         """
-        Add a tile to the program.
+        Add or update a tile in the program.
 
         Args:
             name: Unique tile name
             kind: Tile kind (shim, mem, compute)
             x: Column coordinate
             y: Row coordinate
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created Tile
-
-        Raises:
-            ValueError: If tile name already exists
+            BuilderResult with component ID and Tile object
         """
-        if name in self.program.tiles:
-            raise ValueError(f"Tile '{name}' already exists")
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.tiles:
+                del self.program.tiles[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.tiles:
+            name_key = ('tile', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'tile', existing_id)
 
+        # Create new tile
         if isinstance(kind, str):
             kind = TileKind(kind.lower())
 
         tile = Tile(name=name, kind=kind, x=x, y=y, metadata=metadata)
         self.program.tiles[name] = tile
 
-        # Track ID for interactive editing
-        self._register_component('tile', name, tile)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('tile', name, tile, provided_id=provided_id)
 
-        return tile
+        return BuilderResult.ok(comp_id, tile)
 
     def add_fifo(self, name: str, obj_type: Union[AnyType, str],
                  depth: int = 2, producer: Optional[Union[Tile, str]] = None,
                  consumers: Optional[List[Union[Tile, str]]] = None,
-                 **metadata) -> ObjectFifo:
+                 provided_id: Optional[str] = None, **metadata) -> BuilderResult:
         """
-        Add an ObjectFifo to the program.
+        Add or update an ObjectFifo in the program.
 
         Args:
             name: Unique FIFO name
@@ -260,16 +341,23 @@ class ProgramBuilder:
             depth: Buffer depth (default 2)
             producer: Optional producer tile
             consumers: Optional consumer tiles
+            provided_id: Optional ID for update operation
             **metadata: Additional properties (context, direction, etc.)
 
         Returns:
-            Created ObjectFifo
-
-        Raises:
-            ValueError: If FIFO name already exists
+            BuilderResult with component ID and ObjectFifo object
         """
-        if name in self.program.fifos:
-            raise ValueError(f"FIFO '{name}' already exists")
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.fifos:
+                del self.program.fifos[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.fifos:
+            name_key = ('fifo', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'fifo', existing_id)
 
         # Resolve tile references
         if isinstance(producer, str):
@@ -286,6 +374,7 @@ class ProgramBuilder:
         else:
             consumers = []
 
+        # Create new FIFO
         fifo = ObjectFifo(
             name=name,
             obj_type=obj_type,
@@ -296,17 +385,18 @@ class ProgramBuilder:
         )
         self.program.fifos[name] = fifo
 
-        # Track ID for interactive editing
-        self._register_component('fifo', name, fifo)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('fifo', name, fifo, provided_id=provided_id)
 
-        return fifo
+        return BuilderResult.ok(comp_id, fifo)
 
     def add_fifo_split(self, name: str, source: Union[ObjectFifo, str],
                        num_outputs: int, output_type: Union[AnyType, str],
                        output_names: List[str], offsets: List[Union[int, str]],
-                       placement: Union[Tile, str], **metadata) -> SplitOperation:
+                       placement: Union[Tile, str], provided_id: Optional[str] = None,
+                       **metadata) -> BuilderResult:
         """
-        Add a split operation on a FIFO.
+        Add or update a split operation on a FIFO.
 
         Args:
             name: Name of split result
@@ -316,11 +406,29 @@ class ProgramBuilder:
             output_names: Names for each output
             offsets: Byte offsets for each output
             placement: Tile where split occurs
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created SplitOperation
+            BuilderResult with component ID and SplitOperation object
+
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
         """
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.symbols:
+            name_key = ('fifo_split', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'fifo_split', existing_id)
+
         if isinstance(source, str):
             source = self.program.fifos.get(source, source)
         if isinstance(placement, str):
@@ -341,17 +449,18 @@ class ProgramBuilder:
         symbol = Symbol(name=name, value=split_op, type_hint="SplitOperation")
         self.program.symbols[name] = symbol
 
-        # Track ID with specific type label for better filtering
-        self._register_component('fifo_split', name, symbol)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('fifo_split', name, symbol, provided_id=provided_id)
 
-        return split_op
+        return BuilderResult.ok(comp_id, split_op)
 
     def add_fifo_join(self, name: str, dest: Union[ObjectFifo, str],
                       num_inputs: int, input_type: Union[AnyType, str],
                       input_names: List[str], offsets: List[Union[int, str]],
-                      placement: Union[Tile, str], **metadata) -> JoinOperation:
+                      placement: Union[Tile, str], provided_id: Optional[str] = None,
+                      **metadata) -> BuilderResult:
         """
-        Add a join operation on a FIFO.
+        Add or update a join operation on a FIFO.
 
         Args:
             name: Name of join result
@@ -361,11 +470,29 @@ class ProgramBuilder:
             input_names: Names for each input
             offsets: Byte offsets for each input
             placement: Tile where join occurs
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created JoinOperation
+            BuilderResult with component ID and JoinOperation object
+
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
         """
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.symbols:
+            name_key = ('fifo_join', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'fifo_join', existing_id)
+
         if isinstance(dest, str):
             dest = self.program.fifos.get(dest, dest)
         if isinstance(placement, str):
@@ -386,24 +513,42 @@ class ProgramBuilder:
         symbol = Symbol(name=name, value=join_op, type_hint="JoinOperation")
         self.program.symbols[name] = symbol
 
-        # Track ID with specific type label for better filtering
-        self._register_component('fifo_join', name, symbol)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('fifo_join', name, symbol, provided_id=provided_id)
 
-        return join_op
+        return BuilderResult.ok(comp_id, join_op)
 
     def add_fifo_forward(self, name: str, source: Union[ObjectFifo, str],
-                        **metadata) -> ForwardOperation:
+                        provided_id: Optional[str] = None, **metadata) -> BuilderResult:
         """
-        Add a forward operation on a FIFO.
+        Add or update a forward operation on a FIFO.
 
         Args:
             name: Name of forward result
             source: Source FIFO to forward
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created ForwardOperation
+            BuilderResult with component ID and ForwardOperation object
+
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
         """
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.symbols:
+                del self.program.symbols[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.symbols:
+            name_key = ('fifo_forward', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'fifo_forward', existing_id)
+
         if isinstance(source, str):
             source = self.program.fifos.get(source, source)
 
@@ -417,17 +562,18 @@ class ProgramBuilder:
         symbol = Symbol(name=name, value=forward_op, type_hint="ForwardOperation")
         self.program.symbols[name] = symbol
 
-        # Track ID with specific type label for better filtering
-        self._register_component('fifo_forward', name, symbol)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('fifo_forward', name, symbol, provided_id=provided_id)
 
-        return forward_op
+        return BuilderResult.ok(comp_id, forward_op)
 
     def add_external_kernel(self, name: str, kernel_name: str,
                            source_file: str, arg_types: List[Union[AnyType, str]],
                            include_dirs: Optional[List[str]] = None,
-                           **metadata) -> ExternalKernel:
+                           provided_id: Optional[str] = None,
+                           **metadata) -> BuilderResult:
         """
-        Add an external kernel declaration.
+        Add or update an external kernel declaration.
 
         Args:
             name: Unique kernel name
@@ -435,16 +581,28 @@ class ProgramBuilder:
             source_file: Path to source file
             arg_types: Argument types
             include_dirs: Optional include directories
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created ExternalKernel
+            BuilderResult with component ID and ExternalKernel object
 
-        Raises:
-            ValueError: If kernel name already exists
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
         """
-        if name in self.program.external_kernels:
-            raise ValueError(f"External kernel '{name}' already exists")
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.external_kernels:
+                del self.program.external_kernels[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.external_kernels:
+            name_key = ('external_kernel', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'external_kernel', existing_id)
 
         kernel = ExternalKernel(
             name=name,
@@ -456,18 +614,19 @@ class ProgramBuilder:
         )
         self.program.external_kernels[name] = kernel
 
-        # Track ID for interactive editing
-        self._register_component('external_kernel', name, kernel)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('external_kernel', name, kernel, provided_id=provided_id)
 
-        return kernel
+        return BuilderResult.ok(comp_id, kernel)
 
     def add_core_function(self, name: str, parameters: List[str],
                          acquires: Optional[List[tuple]] = None,
                          kernel_call: Optional[tuple] = None,
                          releases: Optional[List[tuple]] = None,
-                         **metadata) -> CoreFunction:
+                         provided_id: Optional[str] = None,
+                         **metadata) -> BuilderResult:
         """
-        Add a core function definition.
+        Add or update a core function definition.
 
         Args:
             name: Function name
@@ -475,13 +634,16 @@ class ProgramBuilder:
             acquires: List of (fifo_param, count, local_var) tuples
             kernel_call: Tuple of (kernel_param, args_list)
             releases: List of (fifo_param, count) tuples
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created CoreFunction
+            BuilderResult with component ID and CoreFunction object
 
-        Raises:
-            ValueError: If function name already exists
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
 
         Example:
             >>> builder.add_core_function(
@@ -492,8 +654,17 @@ class ProgramBuilder:
             ...     releases=[("fifoA", 1), ("fifoB", 1), ("fifoC", 1)]
             ... )
         """
-        if name in self.program.core_functions:
-            raise ValueError(f"Core function '{name}' already exists")
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.core_functions:
+                del self.program.core_functions[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.core_functions:
+            name_key = ('core_function', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'core_function', existing_id)
 
         # Convert tuples to proper objects
         acquire_objs = []
@@ -521,29 +692,32 @@ class ProgramBuilder:
         )
         self.program.core_functions[name] = func
 
-        # Track ID for interactive editing
-        self._register_component('core_function', name, func)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('core_function', name, func, provided_id=provided_id)
 
-        return func
+        return BuilderResult.ok(comp_id, func)
 
     def add_worker(self, name: str, core_fn: Union[CoreFunction, str],
                    fn_args: List[Union[str, tuple]], placement: Union[Tile, str],
-                   **metadata) -> Worker:
+                   provided_id: Optional[str] = None, **metadata) -> BuilderResult:
         """
-        Add a worker to the program.
+        Add or update a worker to the program.
 
         Args:
             name: Unique worker name
             core_fn: CoreFunction to execute (or name)
             fn_args: List of arguments - first is kernel name, rest are (fifo, mode, index) tuples
             placement: Tile where worker executes
+            provided_id: Optional ID for update operation
             **metadata: Additional properties
 
         Returns:
-            Created Worker
+            BuilderResult with component ID and Worker object
 
-        Raises:
-            ValueError: If worker name already exists
+        Notes:
+            If provided_id exists, updates the component with that ID (keeping dependencies intact).
+            If provided_id is new or None, creates a new component.
+            If name exists without provided_id, returns duplicate error.
 
         Example:
             >>> builder.add_worker(
@@ -553,8 +727,17 @@ class ProgramBuilder:
             ...     placement="tile_compute0"
             ... )
         """
-        if name in self.program.workers:
-            raise ValueError(f"Worker '{name}' already exists")
+        # If ID provided and exists, remove old component from program dict (update operation)
+        if provided_id and provided_id in self._id_map:
+            _, old_component = self._id_map[provided_id]
+            old_name = getattr(old_component, 'name', None)
+            if old_name and old_name in self.program.workers:
+                del self.program.workers[old_name]
+        # Check for duplicate name only if not updating
+        elif name in self.program.workers:
+            name_key = ('worker', name)
+            existing_id = self._name_index.get(name_key, "")
+            return BuilderResult.duplicate(name, 'worker', existing_id)
 
         # Resolve references
         if isinstance(core_fn, str):
@@ -588,10 +771,10 @@ class ProgramBuilder:
         )
         self.program.workers[name] = worker
 
-        # Track ID for interactive editing
-        self._register_component('worker', name, worker)
+        # Register with provided ID or generate new one
+        comp_id = self._register_component('worker', name, worker, provided_id=provided_id)
 
-        return worker
+        return BuilderResult.ok(comp_id, worker)
 
     def create_runtime(self, name: str = "runtime") -> 'RuntimeBuilder':
         """
@@ -1174,8 +1357,8 @@ def ProgramBuilderFromXML(xml_file: str) -> ProgramBuilder:
                 if param_names:
                     rt.add_params(param_names)
 
-                # Parse StartWorkers
-                start_workers_elem = seq_elem.find('StartWorkers')
+                # Parse Start/StartWorkers (support both for backwards compatibility)
+                start_workers_elem = seq_elem.find('Start') or seq_elem.find('StartWorkers')
                 if start_workers_elem is not None and start_workers_elem.text:
                     worker_names = [w.strip() for w in start_workers_elem.text.split(',')]
                     for worker_name in worker_names:
