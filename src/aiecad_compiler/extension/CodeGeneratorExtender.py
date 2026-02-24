@@ -127,10 +127,13 @@ class ExternalFunctionCodeGen(CodeGenExtension):
 class CoreFunctionCodeGen(CodeGenExtension):
     """Generates CoreFunction (def statements inside jit function)"""
 
+
     kind = "CoreFunction"
+
 
     def generate(self, node_id: str) -> str:
         name = self._get_node_attr(node_id, 'label')
+
 
         # Get parameters
         param_nodes = self._get_children(node_id, 'has_param')
@@ -139,10 +142,13 @@ class CoreFunctionCodeGen(CodeGenExtension):
             p_name = self._get_node_attr(p_id, 'label')
             params.append(p_name)
 
+
         params_str = ", ".join(params)
+
 
         # Generate function signature
         lines = [f"def {name}({params_str}):"]
+
 
         # Generate body
         body_nodes = self._get_children(node_id, 'contains')

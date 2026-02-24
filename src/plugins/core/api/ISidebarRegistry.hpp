@@ -28,6 +28,7 @@ public:
 							  QString* errorOut = nullptr) = 0;
 
 	virtual bool unregisterTool(const QString& id, QString* errorOut = nullptr) = 0;
+	virtual bool isToolOpen(const QString& id) const = 0;
 public slots:
 	virtual void requestShowTool(const QString& id) = 0;
 	virtual void requestHideTool(const QString& id) = 0;
@@ -35,6 +36,7 @@ public slots:
 signals:
 	void toolRegistered(const QString& id);
 	void toolUnregistered(const QString& id);
+	void toolOpenStateChanged(const QString& id, bool open);
 };
 
 } // namespace Core
