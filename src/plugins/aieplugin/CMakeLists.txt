@@ -71,8 +71,8 @@ ironsmith_add_plugin(AiePlugin
             design/CanvasDocumentImporter.cpp
             design/DesignOpenController.hpp
             design/DesignOpenController.cpp
-            HlirSyncService.hpp
-            HlirSyncService.cpp
+            hlir_sync/HlirSyncService.hpp
+            hlir_sync/HlirSyncService.cpp
 
         PUBLIC_DEPENDS
             ${QT6_REQUIRED_COMPONENTS}

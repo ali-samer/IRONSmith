@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samer Ali
 // SPDX-License-Identifier: GPL-3.0-only
 
-#include "aieplugin/HlirSyncService.hpp"
+#include "aieplugin/hlir_sync/HlirSyncService.hpp"
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"

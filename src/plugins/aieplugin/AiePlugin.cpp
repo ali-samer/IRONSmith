@@ -13,7 +13,7 @@
 #include "aieplugin/kernels/KernelToolboxController.hpp"
 #include "aieplugin/state/AieSidebarState.hpp"
 #include "aieplugin/state/AieWorkspaceState.hpp"
-#include "aieplugin/HlirSyncService.hpp"
+#include "aieplugin/hlir_sync/HlirSyncService.hpp"
 #include "aieplugin/AiePlugin.ForwardDecls.cpp"
 
 #include <extensionsystem/IPlugin.hpp>
