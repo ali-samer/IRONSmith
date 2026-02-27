@@ -5,9 +5,11 @@
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
+#include "canvas/CanvasPorts.hpp"
 #include "canvas/CanvasWire.hpp"
 
 #include <QtCore/QHash>
+#include <QtCore/QList>
 #include <QtCore/QSet>
 
 #include <optional>
@@ -135,6 +137,113 @@ QList<ParsedWire> collectWires(const Canvas::CanvasDocument& doc)
             fifoName = QStringLiteral("fifo_%1_to_%2").arg(blockA->specId(), blockB->specId());
 
         result.append(ParsedWire{wire, blockA, blockB, *parsedA, *parsedB, fifoName});
+    }
+
+    return result;
+}
+
+/// Extra incoming/outgoing FIFO connections contributed by split/join hub blocks.
+/// These are not visible as direct tile-to-tile wires but represent real DMA
+/// channel usage that must be counted in connectivity and channel-limit checks.
+struct HubConnections {
+    QHash<Canvas::CanvasBlock*, ParsedSpec> blockSpec;
+    QHash<Canvas::CanvasBlock*, int> extraIn;   // block → additional incoming connections
+    QHash<Canvas::CanvasBlock*, int> extraOut;  // block → additional outgoing connections
+};
+
+/// Derive FIFO connection counts contributed by split/join hub blocks.
+///
+/// Topology conventions (derived from canvas document structure):
+///   SPLIT hub: pivot wire has hub at endpoint B with a Consumer port;
+///              arm wires have hub at endpoint A with Producer ports.
+///              → placement tile (pivot endpoint A) gains +N outgoing;
+///              → each arm tile (arm endpoint B) gains +1 incoming.
+///   JOIN  hub: pivot wire has hub at endpoint B with a Producer port;
+///              arm wires have hub at endpoint A with Consumer ports.
+///              → placement tile (pivot endpoint A) gains +N incoming;
+///              → each arm tile (arm endpoint B) gains +1 outgoing.
+HubConnections collectHubConnections(const Canvas::CanvasDocument& doc)
+{
+    HubConnections result;
+    const auto& items = doc.items();
+
+    for (const auto& item : items) {
+        auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(item.get());
+        if (!hubBlock || !hubBlock->isLinkHub() || !hubBlock->specId().isEmpty())
+            continue;
+
+        // Build port-role lookup for this hub block.
+        QHash<Canvas::PortId, Canvas::PortRole> portRoles;
+        for (const auto& port : hubBlock->ports())
+            portRoles[port.id] = port.role;
+
+        Canvas::CanvasBlock* pivotBlock = nullptr;
+        ParsedSpec           pivotSpec{};
+        Canvas::PortRole     pivotRole  = Canvas::PortRole::Dynamic;
+
+        struct ArmEntry { Canvas::CanvasBlock* block; ParsedSpec spec; };
+        QList<ArmEntry> armTiles;
+
+        for (const auto& wItem : items) {
+            auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+            if (!wire)
+                continue;
+
+            const auto& epA = wire->a();
+            const auto& epB = wire->b();
+            if (!epA.attached.has_value() || !epB.attached.has_value())
+                continue;
+
+            const bool aIsHub = (epA.attached->itemId == hubBlock->id());
+            const bool bIsHub = (epB.attached->itemId == hubBlock->id());
+            if (!aIsHub && !bIsHub)
+                continue;
+
+            if (bIsHub) {
+                // Pivot wire: placement tile is at endpoint A.
+                auto* blkA = dynamic_cast<Canvas::CanvasBlock*>(
+                    doc.findItem(epA.attached->itemId));
+                if (!blkA || blkA->isLinkHub())
+                    continue;
+                const auto specA = parseTileSpec(blkA->specId());
+                if (!specA || specA->kind == NodeKind::DDR)
+                    continue;
+                pivotBlock = blkA;
+                pivotSpec  = *specA;
+                pivotRole  = portRoles.value(epB.attached->portId, Canvas::PortRole::Dynamic);
+            } else { // aIsHub
+                // Arm wire: real tile is at endpoint B.
+                auto* blkB = dynamic_cast<Canvas::CanvasBlock*>(
+                    doc.findItem(epB.attached->itemId));
+                if (!blkB || blkB->isLinkHub())
+                    continue;
+                const auto specB = parseTileSpec(blkB->specId());
+                if (!specB || specB->kind == NodeKind::DDR)
+                    continue;
+                armTiles.append({blkB, *specB});
+            }
+        }
+
+        if (!pivotBlock || armTiles.isEmpty())
+            continue;
+
+        if (pivotRole == Canvas::PortRole::Consumer) {
+            // SPLIT: placement tile gains outgoing connections; arm tiles gain incoming.
+            result.blockSpec.insert(pivotBlock, pivotSpec);
+            result.extraOut[pivotBlock] += armTiles.size();
+            for (const auto& arm : armTiles) {
+                result.blockSpec.insert(arm.block, arm.spec);
+                result.extraIn[arm.block]++;
+            }
+        } else if (pivotRole == Canvas::PortRole::Producer) {
+            // JOIN: placement tile gains incoming connections; arm tiles gain outgoing.
+            result.blockSpec.insert(pivotBlock, pivotSpec);
+            result.extraIn[pivotBlock] += armTiles.size();
+            for (const auto& arm : armTiles) {
+                result.blockSpec.insert(arm.block, arm.spec);
+                result.extraOut[arm.block]++;
+            }
+        }
     }
 
     return result;
@@ -309,6 +418,17 @@ public:
             }
         }
 
+        // Augment with split/join hub connections (arm wires count as real FIFO paths).
+        const auto hub = collectHubConnections(*ctx.document);
+        for (auto it = hub.extraIn.cbegin(); it != hub.extraIn.cend(); ++it) {
+            blockSpec.insert(it.key(), hub.blockSpec.value(it.key()));
+            inCount[it.key()] += it.value();
+        }
+        for (auto it = hub.extraOut.cbegin(); it != hub.extraOut.cend(); ++it) {
+            blockSpec.insert(it.key(), hub.blockSpec.value(it.key()));
+            outCount[it.key()] += it.value();
+        }
+
         // Tile has outgoing FIFOs but no incoming — data appears from nowhere.
         for (auto it = outCount.cbegin(); it != outCount.cend(); ++it) {
             Canvas::CanvasBlock* block = it.key();
@@ -381,6 +501,17 @@ public:
             }
         }
 
+        // Augment with split/join hub connections — each arm wire uses one DMA channel.
+        const auto hub = collectHubConnections(*ctx.document);
+        for (auto it = hub.extraIn.cbegin(); it != hub.extraIn.cend(); ++it) {
+            blockSpec.insert(it.key(), hub.blockSpec.value(it.key()));
+            connectionCount[it.key()] += it.value();
+        }
+        for (auto it = hub.extraOut.cbegin(); it != hub.extraOut.cend(); ++it) {
+            blockSpec.insert(it.key(), hub.blockSpec.value(it.key()));
+            connectionCount[it.key()] += it.value();
+        }
+
         for (auto it = connectionCount.cbegin(); it != connectionCount.cend(); ++it) {
             const ParsedSpec& spec = blockSpec[it.key()];
             const int limit = channelLimit(spec.kind);
@@ -388,6 +519,139 @@ public:
                 issues.append({VerificationIssue::Severity::Error,
                     QStringLiteral("%1 has %2 connections but only %3 DMA channels are available.")
                     .arg(tileName(spec)).arg(it.value()).arg(limit)});
+            }
+        }
+
+        return issues;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Check 6 — SplitJoinDivisibility
+//
+// For a split or join to produce equal-sized sub-FIFOs, the source FIFO's
+// element count must be exactly divisible by the number of arms. If not,
+// the offset stride would be fractional and code generation would produce
+// incorrect memory layouts.
+// ---------------------------------------------------------------------------
+
+class SplitJoinDivisibilityCheck : public IVerificationCheck
+{
+    // Compute total element count from "1024" → 1024, "32x4" → 128, "" → 1024.
+    static int elementCountFromDims(const QString& dims)
+    {
+        if (dims.isEmpty())
+            return 1024;
+        int count = 1;
+        for (const QString& d : dims.split(u'x', Qt::SkipEmptyParts))
+            count *= d.trimmed().toInt();
+        return count;
+    }
+
+public:
+    QString name() const override { return QStringLiteral("SplitJoinDivisibility"); }
+
+    QList<VerificationIssue> run(const VerificationContext& ctx) const override
+    {
+        QList<VerificationIssue> issues;
+        if (!ctx.document)
+            return issues;
+
+        const auto& items = ctx.document->items();
+
+        for (const auto& item : items) {
+            auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(item.get());
+            if (!hubBlock || !hubBlock->isLinkHub() || !hubBlock->specId().isEmpty())
+                continue;
+
+            // Build port-role lookup for this hub.
+            QHash<Canvas::PortId, Canvas::PortRole> portRoles;
+            for (const auto& port : hubBlock->ports())
+                portRoles[port.id] = port.role;
+
+            Canvas::CanvasBlock* pivotBlock = nullptr;
+            Canvas::PortRole     pivotRole  = Canvas::PortRole::Dynamic;
+            int                  numArms    = 0;
+
+            for (const auto& wItem : items) {
+                auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+                if (!wire)
+                    continue;
+
+                const auto& epA = wire->a();
+                const auto& epB = wire->b();
+                if (!epA.attached.has_value() || !epB.attached.has_value())
+                    continue;
+
+                const bool aIsHub = (epA.attached->itemId == hubBlock->id());
+                const bool bIsHub = (epB.attached->itemId == hubBlock->id());
+                if (!aIsHub && !bIsHub)
+                    continue;
+
+                if (bIsHub) {
+                    auto* blkA = dynamic_cast<Canvas::CanvasBlock*>(
+                        ctx.document->findItem(epA.attached->itemId));
+                    if (blkA && !blkA->isLinkHub()) {
+                        pivotBlock = blkA;
+                        pivotRole  = portRoles.value(epB.attached->portId,
+                                                     Canvas::PortRole::Dynamic);
+                    }
+                } else {
+                    auto* blkB = dynamic_cast<Canvas::CanvasBlock*>(
+                        ctx.document->findItem(epB.attached->itemId));
+                    if (blkB && !blkB->isLinkHub())
+                        ++numArms;
+                }
+            }
+
+            if (!pivotBlock || numArms == 0)
+                continue;
+
+            // Find the source (SPLIT) or destination (JOIN) FIFO wire and read its type.
+            int fifoElemCount = 1024;
+            for (const auto& wItem : items) {
+                auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+                if (!wire)
+                    continue;
+
+                const auto& epA = wire->a();
+                const auto& epB = wire->b();
+                if (!epA.attached.has_value() || !epB.attached.has_value())
+                    continue;
+
+                auto* blkA = dynamic_cast<Canvas::CanvasBlock*>(
+                    ctx.document->findItem(epA.attached->itemId));
+                auto* blkB = dynamic_cast<Canvas::CanvasBlock*>(
+                    ctx.document->findItem(epB.attached->itemId));
+                if (!blkA || !blkB || blkA->isLinkHub() || blkB->isLinkHub())
+                    continue;
+
+                // SPLIT: source FIFO has the placement tile as its consumer (endpoint B).
+                // JOIN:  dest   FIFO has the placement tile as its producer (endpoint A).
+                const bool isRelevant =
+                    (pivotRole == Canvas::PortRole::Consumer && blkB == pivotBlock) ||
+                    (pivotRole == Canvas::PortRole::Producer && blkA == pivotBlock);
+
+                if (isRelevant) {
+                    if (wire->hasObjectFifo())
+                        fifoElemCount = elementCountFromDims(
+                            wire->objectFifo().value().type.dimensions);
+                    break;
+                }
+            }
+
+            if (fifoElemCount % numArms != 0) {
+                const auto spec = parseTileSpec(pivotBlock->specId());
+                const QString kind = (pivotRole == Canvas::PortRole::Consumer)
+                    ? QStringLiteral("Split")
+                    : QStringLiteral("Join");
+                issues.append({VerificationIssue::Severity::Error,
+                    QStringLiteral("%1 at %2: FIFO has %3 elements but %4 arms — "
+                                   "not evenly divisible.")
+                    .arg(kind,
+                         spec ? tileName(*spec) : pivotBlock->specId(),
+                         QString::number(fifoElemCount),
+                         QString::number(numArms))});
             }
         }
 
@@ -407,6 +671,7 @@ DesignVerifier::DesignVerifier()
     m_checks.push_back(std::make_unique<ShimDrainCheck>());
     m_checks.push_back(std::make_unique<DisconnectedDataflowCheck>());
     m_checks.push_back(std::make_unique<DmaChannelLimitCheck>());
+    m_checks.push_back(std::make_unique<SplitJoinDivisibilityCheck>());
 }
 
 DesignVerifier::~DesignVerifier() = default;
@@ -435,7 +700,7 @@ DesignStats collectStats(const VerificationContext& ctx)
     if (!ctx.document)
         return stats;
 
-    // Only count non-DDR tiles that participate in at least one connection.
+    // Count tiles reachable via direct wires.
     QHash<Canvas::CanvasBlock*, ParsedSpec> connectedTiles;
 
     for (const auto& w : collectWires(*ctx.document)) {
@@ -447,6 +712,38 @@ DesignStats collectStats(const VerificationContext& ctx)
             connectedTiles.insert(w.producerBlock, w.producerSpec);
         if (w.consumerSpec.kind != NodeKind::DDR)
             connectedTiles.insert(w.consumerBlock, w.consumerSpec);
+    }
+
+    // Also count tiles that are only reachable via split/join arm wires,
+    // and count the split/join hub blocks themselves.
+    const auto hub = collectHubConnections(*ctx.document);
+    for (auto it = hub.blockSpec.cbegin(); it != hub.blockSpec.cend(); ++it)
+        connectedTiles.insert(it.key(), it.value());
+
+    // Count hub blocks as splits or joins.
+    for (const auto& item : ctx.document->items()) {
+        auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(item.get());
+        if (!hubBlock || !hubBlock->isLinkHub() || !hubBlock->specId().isEmpty())
+            continue;
+
+        QHash<Canvas::PortId, Canvas::PortRole> portRoles;
+        for (const auto& port : hubBlock->ports())
+            portRoles[port.id] = port.role;
+
+        // Determine hub type from the pivot wire's port role (hub at endpoint B).
+        for (const auto& wItem : ctx.document->items()) {
+            auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+            if (!wire)
+                continue;
+            const auto& epB = wire->b();
+            if (!epB.attached.has_value() || epB.attached->itemId != hubBlock->id())
+                continue;
+            const Canvas::PortRole role = portRoles.value(epB.attached->portId,
+                                                           Canvas::PortRole::Dynamic);
+            if (role == Canvas::PortRole::Consumer) ++stats.splits;
+            else if (role == Canvas::PortRole::Producer) ++stats.joins;
+            break;
+        }
     }
 
     for (auto it = connectedTiles.cbegin(); it != connectedTiles.cend(); ++it) {

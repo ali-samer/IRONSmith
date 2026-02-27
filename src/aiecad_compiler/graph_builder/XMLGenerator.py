@@ -98,7 +98,8 @@ class NamingConventions:
         column = attrs.get("column", "")
 
         if not column.isdigit():
-            return [f"split_output_{i}" for i in range(num_outputs)]
+            name = attrs.get("name", "split")
+            return [f"{name}_out{i + 1}" for i in range(num_outputs)]
 
         col_num = int(column)
         base_idx = col_num * num_outputs + 1
@@ -121,7 +122,8 @@ class NamingConventions:
         column = attrs.get("column", "")
 
         if not column.isdigit():
-            return [f"join_input_{i}" for i in range(num_inputs)]
+            name = attrs.get("name", "join")
+            return [f"{name}_in{i + 1}" for i in range(num_inputs)]
 
         col_num = int(column)
         base_idx = col_num * num_inputs + 1
@@ -1069,8 +1071,11 @@ class XMLTransformer:
         output_names = NamingConventions.generate_split_output_names(attrs, num_outputs)
         self.split_outputs[simple_name] = output_names
 
-        # Generate split name from context
+        # Generate split name from context; fall back to the HLIR operation name
+        # when there is no context metadata (e.g. GUI-generated designs).
         split_name = NamingConventions.generate_objectfifo_name(attrs, num_outputs)
+        if not attrs.get("context"):
+            split_name = simple_name
 
         # Check for explicit offsets in the GUI XML
         explicit_offsets = None
@@ -1115,8 +1120,11 @@ class XMLTransformer:
         input_names = NamingConventions.generate_join_input_names(attrs, num_inputs)
         self.join_inputs[simple_name] = input_names
 
-        # Generate join name from context
+        # Generate join name from context; fall back to the HLIR operation name
+        # when there is no context metadata (e.g. GUI-generated designs).
         join_name = NamingConventions.generate_objectfifo_name(attrs, num_inputs)
+        if not attrs.get("context"):
+            join_name = simple_name
 
         # Check for explicit offsets in the GUI XML
         explicit_offsets = None

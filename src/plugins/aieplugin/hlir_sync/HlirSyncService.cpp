@@ -6,6 +6,7 @@
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
+#include "canvas/CanvasPorts.hpp"
 #include "canvas/CanvasWire.hpp"
 #include "hlir_cpp_bridge/HlirBridge.hpp"
 #include "code_gen_bridge/CodeGenBridge.hpp"
@@ -92,7 +93,16 @@ void HlirSyncService::syncCanvas()
     for (const auto& item : items)
         currentIds.insert(item->id());
 
-    // Remove stale components (FIFOs before tiles to satisfy bridge dependency order)
+    // Remove stale components in dependency order: split/join → FIFOs → tiles
+    for (auto it = m_splitJoinMap.begin(); it != m_splitJoinMap.end(); ) {
+        if (!currentIds.contains(it.key())) {
+            m_bridge->remove(it.value());
+            it = m_splitJoinMap.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     for (auto it = m_fifoMap.begin(); it != m_fifoMap.end(); ) {
         if (!currentIds.contains(it.key())) {
             m_bridge->remove(it.value());
@@ -187,11 +197,14 @@ void HlirSyncService::syncCanvas()
             const auto& cfg = wire->objectFifo().value();
             baseName = cfg.name;
             depth = cfg.depth;
-            // Normalise "i32" → "int32" so the Python DataType enum accepts it
-            const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                   ? QStringLiteral("int32")
-                                   : cfg.type.valueType;
-            typeId = ensureTensorType(cfg.type.dimensions, vt);
+            if (!cfg.type.dimensions.isEmpty()) {
+                // Normalise "i32" → "int32" so the Python DataType enum accepts it
+                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
+                                       ? QStringLiteral("int32")
+                                       : cfg.type.valueType;
+                typeId = ensureTensorType(cfg.type.dimensions, vt);
+            }
+            // else: dimensions unspecified → keep defaultTypeId (shared data type)
         } else {
             baseName = QStringLiteral("fifo_%1_to_%2").arg(producerSpecId, consumerSpecId);
         }
@@ -229,6 +242,266 @@ void HlirSyncService::syncCanvas()
             qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync FIFO" << fifoName;
         }
     }
+
+    // Sync split and join hub blocks (depend on tiles and FIFOs being registered first).
+    syncSplitsAndJoins();
+}
+
+void HlirSyncService::syncSplitsAndJoins()
+{
+    // For each split/join hub block, register an addFifoSplit or addFifoJoin operation.
+    // Topology rules (from document.json analysis):
+    //   SPLIT: hub appears at endpoint B with a consumer port (pivot wire);
+    //          hub appears at endpoint A with producer ports (output arm wires).
+    //   JOIN:  hub appears at endpoint B with a producer port (pivot wire);
+    //          hub appears at endpoint A with consumer ports (input arm wires).
+    // The placement tile is always the non-hub block at endpoint A of the pivot wire.
+    // Source FIFO (split) = registered FIFO where placement tile is the consumer.
+    // Dest FIFO  (join)   = registered FIFO where placement tile is the producer.
+
+    if (!m_document || !m_bridge)
+        return;
+
+    const auto& items = m_document->items();
+
+    // Build lookup: tile ObjectId → FIFO info (as consumer or producer of a registered FIFO).
+    struct FifoInfo {
+        hlir::ComponentId fifoId;
+        hlir::ComponentId typeId;
+        QString           baseName;    // objectFifo name or "fifo" (used for sub-FIFO name gen)
+        int               elementCount = 1024; // total elements in type (for offset calculation)
+    };
+    QHash<Canvas::ObjectId, FifoInfo> consumerBlockFifo; // tile is consumer of this FIFO
+    QHash<Canvas::ObjectId, FifoInfo> producerBlockFifo; // tile is producer of this FIFO
+
+    const hlir::ComponentId defaultTypeId = m_typeMap.value(QStringLiteral("data_ty"));
+
+    // Compute total element count from "1024" → 1024, "32x4" → 128, "" → 1024 (data_ty default).
+    auto elementCountFromDims = [](const QString& dims) -> int {
+        if (dims.isEmpty())
+            return 1024;
+        int count = 1;
+        for (const QString& d : dims.split(u'x', Qt::SkipEmptyParts))
+            count *= d.trimmed().toInt();
+        return count;
+    };
+
+    for (const auto& item : items) {
+        auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
+        if (!wire || !m_fifoMap.contains(wire->id()))
+            continue;
+
+        const auto& epA = wire->a();
+        const auto& epB = wire->b();
+        if (!epA.attached.has_value() || !epB.attached.has_value())
+            continue;
+
+        auto* blockA = dynamic_cast<Canvas::CanvasBlock*>(
+            m_document->findItem(epA.attached->itemId));
+        auto* blockB = dynamic_cast<Canvas::CanvasBlock*>(
+            m_document->findItem(epB.attached->itemId));
+        if (!blockA || !blockB)
+            continue;
+
+        hlir::ComponentId typeId = defaultTypeId;
+        QString baseName = QStringLiteral("fifo");
+        int elemCount = 1024;
+        if (wire->hasObjectFifo()) {
+            const auto& cfg = wire->objectFifo().value();
+            baseName = cfg.name;
+            if (!cfg.type.dimensions.isEmpty()) {
+                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
+                                       ? QStringLiteral("int32")
+                                       : cfg.type.valueType;
+                typeId = ensureTensorType(cfg.type.dimensions, vt);
+            }
+            // else: dimensions unspecified → keep defaultTypeId (shared data type)
+            elemCount = elementCountFromDims(cfg.type.dimensions);
+        }
+
+        const hlir::ComponentId fifoId = m_fifoMap.value(wire->id());
+        producerBlockFifo[blockA->id()] = {fifoId, typeId, baseName, elemCount};
+        consumerBlockFifo[blockB->id()] = {fifoId, typeId, baseName, elemCount};
+    }
+
+    // Process each hub block (split or join). Sequential counters provide stable names.
+    int splitIdx = 0;
+    int joinIdx  = 0;
+
+    for (const auto& item : items) {
+        auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(item.get());
+        if (!hubBlock || !hubBlock->isLinkHub() || !hubBlock->specId().isEmpty())
+            continue;
+
+        // Build port-role lookup for this hub block.
+        QHash<Canvas::PortId, Canvas::PortRole> portRoles;
+        for (const auto& port : hubBlock->ports())
+            portRoles[port.id] = port.role;
+
+        // Classify hub wires: pivot (hub at endpoint B) vs arm (hub at endpoint A).
+        Canvas::CanvasWire* pivotWire     = nullptr;
+        Canvas::CanvasBlock* pivotBlock   = nullptr;
+        Canvas::PortRole     pivotRole    = Canvas::PortRole::Dynamic;
+
+        // arm entries: hub-port-id paired with the wire
+        QList<QPair<Canvas::PortId, Canvas::CanvasWire*>> armWires;
+
+        for (const auto& wItem : items) {
+            auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+            if (!wire)
+                continue;
+
+            const auto& epA = wire->a();
+            const auto& epB = wire->b();
+            if (!epA.attached.has_value() || !epB.attached.has_value())
+                continue;
+
+            const bool aIsHub = (epA.attached->itemId == hubBlock->id());
+            const bool bIsHub = (epB.attached->itemId == hubBlock->id());
+            if (!aIsHub && !bIsHub)
+                continue;
+
+            if (bIsHub) {
+                // Hub at B → pivot wire: the non-hub block at A is the placement tile.
+                auto* blkA = dynamic_cast<Canvas::CanvasBlock*>(
+                    m_document->findItem(epA.attached->itemId));
+                if (!blkA || blkA->isLinkHub())
+                    continue;
+                pivotWire  = wire;
+                pivotBlock = blkA;
+                pivotRole  = portRoles.value(epB.attached->portId, Canvas::PortRole::Dynamic);
+            } else { // aIsHub
+                // Hub at A → arm wire (split output or join input).
+                auto* blkB = dynamic_cast<Canvas::CanvasBlock*>(
+                    m_document->findItem(epB.attached->itemId));
+                if (blkB && !blkB->isLinkHub())
+                    armWires.append({epA.attached->portId, wire});
+            }
+        }
+
+        if (!pivotWire || !pivotBlock || armWires.isEmpty())
+            continue;
+
+        const hlir::ComponentId placementTileId = m_tileMap.value(pivotBlock->id());
+        if (placementTileId.empty())
+            continue;
+
+        // Build portId → arm wire map (for ordering by hub port index).
+        QHash<Canvas::PortId, Canvas::CanvasWire*> portToArmWire;
+        for (const auto& pair : armWires)
+            portToArmWire[pair.first] = pair.second;
+
+        const hlir::ComponentId existingId = m_splitJoinMap.value(hubBlock->id());
+
+        if (pivotRole == Canvas::PortRole::Consumer) {
+            // ----- SPLIT -----
+            // Pivot wire enters hub via consumer port → hub distributes to multiple outputs.
+            const auto srcIt = consumerBlockFifo.constFind(pivotBlock->id());
+            if (srcIt == consumerBlockFifo.constEnd() || srcIt->fifoId.empty()) {
+                qCWarning(hlirSyncLog) << "HlirSyncService: split has no source FIFO for tile"
+                                       << pivotBlock->specId();
+                continue;
+            }
+
+            // Collect output sub-FIFO names ordered by hub producer port index.
+            ++splitIdx;
+            const QString splitName = QStringLiteral("split") + QString::number(splitIdx);
+
+            std::vector<std::string> outputNames;
+            for (const auto& port : hubBlock->ports()) {
+                if (port.role != Canvas::PortRole::Producer)
+                    continue;
+                const int idx     = static_cast<int>(outputNames.size());
+                auto*     armWire = portToArmWire.value(port.id, nullptr);
+                QString   name;
+                if (armWire && armWire->hasObjectFifo())
+                    name = armWire->objectFifo().value().name;
+                else
+                    name = splitName + QStringLiteral("_out") + QString::number(idx + 1);
+                outputNames.push_back(name.toStdString());
+            }
+
+            if (outputNames.empty())
+                continue;
+
+            const int numOut = static_cast<int>(outputNames.size());
+            const int stride = srcIt->elementCount / numOut;
+            std::vector<int> offsets;
+            offsets.reserve(numOut);
+            for (int i = 0; i < numOut; ++i)
+                offsets.push_back(stride * i);
+
+            auto result = m_bridge->addFifoSplit(
+                splitName.toStdString(),
+                srcIt->fifoId,
+                numOut,
+                srcIt->typeId,
+                outputNames,
+                offsets,
+                placementTileId,
+                existingId);
+
+            if (result) {
+                m_splitJoinMap[hubBlock->id()] = result.value();
+            } else {
+                qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync split" << splitName;
+            }
+
+        } else if (pivotRole == Canvas::PortRole::Producer) {
+            // ----- JOIN -----
+            // Pivot wire exits hub via producer port → hub collects from multiple inputs.
+            const auto dstIt = producerBlockFifo.constFind(pivotBlock->id());
+            if (dstIt == producerBlockFifo.constEnd() || dstIt->fifoId.empty()) {
+                qCWarning(hlirSyncLog) << "HlirSyncService: join has no dest FIFO for tile"
+                                       << pivotBlock->specId();
+                continue;
+            }
+
+            // Collect input sub-FIFO names ordered by hub consumer port index.
+            ++joinIdx;
+            const QString joinName = QStringLiteral("join") + QString::number(joinIdx);
+
+            std::vector<std::string> inputNames;
+            for (const auto& port : hubBlock->ports()) {
+                if (port.role != Canvas::PortRole::Consumer)
+                    continue;
+                const int idx     = static_cast<int>(inputNames.size());
+                auto*     armWire = portToArmWire.value(port.id, nullptr);
+                QString   name;
+                if (armWire && armWire->hasObjectFifo())
+                    name = armWire->objectFifo().value().name;
+                else
+                    name = joinName + QStringLiteral("_in") + QString::number(idx + 1);
+                inputNames.push_back(name.toStdString());
+            }
+
+            if (inputNames.empty())
+                continue;
+
+            const int numIn = static_cast<int>(inputNames.size());
+            const int stride = dstIt->elementCount / numIn;
+            std::vector<int> offsets;
+            offsets.reserve(numIn);
+            for (int i = 0; i < numIn; ++i)
+                offsets.push_back(stride * i);
+
+            auto result = m_bridge->addFifoJoin(
+                joinName.toStdString(),
+                dstIt->fifoId,
+                numIn,
+                dstIt->typeId,
+                inputNames,
+                offsets,
+                placementTileId,
+                existingId);
+
+            if (result) {
+                m_splitJoinMap[hubBlock->id()] = result.value();
+            } else {
+                qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync join" << joinName;
+            }
+        }
+    }
 }
 
 QList<VerificationIssue> HlirSyncService::runVerification() const
@@ -263,10 +536,13 @@ void HlirSyncService::verifyDesign()
                                "  \u2022 MEM tiles:  %2\n"
                                "  \u2022 AIE tiles:  %3\n"
                                "  \u2022 FIFOs:      %4\n"
-                               "  \u2022 Fills:      %5\n"
-                               "  \u2022 Drains:     %6")
+                               "  \u2022 Splits:     %5\n"
+                               "  \u2022 Joins:      %6\n"
+                               "  \u2022 Fills:      %7\n"
+                               "  \u2022 Drains:     %8")
             .arg(stats.shimTiles).arg(stats.memTiles).arg(stats.aieTiles)
-            .arg(stats.fifos).arg(stats.fills).arg(stats.drains);
+            .arg(stats.fifos).arg(stats.splits).arg(stats.joins)
+            .arg(stats.fills).arg(stats.drains);
         emit verificationFinished(true, msg);
     }
 }
@@ -578,11 +854,13 @@ void HlirSyncService::buildRuntime()
 
 void HlirSyncService::resetTrackedComponents()
 {
-    // Remove all tracked HLIR components in dependency order (FIFOs → types → tiles).
+    // Remove all tracked HLIR components in dependency order: split/join → FIFOs → types → tiles
     if (!m_bridge)
         return;
+    for (const hlir::ComponentId& id : std::as_const(m_splitJoinMap))
+        m_bridge->remove(id);
+    m_splitJoinMap.clear();
 
-    // Remove in dependency order: FIFOs first, then types, then tiles
     for (const hlir::ComponentId& id : std::as_const(m_fifoMap))
         m_bridge->remove(id);
     m_fifoMap.clear();

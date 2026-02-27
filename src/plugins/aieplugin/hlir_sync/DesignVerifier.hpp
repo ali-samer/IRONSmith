@@ -46,6 +46,8 @@ struct DesignStats {
     int fifos     = 0;
     int fills     = 0;
     int drains    = 0;
+    int splits    = 0;
+    int joins     = 0;
 };
 
 /// Collect tile and FIFO counts from the canvas without running checks.

@@ -82,6 +82,9 @@ private:
     /// Diff the canvas against tracked state and update the bridge accordingly.
     void syncCanvas();
 
+    /// Register split and join hub blocks as HLIR split/join operations.
+    void syncSplitsAndJoins();
+
     /// Build a Runtime: shim-producer wires → Fill, shim-consumer wires → Drain.
     void buildRuntime();
 
@@ -90,6 +93,7 @@ private:
     // Maps canvas ObjectId → HLIR ComponentId
     QHash<Canvas::ObjectId, hlir::ComponentId> m_tileMap;
     QHash<Canvas::ObjectId, hlir::ComponentId> m_fifoMap;
+    QHash<Canvas::ObjectId, hlir::ComponentId> m_splitJoinMap;
 
     // Maps "dimensions|valueType" → HLIR ComponentId (tensor type cache)
     QHash<QString, hlir::ComponentId> m_typeMap;
