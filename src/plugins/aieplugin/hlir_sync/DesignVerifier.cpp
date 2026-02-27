@@ -6,7 +6,6 @@
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasWire.hpp"
-#include "hlir_cpp_bridge/HlirTypes.hpp"
 
 #include <QtCore/QHash>
 #include <QtCore/QSet>
@@ -16,25 +15,31 @@
 namespace Aie::Internal {
 
 // ---------------------------------------------------------------------------
-// Local helpers — wire topology analysis
+// Local helpers — node taxonomy and wire topology
 // ---------------------------------------------------------------------------
 
 namespace {
 
-/// Parsed tile kind and grid position extracted from a specId.
+/// Local node kind — includes DDR which is not an AIE tile but is a canvas block.
+enum class NodeKind { SHIM, MEM, COMPUTE, DDR };
+
+/// Parsed node kind and grid position extracted from a specId.
 struct ParsedSpec {
-    hlir::TileKind kind;
+    NodeKind kind;
     int col = 0;
     int row = 0;
 };
 
-/// Parse a tile specId ("shim0_0", "mem1_2", "aie0_3") into kind and coordinates.
+/// Parse a specId ("shim0_0", "mem1_2", "aie0_3", "ddr") into kind and coordinates.
 std::optional<ParsedSpec> parseTileSpec(const QString& specId)
 {
-    static const struct { const char* prefix; hlir::TileKind kind; } prefixes[] = {
-        { "shim", hlir::TileKind::SHIM    },
-        { "mem",  hlir::TileKind::MEM     },
-        { "aie",  hlir::TileKind::COMPUTE },
+    if (specId == QLatin1StringView("ddr"))
+        return ParsedSpec{NodeKind::DDR, 0, 0};
+
+    static const struct { const char* prefix; NodeKind kind; } prefixes[] = {
+        { "shim", NodeKind::SHIM    },
+        { "mem",  NodeKind::MEM     },
+        { "aie",  NodeKind::COMPUTE },
     };
 
     for (const auto& p : prefixes) {
@@ -58,37 +63,47 @@ std::optional<ParsedSpec> parseTileSpec(const QString& specId)
     return std::nullopt;
 }
 
-/// A wire whose both endpoints resolve to tiles with valid specIds.
+/// A wire whose both endpoints resolve to known canvas nodes (tiles or DDR).
 struct ParsedWire {
     Canvas::CanvasWire*  wire          = nullptr;
-    Canvas::CanvasBlock* producerBlock = nullptr; // endpoint A (data source in this FIFO)
-    Canvas::CanvasBlock* consumerBlock = nullptr; // endpoint B (data sink in this FIFO)
+    Canvas::CanvasBlock* producerBlock = nullptr; // endpoint A
+    Canvas::CanvasBlock* consumerBlock = nullptr; // endpoint B
     ParsedSpec           producerSpec{};
     ParsedSpec           consumerSpec{};
     QString              fifoName;
 
-    // A wire is a Fill when the SHIM tile is the FIFO producer —
-    // the SHIM serves as the DDR input gateway (DDR → SHIM → array tile).
-    bool isFill()  const { return producerSpec.kind == hlir::TileKind::SHIM; }
+    // Fill: DDR drives a SHIM — data flows DDR → SHIM → array.
+    bool isFill() const
+    {
+        return producerSpec.kind == NodeKind::DDR && consumerSpec.kind == NodeKind::SHIM;
+    }
 
-    // A wire is a Drain when the SHIM tile is the FIFO consumer —
-    // the SHIM serves as the DDR output gateway (array tile → SHIM → DDR).
-    bool isDrain() const { return consumerSpec.kind == hlir::TileKind::SHIM; }
+    // Drain: a SHIM delivers to DDR — data flows array → SHIM → DDR.
+    bool isDrain() const
+    {
+        return producerSpec.kind == NodeKind::SHIM && consumerSpec.kind == NodeKind::DDR;
+    }
+
+    // Object FIFO: a data-path wire between two non-DDR tiles.
+    bool isObjectFifo() const
+    {
+        return producerSpec.kind != NodeKind::DDR && consumerSpec.kind != NodeKind::DDR;
+    }
 };
 
-/// Format a tile as "Shim(0,0)", "Mem(1,2)", or "AIE(0,4)" for use in messages.
+/// Format a node as "Shim(0,0)", "Mem(1,2)", "AIE(0,4)", or "DDR" for use in messages.
 QString tileName(const ParsedSpec& spec)
 {
-    const char* kind = "Tile";
     switch (spec.kind) {
-        case hlir::TileKind::SHIM:    kind = "Shim"; break;
-        case hlir::TileKind::MEM:     kind = "Mem";  break;
-        case hlir::TileKind::COMPUTE: kind = "AIE";  break;
+        case NodeKind::SHIM:    return QStringLiteral("Shim(%1,%2)").arg(spec.col).arg(spec.row);
+        case NodeKind::MEM:     return QStringLiteral("Mem(%1,%2)").arg(spec.col).arg(spec.row);
+        case NodeKind::COMPUTE: return QStringLiteral("AIE(%1,%2)").arg(spec.col).arg(spec.row);
+        case NodeKind::DDR:     return QStringLiteral("DDR");
     }
-    return QStringLiteral("%1(%2,%3)").arg(QLatin1StringView(kind)).arg(spec.col).arg(spec.row);
+    return QStringLiteral("Tile");
 }
 
-/// Collect all fully-attached wires whose both endpoints have valid specIds.
+/// Collect all fully-attached wires whose both endpoints have known specIds (tiles or DDR).
 QList<ParsedWire> collectWires(const Canvas::CanvasDocument& doc)
 {
     QList<ParsedWire> result;
@@ -130,8 +145,8 @@ QList<ParsedWire> collectWires(const Canvas::CanvasDocument& doc)
 // ---------------------------------------------------------------------------
 // Check 1 — RuntimeSequenceDefined
 //
-// A valid design needs at least one Fill (DDR → SHIM → array) and at least one
-// Drain (array → SHIM → DDR) to form a complete runtime I/O sequence.
+// A valid design needs at least one Fill (DDR → SHIM) and at least one
+// Drain (SHIM → DDR) to form a complete runtime I/O sequence.
 // ---------------------------------------------------------------------------
 
 class RuntimeSequenceCheck : public IVerificationCheck
@@ -154,12 +169,12 @@ public:
 
         if (fillCount == 0)
             issues.append({VerificationIssue::Severity::Error,
-                QStringLiteral("No Fill defined — connect a SHIM tile as a FIFO source "
+                QStringLiteral("No Fill defined — connect DDR to a SHIM tile "
                                "(DDR \u2192 SHIM \u2192 array).")});
 
         if (drainCount == 0)
             issues.append({VerificationIssue::Severity::Error,
-                QStringLiteral("No Drain defined — connect a SHIM tile as a FIFO destination "
+                QStringLiteral("No Drain defined — connect a SHIM tile to DDR "
                                "(array \u2192 SHIM \u2192 DDR).")});
 
         return issues;
@@ -169,10 +184,9 @@ public:
 // ---------------------------------------------------------------------------
 // Check 2 — ShimFillConnectivity
 //
-// A Fill brings data from DDR into the device through a SHIM tile. The SHIM
-// therefore needs a valid object FIFO going OUT into the array (to a MEM or
-// AIE tile). Connecting a fill SHIM directly to another SHIM tile means the
-// incoming DDR data has nowhere to go in the array.
+// Each SHIM tile that receives a Fill (DDR → SHIM) must also have at least
+// one object FIFO going OUT into the array (SHIM → MEM or AIE). Without it
+// the incoming DDR data has nowhere to go.
 // ---------------------------------------------------------------------------
 
 class ShimFillCheck : public IVerificationCheck
@@ -186,16 +200,24 @@ public:
         if (!ctx.document)
             return issues;
 
-        for (const auto& w : collectWires(*ctx.document)) {
+        const auto wires = collectWires(*ctx.document);
+
+        // SHIM blocks that produce at least one outgoing object FIFO (SHIM → MEM/AIE).
+        QSet<Canvas::CanvasBlock*> shimsWithOutgoingFifo;
+        for (const auto& w : wires) {
+            if (w.isObjectFifo() && w.producerSpec.kind == NodeKind::SHIM)
+                shimsWithOutgoingFifo.insert(w.producerBlock);
+        }
+
+        // Every fill SHIM must have an outgoing FIFO.
+        for (const auto& w : wires) {
             if (!w.isFill())
                 continue;
-
-            // The fill SHIM is the producer (endpoint A). The array-side tile is the consumer
-            // (endpoint B). Verify that endpoint B is a MEM or AIE tile, not another SHIM.
-            if (w.consumerSpec.kind == hlir::TileKind::SHIM) {
+            // consumerBlock is the SHIM tile in a DDR → SHIM wire.
+            if (!shimsWithOutgoingFifo.contains(w.consumerBlock)) {
                 issues.append({VerificationIssue::Severity::Error,
-                    QStringLiteral("Fill at %1: FIFO '%2' goes to %3 instead of a MEM or AIE tile.")
-                    .arg(tileName(w.producerSpec), w.fifoName, tileName(w.consumerSpec))});
+                    QStringLiteral("Fill at %1: no FIFO leads from this SHIM into the array.")
+                    .arg(tileName(w.consumerSpec))});
             }
         }
 
@@ -206,10 +228,9 @@ public:
 // ---------------------------------------------------------------------------
 // Check 3 — ShimDrainConnectivity
 //
-// A Drain collects results from the device array and transfers them to DDR
-// through a SHIM tile. The SHIM therefore needs a valid object FIFO coming IN
-// from the array (from a MEM or AIE tile). A drain SHIM connected directly to
-// another SHIM means there is no array-computed data to drain.
+// Each SHIM tile that feeds a Drain (SHIM → DDR) must also have at least
+// one object FIFO coming IN from the array (MEM or AIE → SHIM). Without it
+// there is no array-computed data to drain.
 // ---------------------------------------------------------------------------
 
 class ShimDrainCheck : public IVerificationCheck
@@ -223,16 +244,24 @@ public:
         if (!ctx.document)
             return issues;
 
-        for (const auto& w : collectWires(*ctx.document)) {
+        const auto wires = collectWires(*ctx.document);
+
+        // SHIM blocks that consume at least one incoming object FIFO (MEM/AIE → SHIM).
+        QSet<Canvas::CanvasBlock*> shimsWithIncomingFifo;
+        for (const auto& w : wires) {
+            if (w.isObjectFifo() && w.consumerSpec.kind == NodeKind::SHIM)
+                shimsWithIncomingFifo.insert(w.consumerBlock);
+        }
+
+        // Every drain SHIM must have an incoming FIFO.
+        for (const auto& w : wires) {
             if (!w.isDrain())
                 continue;
-
-            // The drain SHIM is the consumer (endpoint B). The array-side tile is the producer
-            // (endpoint A). Verify that endpoint A is a MEM or AIE tile, not another SHIM.
-            if (w.producerSpec.kind == hlir::TileKind::SHIM) {
+            // producerBlock is the SHIM tile in a SHIM → DDR wire.
+            if (!shimsWithIncomingFifo.contains(w.producerBlock)) {
                 issues.append({VerificationIssue::Severity::Error,
-                    QStringLiteral("Drain at %1: FIFO '%2' comes from %3 instead of a MEM or AIE tile.")
-                    .arg(tileName(w.consumerSpec), w.fifoName, tileName(w.producerSpec))});
+                    QStringLiteral("Drain at %1: no FIFO leads into this SHIM from the array.")
+                    .arg(tileName(w.producerSpec))});
             }
         }
 
@@ -243,12 +272,11 @@ public:
 // ---------------------------------------------------------------------------
 // Check 4 — DisconnectedDataflow
 //
-// Every non-SHIM tile that participates in the dataflow must have FIFO
-// connections on BOTH sides — at least one incoming FIFO (data in) and at
-// least one outgoing FIFO (data out). A tile with only inputs creates a dead
-// end; a tile with only outputs has no data source. SHIM tiles are excluded
-// because they are intentionally one-directional (fill = output only,
-// drain = input only).
+// Every MEM/AIE tile that participates in the dataflow must have FIFO
+// connections on BOTH sides — at least one incoming and at least one
+// outgoing. SHIM tiles are excluded because they are intentional endpoints
+// (one side connects to DDR, the other to the array via FIFO). DDR is
+// excluded because it is the external memory boundary.
 // ---------------------------------------------------------------------------
 
 class DisconnectedDataflowCheck : public IVerificationCheck
@@ -262,24 +290,26 @@ public:
         if (!ctx.document)
             return issues;
 
-        // Count each non-SHIM tile's incoming and outgoing FIFO connections.
-        // SHIM tiles are skipped — they are the intentional endpoints of the flow.
+        // Count in/out object FIFO connections for MEM/AIE tiles only.
         QHash<Canvas::CanvasBlock*, ParsedSpec> blockSpec;
         QHash<Canvas::CanvasBlock*, int> inCount;
         QHash<Canvas::CanvasBlock*, int> outCount;
 
         for (const auto& w : collectWires(*ctx.document)) {
-            if (w.producerSpec.kind != hlir::TileKind::SHIM) {
+            if (!w.isObjectFifo())
+                continue; // DDR wires are handled by ShimFill/DrainCheck
+
+            if (w.producerSpec.kind != NodeKind::SHIM) {
                 blockSpec.insert(w.producerBlock, w.producerSpec);
                 outCount[w.producerBlock]++;
             }
-            if (w.consumerSpec.kind != hlir::TileKind::SHIM) {
+            if (w.consumerSpec.kind != NodeKind::SHIM) {
                 blockSpec.insert(w.consumerBlock, w.consumerSpec);
                 inCount[w.consumerBlock]++;
             }
         }
 
-        // Tile has outgoing FIFOs but no incoming — data appears from nowhere
+        // Tile has outgoing FIFOs but no incoming — data appears from nowhere.
         for (auto it = outCount.cbegin(); it != outCount.cend(); ++it) {
             Canvas::CanvasBlock* block = it.key();
             if (!inCount.contains(block)) {
@@ -289,7 +319,7 @@ public:
             }
         }
 
-        // Tile has incoming FIFOs but no outgoing — data flows in and goes nowhere
+        // Tile has incoming FIFOs but no outgoing — data flows in and goes nowhere.
         for (auto it = inCount.cbegin(); it != inCount.cend(); ++it) {
             Canvas::CanvasBlock* block = it.key();
             if (!outCount.contains(block)) {
@@ -306,22 +336,23 @@ public:
 // ---------------------------------------------------------------------------
 // Check 5 — DmaChannelLimit
 //
-// Each tile type has a fixed number of DMA channels available for FIFO
-// connections. Exceeding the channel count means the hardware cannot support
-// the design as laid out.
-//   SHIM   — 4 channels  (error if 5 or more connections)
-//   MEM    — 6 channels  (error if 7 or more connections)
-//   AIE    — 4 channels  (error if 5 or more connections)
+// Each tile type has a fixed number of DMA channels. All connections
+// (both DDR wires and object FIFO wires) count toward a tile's channel
+// budget. DDR itself is excluded — it is not a real tile with a channel limit.
+//   SHIM   — 4 channels  (error at 5 or more)
+//   MEM    — 6 channels  (error at 7 or more)
+//   AIE    — 4 channels  (error at 5 or more)
 // ---------------------------------------------------------------------------
 
 class DmaChannelLimitCheck : public IVerificationCheck
 {
-    static int channelLimit(hlir::TileKind kind)
+    static int channelLimit(NodeKind kind)
     {
         switch (kind) {
-            case hlir::TileKind::SHIM:    return 4;
-            case hlir::TileKind::MEM:     return 6;
-            case hlir::TileKind::COMPUTE: return 4;
+            case NodeKind::SHIM:    return 4;
+            case NodeKind::MEM:     return 6;
+            case NodeKind::COMPUTE: return 4;
+            case NodeKind::DDR:     return INT_MAX;
         }
         return 4;
     }
@@ -335,15 +366,19 @@ public:
         if (!ctx.document)
             return issues;
 
-        // Count total connections (in + out) for every tile that appears in a wire.
+        // Count all connections (DDR wires + FIFO wires) for every non-DDR tile.
         QHash<Canvas::CanvasBlock*, ParsedSpec> blockSpec;
         QHash<Canvas::CanvasBlock*, int> connectionCount;
 
         for (const auto& w : collectWires(*ctx.document)) {
-            blockSpec.insert(w.producerBlock, w.producerSpec);
-            blockSpec.insert(w.consumerBlock, w.consumerSpec);
-            connectionCount[w.producerBlock]++;
-            connectionCount[w.consumerBlock]++;
+            if (w.producerSpec.kind != NodeKind::DDR) {
+                blockSpec.insert(w.producerBlock, w.producerSpec);
+                connectionCount[w.producerBlock]++;
+            }
+            if (w.consumerSpec.kind != NodeKind::DDR) {
+                blockSpec.insert(w.consumerBlock, w.consumerSpec);
+                connectionCount[w.consumerBlock]++;
+            }
         }
 
         for (auto it = connectionCount.cbegin(); it != connectionCount.cend(); ++it) {
@@ -400,23 +435,26 @@ DesignStats collectStats(const VerificationContext& ctx)
     if (!ctx.document)
         return stats;
 
-    // Only count tiles that participate in at least one FIFO connection.
+    // Only count non-DDR tiles that participate in at least one connection.
     QHash<Canvas::CanvasBlock*, ParsedSpec> connectedTiles;
 
     for (const auto& w : collectWires(*ctx.document)) {
-        ++stats.fifos;
-        if (w.isFill())  ++stats.fills;
-        if (w.isDrain()) ++stats.drains;
+        if (w.isObjectFifo()) ++stats.fifos;
+        if (w.isFill())       ++stats.fills;
+        if (w.isDrain())      ++stats.drains;
 
-        connectedTiles.insert(w.producerBlock, w.producerSpec);
-        connectedTiles.insert(w.consumerBlock, w.consumerSpec);
+        if (w.producerSpec.kind != NodeKind::DDR)
+            connectedTiles.insert(w.producerBlock, w.producerSpec);
+        if (w.consumerSpec.kind != NodeKind::DDR)
+            connectedTiles.insert(w.consumerBlock, w.consumerSpec);
     }
 
     for (auto it = connectedTiles.cbegin(); it != connectedTiles.cend(); ++it) {
         switch (it.value().kind) {
-            case hlir::TileKind::SHIM:    ++stats.shimTiles; break;
-            case hlir::TileKind::MEM:     ++stats.memTiles;  break;
-            case hlir::TileKind::COMPUTE: ++stats.aieTiles;  break;
+            case NodeKind::SHIM:    ++stats.shimTiles; break;
+            case NodeKind::MEM:     ++stats.memTiles;  break;
+            case NodeKind::COMPUTE: ++stats.aieTiles;  break;
+            case NodeKind::DDR:     break;
         }
     }
 

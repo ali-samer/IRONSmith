@@ -136,7 +136,19 @@ void HlirSyncService::syncCanvas()
     const hlir::ComponentId defaultTypeId = ensureNamedTensorType(
         QStringLiteral("data_ty"), QStringLiteral("1024"), QStringLiteral("int32"));
 
-    // Sync FIFOs
+    // Sync FIFOs — two-pass to handle colliding base names.
+    // When multiple wires share the same base name all are suffixed _a, _b, _c…
+    struct FifoEntry {
+        Canvas::CanvasWire* wire;
+        QString             baseName;
+        int                 depth;
+        hlir::ComponentId   typeId;
+        hlir::ComponentId   producerCompId;
+        hlir::ComponentId   consumerCompId;
+    };
+
+    // Pass 1: validate every wire and collect its base name + parameters.
+    QList<FifoEntry> fifoEntries;
     for (const auto& item : items) {
         auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
         if (!wire)
@@ -162,13 +174,18 @@ void HlirSyncService::syncCanvas()
         if (consumerSpecId.isEmpty() || !parseTileSpecId(consumerSpecId))
             continue;
 
-        QString fifoName;
+        const hlir::ComponentId producerCompId = m_tileMap.value(blockA->id());
+        const hlir::ComponentId consumerCompId = m_tileMap.value(blockB->id());
+        if (producerCompId.empty() || consumerCompId.empty())
+            continue;
+
         int depth = 2;
         hlir::ComponentId typeId = defaultTypeId;
+        QString baseName;
 
         if (wire->hasObjectFifo()) {
             const auto& cfg = wire->objectFifo().value();
-            fifoName = cfg.name;
+            baseName = cfg.name;
             depth = cfg.depth;
             // Normalise "i32" → "int32" so the Python DataType enum accepts it
             const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
@@ -176,30 +193,38 @@ void HlirSyncService::syncCanvas()
                                    : cfg.type.valueType;
             typeId = ensureTensorType(cfg.type.dimensions, vt);
         } else {
-            fifoName = QStringLiteral("fifo_%1_to_%2")
-                           .arg(producerSpecId, consumerSpecId);
+            baseName = QStringLiteral("fifo_%1_to_%2").arg(producerSpecId, consumerSpecId);
         }
 
         if (typeId.empty())
             continue;
 
-        const hlir::ComponentId producerCompId = m_tileMap.value(blockA->id());
-        const hlir::ComponentId consumerCompId = m_tileMap.value(blockB->id());
-        if (producerCompId.empty() || consumerCompId.empty())
-            continue;
+        fifoEntries.append({wire, baseName, depth, typeId, producerCompId, consumerCompId});
+    }
 
-        const hlir::ComponentId existingId = m_fifoMap.value(wire->id());
+    // Pass 2: count occurrences of each base name.
+    QHash<QString, int> nameCount;
+    for (const auto& e : fifoEntries)
+        nameCount[e.baseName]++;
 
+    // Pass 3: assign final names — suffix _a/_b/_c… when base name is not unique.
+    QHash<QString, int> nameIndex;
+    for (const auto& e : fifoEntries) {
+        const QString fifoName = (nameCount[e.baseName] > 1)
+            ? e.baseName + u'_' + QChar(u'a' + nameIndex[e.baseName]++)
+            : e.baseName;
+
+        const hlir::ComponentId existingId = m_fifoMap.value(e.wire->id());
         auto result = m_bridge->addFifo(
             fifoName.toStdString(),
-            typeId,
-            depth,
-            producerCompId,
-            {consumerCompId},
+            e.typeId,
+            e.depth,
+            e.producerCompId,
+            {e.consumerCompId},
             existingId);
 
         if (result) {
-            m_fifoMap[wire->id()] = result.value();
+            m_fifoMap[e.wire->id()] = result.value();
         } else {
             qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync FIFO" << fifoName;
         }
@@ -417,13 +442,56 @@ HlirSyncService::ensureTensorType(const QString& dimensions, const QString& valu
 
 void HlirSyncService::buildRuntime()
 {
-    // Create a runtime sequence with Fill/Drain ops for shim-connected FIFOs.
+    // Create a runtime sequence with Fill/Drain ops driven by DDR↔SHIM wires.
     if (!m_document || !m_bridge)
         return;
 
     const hlir::ComponentId defaultTypeId = m_typeMap.value(QStringLiteral("data_ty"));
+    const QLatin1StringView ddrSpecId{"ddr"};
 
-    // Classify wires by shim endpoint role
+    const auto& items = m_document->items();
+
+    // --- Pass 1: Find fill SHIMs (DDR → SHIM) and drain SHIMs (SHIM → DDR) ---
+    QSet<Canvas::ObjectId> fillShimIds;
+    QSet<Canvas::ObjectId> drainShimIds;
+
+    for (const auto& item : items) {
+        auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
+        if (!wire)
+            continue;
+
+        const auto& epA = wire->a();
+        const auto& epB = wire->b();
+        if (!epA.attached.has_value() || !epB.attached.has_value())
+            continue;
+
+        auto* blockA = dynamic_cast<Canvas::CanvasBlock*>(
+            m_document->findItem(epA.attached->itemId));
+        auto* blockB = dynamic_cast<Canvas::CanvasBlock*>(
+            m_document->findItem(epB.attached->itemId));
+        if (!blockA || !blockB)
+            continue;
+
+        const bool aDdr = blockA->specId() == ddrSpecId;
+        const bool bDdr = blockB->specId() == ddrSpecId;
+
+        if (aDdr && !bDdr) {
+            // DDR → SHIM: blockB is a fill SHIM
+            const auto parsedB = parseTileSpecId(blockB->specId());
+            if (parsedB && parsedB->kind == hlir::TileKind::SHIM)
+                fillShimIds.insert(blockB->id());
+        } else if (!aDdr && bDdr) {
+            // SHIM → DDR: blockA is a drain SHIM
+            const auto parsedA = parseTileSpecId(blockA->specId());
+            if (parsedA && parsedA->kind == hlir::TileKind::SHIM)
+                drainShimIds.insert(blockA->id());
+        }
+    }
+
+    if (fillShimIds.isEmpty() && drainShimIds.isEmpty())
+        return;
+
+    // --- Pass 2: Match fill/drain SHIMs to their FIFO wires ---
     struct ShimFifoEntry {
         hlir::ComponentId fifoId;
         hlir::ComponentId shimTileId;
@@ -432,7 +500,6 @@ void HlirSyncService::buildRuntime()
     QList<ShimFifoEntry> fillEntries;
     QList<ShimFifoEntry> drainEntries;
 
-    const auto& items = m_document->items();
     for (const auto& item : items) {
         auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
         if (!wire)
@@ -454,20 +521,15 @@ void HlirSyncService::buildRuntime()
         if (!blockA || !blockB)
             continue;
 
-        const auto parsedA = parseTileSpecId(blockA->specId());
-        const auto parsedB = parseTileSpecId(blockB->specId());
-        if (!parsedA || !parsedB)
-            continue;
-
-        // Producer is SHIM → Fill (DDR → shim → AIE)
-        if (parsedA->kind == hlir::TileKind::SHIM) {
+        // Producer SHIM is a fill SHIM → Fill (DDR → SHIM → array)
+        if (fillShimIds.contains(blockA->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockA->id());
             if (!shimTileId.empty())
                 fillEntries.append({fifoId, shimTileId});
         }
 
-        // Consumer is SHIM → Drain (AIE → shim → DDR)
-        if (parsedB->kind == hlir::TileKind::SHIM) {
+        // Consumer SHIM is a drain SHIM → Drain (array → SHIM → DDR)
+        if (drainShimIds.contains(blockB->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockB->id());
             if (!shimTileId.empty())
                 drainEntries.append({fifoId, shimTileId});
