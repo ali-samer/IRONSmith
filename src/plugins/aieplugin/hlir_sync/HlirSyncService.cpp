@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #include "aieplugin/hlir_sync/HlirSyncService.hpp"
+#include "aieplugin/hlir_sync/DesignVerifier.hpp"
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
@@ -205,11 +206,51 @@ void HlirSyncService::syncCanvas()
     }
 }
 
+QList<VerificationIssue> HlirSyncService::runVerification() const
+{
+    // Run all registered design checks against the current canvas document.
+    if (!m_document)
+        return {};
+    return DesignVerifier().verify({m_document});
+}
+
+void HlirSyncService::verifyDesign()
+{
+    // Run verification and emit verificationFinished() with a pass/fail summary.
+    if (!m_document) {
+        emit verificationFinished(false, tr("No design is open."));
+        return;
+    }
+
+    const auto issues = runVerification();
+
+    if (DesignVerifier::hasErrors(issues)) {
+        QString msg = tr("Verification failed:\n\n");
+        for (const auto& issue : issues)
+            if (issue.severity == VerificationIssue::Severity::Error)
+                msg += QStringLiteral("• ") + issue.message + u'\n';
+        emit verificationFinished(false, msg);
+    } else {
+        emit verificationFinished(true, tr("Design verification passed."));
+    }
+}
+
 void HlirSyncService::generateCode()
 {
     // Sync canvas, build HLIR, export to GUI XML, and run code generation.
     if (!m_bridge || !m_document) {
         emit codeGenFinished(false, tr("No design is open."));
+        return;
+    }
+
+    // Verify the design before generating code
+    const auto issues = runVerification();
+    if (DesignVerifier::hasErrors(issues)) {
+        QString msg = tr("Cannot generate code — design verification failed.\n\nIssues:\n");
+        for (const auto& issue : issues)
+            if (issue.severity == VerificationIssue::Severity::Error)
+                msg += QStringLiteral("• ") + issue.message + u'\n';
+        emit codeGenFinished(false, msg);
         return;
     }
 

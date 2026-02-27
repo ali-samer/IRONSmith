@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "aieplugin/hlir_sync/DesignVerifier.hpp"
 #include "canvas/CanvasTypes.hpp"
 #include "hlir_cpp_bridge/HlirTypes.hpp"
 
@@ -40,10 +41,14 @@ public:
     void detachDocument();
 
 public slots:
+    /// Run all design rule checks and emit verificationFinished() with the result.
+    void verifyDesign();
+
     /// Sync, build, and export the HLIR program; emits codeGenFinished().
     void generateCode();
 
 signals:
+    void verificationFinished(bool passed, const QString& message);
     void codeGenFinished(bool success, const QString& message);
 
 private slots:
@@ -67,6 +72,9 @@ private:
     /// Get or create a tensor type for the given dimensions and dtype.
     /// Name is derived from both (e.g. "type_int32_1024").
     hlir::ComponentId ensureTensorType(const QString& dimensions, const QString& valueType);
+
+    /// Run all design rule checks and return the collected issues.
+    QList<VerificationIssue> runVerification() const;
 
     /// Remove all tracked HLIR components in dependency order (FIFOs → types → tiles).
     void resetTrackedComponents();

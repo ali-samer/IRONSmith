@@ -73,6 +73,8 @@ ironsmith_add_plugin(AiePlugin
             design/DesignOpenController.cpp
             hlir_sync/HlirSyncService.hpp
             hlir_sync/HlirSyncService.cpp
+            hlir_sync/DesignVerifier.hpp
+            hlir_sync/DesignVerifier.cpp
 
         PUBLIC_DEPENDS
             ${QT6_REQUIRED_COMPONENTS}
