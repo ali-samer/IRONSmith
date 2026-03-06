@@ -6,7 +6,9 @@
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasPorts.hpp"
+#include "canvas/CanvasSymbolContent.hpp"
 #include "canvas/CanvasWire.hpp"
+#include "canvas/utils/CanvasLinkHubStyle.hpp"
 
 #include <QtCore/QHash>
 #include <QtCore/QList>
@@ -142,6 +144,14 @@ QList<ParsedWire> collectWires(const Canvas::CanvasDocument& doc)
     return result;
 }
 
+/// Returns true if a hub block is a broadcast (symbol "B"), as opposed to split/join.
+bool isBroadcastHub(const Canvas::CanvasBlock* block)
+{
+    auto* sym = dynamic_cast<const Canvas::BlockContentSymbol*>(block->content());
+    return sym && sym->symbol().trimmed()
+               == Canvas::Support::linkHubStyle(Canvas::Support::LinkHubKind::Broadcast).symbol;
+}
+
 /// Extra incoming/outgoing FIFO connections contributed by split/join hub blocks.
 /// These are not visible as direct tile-to-tile wires but represent real DMA
 /// channel usage that must be counted in connectivity and channel-limit checks.
@@ -227,8 +237,16 @@ HubConnections collectHubConnections(const Canvas::CanvasDocument& doc)
         if (!pivotBlock || armTiles.isEmpty())
             continue;
 
-        if (pivotRole == Canvas::PortRole::Consumer) {
-            // SPLIT: placement tile gains outgoing connections; arm tiles gain incoming.
+        if (pivotRole == Canvas::PortRole::Consumer && isBroadcastHub(hubBlock)) {
+            // BROADCAST: placement tile gains 1 outgoing (one forward op); arm tiles gain incoming.
+            result.blockSpec.insert(pivotBlock, pivotSpec);
+            result.extraOut[pivotBlock] += 1;
+            for (const auto& arm : armTiles) {
+                result.blockSpec.insert(arm.block, arm.spec);
+                result.extraIn[arm.block]++;
+            }
+        } else if (pivotRole == Canvas::PortRole::Consumer) {
+            // SPLIT: placement tile gains N outgoing connections; arm tiles gain incoming.
             result.blockSpec.insert(pivotBlock, pivotSpec);
             result.extraOut[pivotBlock] += armTiles.size();
             for (const auto& arm : armTiles) {
@@ -570,6 +588,10 @@ public:
             if (!hubBlock || !hubBlock->isLinkHub() || !hubBlock->specId().isEmpty())
                 continue;
 
+            // Broadcasts forward the whole FIFO unchanged — divisibility does not apply.
+            if (isBroadcastHub(hubBlock))
+                continue;
+
             // Build port-role lookup for this hub.
             QHash<Canvas::PortId, Canvas::PortRole> portRoles;
             for (const auto& port : hubBlock->ports())
@@ -746,7 +768,12 @@ DesignStats collectStats(const VerificationContext& ctx)
         for (const auto& port : hubBlock->ports())
             portRoles[port.id] = port.role;
 
-        // Determine hub type from the pivot wire's port role (hub at endpoint B).
+        // Determine hub type: broadcasts first (also have Consumer pivot role), then split/join.
+        if (isBroadcastHub(hubBlock)) {
+            ++stats.broadcasts;
+            continue;
+        }
+
         for (const auto& wItem : ctx.document->items()) {
             auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
             if (!wire)

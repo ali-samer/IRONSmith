@@ -13,6 +13,7 @@
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
+#include <QtGui/QFont>
 
 namespace Aie::Internal {
 
@@ -36,6 +37,11 @@ AieLogPanel::AieLogPanel(AieOutputLog* log, QWidget* parent)
     m_log->setLineWrapMode(QTextEdit::WidgetWidth);
     m_log->setFrameShape(QFrame::NoFrame);
     m_log->setObjectName(QStringLiteral("AieLogPanelTextEdit"));
+
+    QFont monoFont(QStringLiteral("Consolas"));
+    monoFont.setStyleHint(QFont::Monospace);
+    monoFont.setPointSize(10);
+    m_log->setFont(monoFont);
 
     frame->setContentWidget(m_log);
     root->addWidget(frame);
@@ -76,7 +82,7 @@ void AieLogPanel::appendEntry(bool success, const QString& message)
                        "<p style='margin:0 0 8px 0;"
                        "white-space:pre-wrap;"
                        "color:#cccccc;"
-                       "font-family:monospace;"
+                       "font-family:Consolas,'Courier New',monospace;"
                        "font-size:11px;'>%4</p>")
             .arg(color, icon, time,
                  message.toHtmlEscaped().replace(u'\n', QStringLiteral("<br>")));
@@ -149,7 +155,7 @@ QString AieLogPanel::buildLiveHtml() const
         html += QStringLiteral(
             "<p style='margin:0 0 2px 0;"
             "color:#cccccc;"
-            "font-family:monospace;"
+            "font-family:Consolas,'Courier New',monospace;"
             "font-size:11px;'>"
             "<span style='color:%1;'>%2</span> %3</p>")
             .arg(color, icon, step.label.toHtmlEscaped());
@@ -174,7 +180,7 @@ QString AieLogPanel::buildFinalHtml(bool ok, const QString& summary) const
         html += QStringLiteral(
             "<p style='margin:0 0 2px 0;"
             "color:#cccccc;"
-            "font-family:monospace;"
+            "font-family:Consolas,'Courier New',monospace;"
             "font-size:11px;'>"
             "<span style='color:%1;'>%2</span> %3</p>")
             .arg(sc, si, step.label.toHtmlEscaped());
@@ -185,7 +191,7 @@ QString AieLogPanel::buildFinalHtml(bool ok, const QString& summary) const
             "<p style='margin:4px 0 8px 0;"
             "white-space:pre-wrap;"
             "color:#cccccc;"
-            "font-family:monospace;"
+            "font-family:Consolas,'Courier New',monospace;"
             "font-size:11px;'>%1</p>")
             .arg(summary.toHtmlEscaped().replace(u'\n', QStringLiteral("<br>")));
     }

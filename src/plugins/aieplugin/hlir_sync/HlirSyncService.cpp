@@ -7,7 +7,9 @@
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasPorts.hpp"
+#include "canvas/CanvasSymbolContent.hpp"
 #include "canvas/CanvasWire.hpp"
+#include "canvas/utils/CanvasLinkHubStyle.hpp"
 #include "hlir_cpp_bridge/HlirBridge.hpp"
 #include "code_gen_bridge/CodeGenBridge.hpp"
 
@@ -326,9 +328,10 @@ void HlirSyncService::syncSplitsAndJoins()
         consumerBlockFifo[blockB->id()] = {fifoId, typeId, baseName, elemCount};
     }
 
-    // Process each hub block (split or join). Sequential counters provide stable names.
+    // Process each hub block (split, join, or broadcast). Sequential counters provide stable names.
     int splitIdx = 0;
     int joinIdx  = 0;
+    int bcastIdx = 0;
 
     for (const auto& item : items) {
         auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(item.get());
@@ -395,7 +398,42 @@ void HlirSyncService::syncSplitsAndJoins()
 
         const hlir::ComponentId existingId = m_splitJoinMap.value(hubBlock->id());
 
-        if (pivotRole == Canvas::PortRole::Consumer) {
+        // Detect hub kind from block symbol content ("S"=split, "J"=join, "B"=broadcast).
+        const bool isBroadcast = [&] {
+            auto* sym = dynamic_cast<Canvas::BlockContentSymbol*>(hubBlock->content());
+            return sym && sym->symbol().trimmed()
+                       == Canvas::Support::linkHubStyle(Canvas::Support::LinkHubKind::Broadcast).symbol;
+        }();
+
+        if (isBroadcast) {
+            // ----- BROADCAST -----
+            // Pivot wire enters hub via consumer port → hub forwards the same FIFO to other consumers.
+            const auto srcIt = consumerBlockFifo.constFind(pivotBlock->id());
+            if (srcIt == consumerBlockFifo.constEnd() || srcIt->fifoId.empty()) {
+                qCWarning(hlirSyncLog) << "HlirSyncService: broadcast has no source FIFO for tile"
+                                       << pivotBlock->specId();
+                continue;
+            }
+
+            ++bcastIdx;
+            const QString bcastName = QStringLiteral("bcast") + QString::number(bcastIdx);
+            const std::map<std::string, std::string> metadata = {
+                {"placement", pivotBlock->specId().toStdString()}
+            };
+
+            auto result = m_bridge->addFifoForward(
+                bcastName.toStdString(),
+                srcIt->fifoId,
+                existingId,
+                metadata);
+
+            if (result) {
+                m_splitJoinMap[hubBlock->id()] = result.value();
+            } else {
+                qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync broadcast" << bcastName;
+            }
+
+        } else if (pivotRole == Canvas::PortRole::Consumer) {
             // ----- SPLIT -----
             // Pivot wire enters hub via consumer port → hub distributes to multiple outputs.
             const auto srcIt = consumerBlockFifo.constFind(pivotBlock->id());
@@ -550,17 +588,18 @@ void HlirSyncService::verifyDesign()
         const QString msg =
             tr("Design verification passed.\n\n"
                "Design summary:\n"
-               "  \u2022 SHIM tiles: %1\n"
-               "  \u2022 MEM tiles:  %2\n"
-               "  \u2022 AIE tiles:  %3\n"
-               "  \u2022 FIFOs:      %4\n"
-               "  \u2022 Splits:     %5\n"
-               "  \u2022 Joins:      %6\n"
-               "  \u2022 Fills:      %7\n"
-               "  \u2022 Drains:     %8")
+               "  \u2022 SHIM tiles:  %1\n"
+               "  \u2022 MEM tiles:   %2\n"
+               "  \u2022 AIE tiles:   %3\n"
+               "  \u2022 FIFOs:       %4\n"
+               "  \u2022 Splits:      %5\n"
+               "  \u2022 Joins:       %6\n"
+               "  \u2022 Broadcasts:  %7\n"
+               "  \u2022 Fills:       %8\n"
+               "  \u2022 Drains:      %9")
             .arg(stats.shimTiles).arg(stats.memTiles).arg(stats.aieTiles)
             .arg(stats.fifos).arg(stats.splits).arg(stats.joins)
-            .arg(stats.fills).arg(stats.drains);
+            .arg(stats.broadcasts).arg(stats.fills).arg(stats.drains);
         emit verificationFinished(true, msg);
     }
 }
