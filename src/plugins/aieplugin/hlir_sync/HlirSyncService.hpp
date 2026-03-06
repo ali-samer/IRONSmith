@@ -40,6 +40,9 @@ public:
     /// Detach from the current document and remove all tracked bridge components.
     void detachDocument();
 
+    /// The base output directory set by the most recent attachDocument() call.
+    const QString& outputDir() const { return m_outputDir; }
+
 public slots:
     /// Run all design rule checks and emit verificationFinished() with the result.
     void verifyDesign();

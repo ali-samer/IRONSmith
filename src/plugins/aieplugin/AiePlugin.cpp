@@ -14,6 +14,7 @@
 #include "aieplugin/state/AieSidebarState.hpp"
 #include "aieplugin/state/AieWorkspaceState.hpp"
 #include "aieplugin/hlir_sync/AieOutputLog.hpp"
+#include "aieplugin/hlir_sync/HlirDirectExecution.hpp"
 #include "aieplugin/hlir_sync/HlirSyncService.hpp"
 #include "aieplugin/AiePlugin.ForwardDecls.cpp"
 
@@ -104,6 +105,7 @@ private:
     QPointer<KernelToolboxController> m_kernelToolboxController;
     QPointer<AieOutputLog> m_outputLog;
     QPointer<HlirSyncService> m_hlirSync;
+    QPointer<HlirDirectExecution> m_directExec;
     QString m_workspaceRoot;
     bool m_layoutToolRegistered = false;
     bool m_kernelsToolRegistered = false;
@@ -126,6 +128,7 @@ Utils::Result AiePlugin::initialize(const QStringList& arguments, ExtensionSyste
     m_kernelToolboxController = new KernelToolboxController(this);
     m_outputLog = new AieOutputLog(this);
     m_hlirSync = new HlirSyncService(this);
+    m_directExec = new HlirDirectExecution(this);
 
     if (m_kernelAssignments)
         m_kernelAssignments->setRegistry(m_kernelRegistry);

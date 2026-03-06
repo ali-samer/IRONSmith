@@ -78,6 +78,8 @@ ironsmith_add_plugin(AiePlugin
             hlir_sync/HlirSyncService.cpp
             hlir_sync/DesignVerifier.hpp
             hlir_sync/DesignVerifier.cpp
+            hlir_sync/HlirDirectExecution.hpp
+            hlir_sync/HlirDirectExecution.cpp
 
         PUBLIC_DEPENDS
             ${QT6_REQUIRED_COMPONENTS}
@@ -99,8 +101,11 @@ ironsmith_add_plugin(AiePlugin
             AIEPLUGIN_BUILD_SHARED=1
 )
 
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+file(TO_CMAKE_PATH "${Python3_EXECUTABLE}" _aie_python3_exe)
 target_compile_definitions(AiePlugin PRIVATE
         IRONSMITH_BUILTIN_KERNELS_DIR="${PROJECT_SOURCE_DIR}/resources/kernels"
+        PYTHON_EXECUTABLE="${_aie_python3_exe}"
 )
 
 if (BUILD_WITH_TESTS)

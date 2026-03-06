@@ -18,7 +18,6 @@
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
-#include <QtWidgets/QMessageBox>
 
 #include <filesystem>
 

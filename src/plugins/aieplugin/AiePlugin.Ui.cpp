@@ -15,6 +15,7 @@
 #include "aieplugin/panels/AiePropertiesPanel.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
 #include "aieplugin/hlir_sync/AieOutputLog.hpp"
+#include "aieplugin/hlir_sync/HlirDirectExecution.hpp"
 #include "aieplugin/hlir_sync/HlirSyncService.hpp"
 
 #include "codeeditor/api/ICodeEditorService.hpp"
@@ -305,6 +306,13 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
             m_hlirSync->verifyDesign();
     });
 
+    auto* actExecute = new QAction(tr("Execute\nCode"), this);
+    actExecute->setIcon(QIcon(QStringLiteral(":/ui/icons/svg/python_icon.svg")));
+    connect(actExecute, &QAction::triggered, this, [this]() {
+        if (m_directExec && m_hlirSync)
+            m_directExec->execute(m_hlirSync->outputDir());
+    });
+
     // Route code generation and verification results to the Log panel.
     if (m_hlirSync && m_outputLog) {
         // Open the log panel when a new run begins, then forward steps and final result.
@@ -334,6 +342,25 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
                 });
     }
 
+    if (m_directExec && m_outputLog) {
+        connect(m_directExec, &HlirDirectExecution::runStarted, this,
+                [this]() {
+                    if (m_sidebarRegistry)
+                        m_sidebarRegistry->requestShowTool(kLogSidebarToolId);
+                    m_outputLog->startRun();
+                });
+
+        connect(m_directExec, &HlirDirectExecution::stepLogged, this,
+                [this](bool ok, const QString& label) {
+                    m_outputLog->appendRunStep(ok, label);
+                });
+
+        connect(m_directExec, &HlirDirectExecution::executeFinished, this,
+                [this](bool success, const QString& message) {
+                    m_outputLog->finalizeRun(success, message);
+                });
+    }
+
     Core::RibbonPresentation codeGenPres;
     codeGenPres.size = Core::RibbonVisualSize::Large;
     codeGenPres.iconPlacement = Core::RibbonIconPlacement::AboveText;
@@ -348,6 +375,8 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
                             actCodeGen, Core::RibbonControlType::Button, codeGenPres);
     codeGenRoot->addCommand(QStringLiteral("output.verify"),
                             actVerify, Core::RibbonControlType::Button, btnPres);
+    codeGenRoot->addCommand(QStringLiteral("output.execute"),
+                            actExecute, Core::RibbonControlType::Button, btnPres);
 
     const auto ribbonResult = deps.uiHost->setRibbonGroupLayout(
         Core::Constants::RIBBON_TAB_OUTPUT,
