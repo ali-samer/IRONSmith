@@ -182,7 +182,9 @@ void AiePlugin::registerLogSidebarTool(const RuntimeDependencies& deps)
     spec.toolTip  = QStringLiteral("Build & Verification Log");
 
     const auto factory = [this](QWidget* parent) -> QWidget* {
-        return new AieLogPanel(m_outputLog, parent);
+        auto* panel = new AieLogPanel(m_outputLog, parent);
+        m_logPanel = panel;
+        return panel;
     };
 
     QString error;
@@ -228,6 +230,15 @@ void AiePlugin::connectHeaderInfo(const RuntimeDependencies& deps)
 {
     if (!deps.headerInfo || !m_designOpenController)
         return;
+
+    connect(m_designOpenController, &DesignOpenController::designOpened, this,
+            [this](const QString& bundlePath, const QString&, const QString&) {
+                if (!m_logsByDesign.contains(bundlePath))
+                    m_logsByDesign.insert(bundlePath, new AieOutputLog(this));
+                m_outputLog = m_logsByDesign.value(bundlePath);
+                if (auto* panel = qobject_cast<AieLogPanel*>(m_logPanel.data()))
+                    panel->setLog(m_outputLog);
+            });
 
     connect(m_designOpenController, &DesignOpenController::designOpened, this,
             [this, header = QPointer<Core::IHeaderInfo>(deps.headerInfo)]

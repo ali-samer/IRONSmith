@@ -19,6 +19,7 @@ class AieLogPanel final : public QWidget
 
 public:
     explicit AieLogPanel(AieOutputLog* log, QWidget* parent = nullptr);
+    void setLog(AieOutputLog* log);
 
 private:
     void appendEntry(bool success, const QString& message);
@@ -30,7 +31,10 @@ private:
     QString buildFinalHtml(bool ok, const QString& summary) const;
     void scrollToEnd();
 
-    QTextEdit* m_log = nullptr;
+    void clearDisplay();
+
+    AieOutputLog* m_outputLog = nullptr;
+    QTextEdit*    m_log       = nullptr;
 
     // Live run state — one block per button press, updated in-place.
     struct LiveStep { bool ok; QString label; };

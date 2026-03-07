@@ -12,6 +12,7 @@
 #include <QtWidgets/QFrame>
 #include <QtWidgets/QStyle>
 #include <QtWidgets/QTextEdit>
+#include <QtWidgets/QToolButton>
 #include <QtWidgets/QVBoxLayout>
 #include <QtGui/QFont>
 
@@ -46,27 +47,68 @@ AieLogPanel::AieLogPanel(AieOutputLog* log, QWidget* parent)
     frame->setContentWidget(m_log);
     root->addWidget(frame);
 
-    connect(frame, &Utils::SidebarPanelFrame::actionTriggered, this,
-            [this](const QString& id) {
-                if (id == QLatin1StringView("clear")) {
-                    m_log->clear();
-                    m_liveAnchor = -1;
-                    m_liveSteps.clear();
-                    m_liveTimestamp.clear();
-                }
-            });
+    if (auto* clearBtn = frame->actionButton(QStringLiteral("clear"))) {
+        connect(clearBtn, &QToolButton::clicked, this, [this]() {
+            if (m_outputLog)
+                m_outputLog->clear();
+            clearDisplay();
+        });
+    }
 
     if (!log)
         return;
 
+    m_outputLog = log;
+
     // Replay finalized entries that arrived before this panel was created.
-    for (const auto& entry : log->entries())
-        appendEntry(entry.success, entry.message);
+    for (const auto& entry : log->entries()) {
+        if (!entry.html.isEmpty())
+            m_log->append(entry.html);
+        else
+            appendEntry(entry.success, entry.message);
+    }
 
     connect(log, &AieOutputLog::entryAdded, this, &AieLogPanel::appendEntry);
     connect(log, &AieOutputLog::runStarted, this, &AieLogPanel::onRunStarted);
     connect(log, &AieOutputLog::runStepAppended, this, &AieLogPanel::onRunStepAppended);
     connect(log, &AieOutputLog::runFinalized, this, &AieLogPanel::onRunFinalized);
+    connect(log, &AieOutputLog::cleared, this, &AieLogPanel::clearDisplay);
+}
+
+void AieLogPanel::setLog(AieOutputLog* log)
+{
+    if (m_outputLog == log)
+        return;
+
+    if (m_outputLog)
+        disconnect(m_outputLog, nullptr, this, nullptr);
+
+    clearDisplay();
+    m_outputLog = log;
+
+    if (!log)
+        return;
+
+    for (const auto& entry : log->entries()) {
+        if (!entry.html.isEmpty())
+            m_log->append(entry.html);
+        else
+            appendEntry(entry.success, entry.message);
+    }
+
+    connect(log, &AieOutputLog::entryAdded, this, &AieLogPanel::appendEntry);
+    connect(log, &AieOutputLog::runStarted, this, &AieLogPanel::onRunStarted);
+    connect(log, &AieOutputLog::runStepAppended, this, &AieLogPanel::onRunStepAppended);
+    connect(log, &AieOutputLog::runFinalized, this, &AieLogPanel::onRunFinalized);
+    connect(log, &AieOutputLog::cleared, this, &AieLogPanel::clearDisplay);
+}
+
+void AieLogPanel::clearDisplay()
+{
+    m_log->clear();
+    m_liveAnchor = -1;
+    m_liveSteps.clear();
+    m_liveTimestamp.clear();
 }
 
 void AieLogPanel::appendEntry(bool success, const QString& message)
@@ -114,14 +156,19 @@ void AieLogPanel::onRunStepAppended(bool ok, const QString& label)
 
 void AieLogPanel::onRunFinalized(bool ok, const QString& summary)
 {
+    const QString finalHtml = buildFinalHtml(ok, summary);
+
     if (m_liveAnchor >= 0) {
         QTextCursor cursor(m_log->document());
         cursor.setPosition(m_liveAnchor);
         cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
-        cursor.insertHtml(buildFinalHtml(ok, summary));
+        cursor.insertHtml(finalHtml);
     } else {
-        appendEntry(ok, summary);
+        m_log->append(finalHtml);
     }
+
+    if (m_outputLog)
+        m_outputLog->updateLastEntryHtml(finalHtml);
 
     m_liveAnchor = -1;
     m_liveSteps.clear();

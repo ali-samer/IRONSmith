@@ -25,6 +25,7 @@
 #include "core/ui/IUiHost.hpp"
 #include "extensionsystem/PluginManager.hpp"
 
+#include <QtCore/QHash>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QPointer>
 #include <QtCore/QString>
@@ -103,7 +104,9 @@ private:
     QPointer<KernelRegistryService> m_kernelRegistry;
     QPointer<KernelAssignmentController> m_kernelAssignments;
     QPointer<KernelToolboxController> m_kernelToolboxController;
-    QPointer<AieOutputLog> m_outputLog;
+    QPointer<AieOutputLog>  m_outputLog;
+    QHash<QString, AieOutputLog*> m_logsByDesign;
+    QPointer<QWidget>       m_logPanel;
     QPointer<HlirSyncService> m_hlirSync;
     QPointer<HlirDirectExecution> m_directExec;
     QString m_workspaceRoot;

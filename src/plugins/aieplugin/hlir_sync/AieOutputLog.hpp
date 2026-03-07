@@ -19,6 +19,7 @@ public:
     struct Entry {
         bool    success = false;
         QString message;
+        QString html;   // pre-built HTML for replay (non-empty for finalized run blocks)
     };
 
     explicit AieOutputLog(QObject* parent = nullptr) : QObject(parent) {}
@@ -43,13 +44,27 @@ public:
         emit runFinalized(ok, summary);
     }
 
+    /// Store pre-built HTML on the last entry (called by AieLogPanel after finalization).
+    void updateLastEntryHtml(const QString& html)
+    {
+        if (!m_entries.isEmpty())
+            m_entries.last().html = html;
+    }
+
     const QList<Entry>& entries() const { return m_entries; }
+
+    void clear()
+    {
+        m_entries.clear();
+        emit cleared();
+    }
 
 signals:
     void entryAdded(bool success, const QString& message);
     void runStarted();
     void runStepAppended(bool ok, const QString& label);
     void runFinalized(bool ok, const QString& summary);
+    void cleared();
 
 private:
     QList<Entry> m_entries;
