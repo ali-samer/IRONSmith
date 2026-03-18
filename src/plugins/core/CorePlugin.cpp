@@ -85,6 +85,9 @@ void CorePlugin::extensionsInitialized(ExtensionSystem::PluginManager& manager)
 		m_core->open();
 }
 
+// The creation of the command ribbon should be delegated to a special component that oversees all actionable items through corresponding action item interface:
+// i.e., ActionManager -> IActionManager | ex: ProjectGroupActions -> IActionItem
+// please see qtc's implementation (solid reference): https://github.com/qt-creator/qt-creator/tree/master/src/plugins/coreplugin/actionmanager
 void CorePlugin::setupCommandRibbonActions(Core::IUiHost* uiHost)
 {
 	if (!uiHost)
@@ -113,7 +116,6 @@ void CorePlugin::setupCommandRibbonActions(Core::IUiHost* uiHost)
 	setupViewPageCommands(uiHost);
 	setupOutputPageCommands(uiHost);
 }
-
 
 void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 {
