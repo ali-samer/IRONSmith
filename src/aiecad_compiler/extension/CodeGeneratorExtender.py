@@ -127,10 +127,13 @@ class ExternalFunctionCodeGen(CodeGenExtension):
 class CoreFunctionCodeGen(CodeGenExtension):
     """Generates CoreFunction (def statements inside jit function)"""
 
+
     kind = "CoreFunction"
+
 
     def generate(self, node_id: str) -> str:
         name = self._get_node_attr(node_id, 'label')
+
 
         # Get parameters
         param_nodes = self._get_children(node_id, 'has_param')
@@ -139,18 +142,23 @@ class CoreFunctionCodeGen(CodeGenExtension):
             p_name = self._get_node_attr(p_id, 'label')
             params.append(p_name)
 
+
         params_str = ", ".join(params)
+
 
         # Generate function signature
         lines = [f"def {name}({params_str}):"]
 
+
         # Generate body
         body_nodes = self._get_children(node_id, 'contains')
         if not body_nodes:
-            lines.append("        pass")
+            lines.append("    pass")
         else:
-            # Process body statements with base indentation (2 levels = 8 spaces)
-            body_lines = self._process_body_statements(body_nodes, indent_level=2)
+            # Process body statements with base indentation (1 level = 4 spaces).
+            # The "\n    ".join() below adds another 4 spaces to each continuation
+            # line, so indent_level=1 here produces the correct 8-space body indent.
+            body_lines = self._process_body_statements(body_nodes, indent_level=1)
             lines.extend(body_lines)
 
         return "\n    ".join(lines)
@@ -204,6 +212,14 @@ class CoreFunctionCodeGen(CodeGenExtension):
                 call_expr = self._reconstruct_function_call_statement(child_id)
                 if call_expr:
                     lines.append(f"{indent}{call_expr}")
+
+            elif child_kind == 'Assignment':
+                # Indexed assignment: target[index] = value
+                target = self._get_node_attr(child_id, 'target')
+                index = self._get_node_attr(child_id, 'index')
+                value = self._get_node_attr(child_id, 'value')
+                if target is not None and index is not None and value is not None:
+                    lines.append(f"{indent}{target}[{index}] = {value}")
 
         return lines
     
@@ -384,8 +400,8 @@ class WorkerCodeGen(CodeGenExtension):
                             elif item_kind == 'String':
                                 item_val = self._get_node_attr(item_id, 'label')
                                 items.append(f'"{item_val}"')
-                            elif item_kind in ['BinaryOp', 'ConstExpr']:
-                                # Reconstruct expression
+                            elif item_kind in ['BinaryOp', 'ConstExpr', 'Const']:
+                                # Reconstruct expression (includes symbolic constants)
                                 expr = self._reconstruct_expression(item_id)
                                 if expr:
                                     items.append(expr)
