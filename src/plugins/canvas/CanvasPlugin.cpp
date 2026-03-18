@@ -60,6 +60,7 @@ private:
 	    QPointer<CanvasStyleHostImpl> m_styleHost;
         QPointer<CanvasDocumentServiceImpl> m_documentService;
 
+    // TODO: separate items into a series of structs that are factory created by future implementation of action manager
     struct RibbonActions final {
         QPointer<QAction> select;
         QPointer<QAction> pan;
@@ -81,12 +82,12 @@ private:
     } m_actions;
 };
 
-
 Utils::Result CanvasPlugin::initialize(const QStringList &arguments, ExtensionSystem::PluginManager &manager) {
 	Q_UNUSED(arguments);
 	Q_UNUSED(manager);
 
 	qCInfo(canvaslog) << "CanvasPlugin: initialize...";
+    // registering the following types as qt meta types for potential multi-threading later on
 	qRegisterMetaType<Canvas::ObjectId>("Canvas::ObjectId");
 	qRegisterMetaType<Canvas::PortId>("Canvas::PortId");
     qRegisterMetaType<Canvas::Api::CanvasDocumentHandle>("Canvas::Api::CanvasDocumentHandle");
@@ -151,6 +152,9 @@ ExtensionSystem::IPlugin::ShutdownFlag CanvasPlugin::aboutToShutdown() {
 	return ShutdownFlag::SynchronousShutdown;
 }
 
+// We're currently performing "manual injection" to satisfy the canvas with its desired dependencies.
+// TODO: Consider creating a shared library that contains common interfaces that enables all plugins (regardless of their level)
+// to see and use.
 void CanvasPlugin::connectRibbonActions(Core::IUiHost* uiHost)
 {
     if (!uiHost || !m_host)

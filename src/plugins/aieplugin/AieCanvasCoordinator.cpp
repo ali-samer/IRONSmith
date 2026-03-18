@@ -640,9 +640,6 @@ void AieCanvasCoordinator::apply()
     if (!m_gridHost || !m_baseModel.gridSpec.isValid())
         return;
 
-    qCDebug(aiecanvaslog) << "AIE apply(): blocks=" << m_baseModel.blocks.size()
-                          << "gridValid=" << m_baseModel.gridSpec.isValid();
-
     Utils::GridSpec spec = m_baseModel.gridSpec;
     const double spread = m_layout.outwardSpread;
     spec.cellSpacing = QSizeF(m_layout.horizontalSpacing + spread, m_layout.verticalSpacing + spread);
