@@ -146,8 +146,8 @@ void HlirSyncService::syncCanvas()
     }
 
     // Default type for plain wires with no explicit ObjectFifoConfig
-    const hlir::ComponentId defaultTypeId = ensureNamedTensorType(
-        QStringLiteral("data_ty"), QStringLiteral("1024"), QStringLiteral("int32"));
+    const hlir::ComponentId defaultTypeId = ensureTensorType(
+        QStringLiteral("1024"), QStringLiteral("int32"));
 
     // Sync FIFOs — two-pass to handle colliding base names.
     // When multiple wires share the same base name all are suffixed _a, _b, _c…
@@ -277,7 +277,8 @@ void HlirSyncService::syncSplitsAndJoins()
     QHash<Canvas::ObjectId, FifoInfo> consumerBlockFifo; // tile is consumer of this FIFO
     QHash<Canvas::ObjectId, FifoInfo> producerBlockFifo; // tile is producer of this FIFO
 
-    const hlir::ComponentId defaultTypeId = m_typeMap.value(QStringLiteral("data_ty"));
+    const hlir::ComponentId defaultTypeId = ensureTensorType(
+        QStringLiteral("1024"), QStringLiteral("int32"));
 
     // Compute total element count from "1024" → 1024, "32x4" → 128, "" → 1024 (data_ty default).
     auto elementCountFromDims = [](const QString& dims) -> int {
@@ -804,7 +805,8 @@ void HlirSyncService::buildRuntime()
     if (!m_document || !m_bridge)
         return;
 
-    const hlir::ComponentId defaultTypeId = m_typeMap.value(QStringLiteral("data_ty"));
+    const hlir::ComponentId defaultTypeId = ensureTensorType(
+        QStringLiteral("1024"), QStringLiteral("int32"));
     const QLatin1StringView ddrSpecId{"ddr"};
 
     const auto& items = m_document->items();
@@ -851,8 +853,10 @@ void HlirSyncService::buildRuntime()
 
     // --- Pass 2: Match fill/drain SHIMs to their FIFO wires ---
     struct ShimFifoEntry {
-        hlir::ComponentId fifoId;
-        hlir::ComponentId shimTileId;
+        hlir::ComponentId   fifoId;
+        hlir::ComponentId   shimTileId;
+        Canvas::CanvasWire* wire      = nullptr;
+        std::string         paramName;
     };
 
     QList<ShimFifoEntry> fillEntries;
@@ -883,14 +887,14 @@ void HlirSyncService::buildRuntime()
         if (fillShimIds.contains(blockA->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockA->id());
             if (!shimTileId.empty())
-                fillEntries.append({fifoId, shimTileId});
+                fillEntries.append({fifoId, shimTileId, wire});
         }
 
         // Consumer SHIM is a drain SHIM → Drain (array → SHIM → DDR)
         if (drainShimIds.contains(blockB->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockB->id());
             if (!shimTileId.empty())
-                drainEntries.append({fifoId, shimTileId});
+                drainEntries.append({fifoId, shimTileId, wire});
         }
     }
 
@@ -904,27 +908,62 @@ void HlirSyncService::buildRuntime()
         return;
     }
 
+    // Input types: use the FIFO wire's configured tensor type; fall back to defaultTypeId
     for (int i = 0; i < fillEntries.size(); ++i) {
-        if (!defaultTypeId.empty())
-            m_bridge->runtimeAddInputType(defaultTypeId);
+        hlir::ComponentId typeId = defaultTypeId;
+        if (auto* w = fillEntries[i].wire; w && w->hasObjectFifo()) {
+            const auto& cfg = w->objectFifo().value();
+            if (!cfg.type.dimensions.isEmpty()) {
+                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
+                                       ? QStringLiteral("int32") : cfg.type.valueType;
+                typeId = ensureTensorType(cfg.type.dimensions, vt);
+            }
+        }
+        if (!typeId.empty())
+            m_bridge->runtimeAddInputType(typeId);
+    }
+
+    // Output types: same pattern
+    for (int i = 0; i < drainEntries.size(); ++i) {
+        hlir::ComponentId typeId = defaultTypeId;
+        if (auto* w = drainEntries[i].wire; w && w->hasObjectFifo()) {
+            const auto& cfg = w->objectFifo().value();
+            if (!cfg.type.dimensions.isEmpty()) {
+                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
+                                       ? QStringLiteral("int32") : cfg.type.valueType;
+                typeId = ensureTensorType(cfg.type.dimensions, vt);
+            }
+        }
+        if (!typeId.empty())
+            m_bridge->runtimeAddOutputType(typeId);
+    }
+
+    // Param names: use FIFO wire's configured name; fall back to "input_N"/"output_N"
+    for (int i = 0; i < fillEntries.size(); ++i) {
+        std::string name = "input_" + std::to_string(i);
+        if (auto* w = fillEntries[i].wire; w && w->hasObjectFifo()) {
+            const QString n = w->objectFifo().value().name;
+            if (!n.isEmpty()) name = n.toStdString();
+        }
+        fillEntries[i].paramName = name;
+        m_bridge->runtimeAddParam(name);
     }
     for (int i = 0; i < drainEntries.size(); ++i) {
-        if (!defaultTypeId.empty())
-            m_bridge->runtimeAddOutputType(defaultTypeId);
+        std::string name = "output_" + std::to_string(i);
+        if (auto* w = drainEntries[i].wire; w && w->hasObjectFifo()) {
+            const QString n = w->objectFifo().value().name;
+            if (!n.isEmpty()) name = n.toStdString();
+        }
+        drainEntries[i].paramName = name;
+        m_bridge->runtimeAddParam(name);
     }
 
-    // Fills first so the serialiser assigns _in/_out suffixes correctly
-    for (int i = 0; i < fillEntries.size(); ++i)
-        m_bridge->runtimeAddParam("input_" + std::to_string(i));
-    for (int i = 0; i < drainEntries.size(); ++i)
-        m_bridge->runtimeAddParam("output_" + std::to_string(i));
-
     for (int i = 0; i < fillEntries.size(); ++i) {
-        const std::string name = "input_" + std::to_string(i);
+        const std::string& name = fillEntries[i].paramName;
         m_bridge->runtimeAddFill(name, fillEntries[i].fifoId, name, fillEntries[i].shimTileId);
     }
     for (int i = 0; i < drainEntries.size(); ++i) {
-        const std::string name = "output_" + std::to_string(i);
+        const std::string& name = drainEntries[i].paramName;
         m_bridge->runtimeAddDrain(name, drainEntries[i].fifoId, name, drainEntries[i].shimTileId);
     }
 
