@@ -46,6 +46,7 @@ private:
         None,
         Tile,
         FifoWire,
+        HubPivotWire,
         DdrBlock,
         Unsupported
     };
@@ -61,6 +62,7 @@ private:
     void applyTileLabel();
     void applyTileStereotype();
     void applyFifoProperties();
+    void applyHubPivotProperties();
     void rebuildDdrGroup(Canvas::CanvasBlock* ddrBlock);
     void applyDdrEntry(Canvas::ObjectId wireId, const QString& name,
                        const QString& dims, const QString& type);
@@ -87,6 +89,16 @@ private:
     QPointer<QSpinBox> m_fifoDepthSpin;
     QPointer<QComboBox> m_fifoTypeCombo;
     QPointer<QLineEdit> m_fifoDimensionsEdit;
+
+    QPointer<QGroupBox> m_hubPivotGroup;
+    QPointer<QLineEdit> m_hubPivotNameEdit;
+    QPointer<QLabel>    m_hubPivotFifoLabel;
+    QPointer<QLineEdit> m_hubPivotFifoEdit;
+    QPointer<QLabel>    m_hubBranchesValue;
+    QPointer<QLabel>    m_hubOffsetsValue;
+    QPointer<QLabel>    m_hubDepthValue;
+    QPointer<QLabel>    m_hubValueTypeValue;
+    QPointer<QLabel>    m_hubDimensionsValue;
 
     QPointer<QGroupBox> m_ddrGroup;
     QPointer<QWidget>   m_ddrContent;

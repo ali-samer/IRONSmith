@@ -189,6 +189,62 @@ void AiePropertiesPanel::buildUi()
     m_fifoTypeCombo = fifoTypeCombo;
     m_fifoDimensionsEdit = fifoDimensionsEdit;
 
+    // --- Hub Pivot group (Split / Join wires) ---
+    auto* hubPivotGroup = new QGroupBox(QStringLiteral("Split / Join"), fieldsHost);
+    hubPivotGroup->setObjectName(QStringLiteral("AiePropertiesSectionCard"));
+    auto* hubPivotForm = new QFormLayout(hubPivotGroup);
+    hubPivotForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    hubPivotForm->setContentsMargins(12, 12, 12, 12);
+    hubPivotForm->setHorizontalSpacing(10);
+    hubPivotForm->setVerticalSpacing(8);
+    hubPivotForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    const auto makeHubKeyLabel = [hubPivotGroup](const QString& text) -> QLabel* {
+        auto* label = new QLabel(text, hubPivotGroup);
+        label->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+        return label;
+    };
+    const auto makeHubValueLabel = [hubPivotGroup]() -> QLabel* {
+        auto* label = new QLabel(hubPivotGroup);
+        label->setObjectName(QStringLiteral("AiePropertiesValueLabel"));
+        label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        return label;
+    };
+
+    auto* hubPivotNameEdit = new QLineEdit(hubPivotGroup);
+    hubPivotNameEdit->setObjectName(QStringLiteral("AiePropertiesField"));
+    hubPivotNameEdit->setPlaceholderText(QStringLiteral("e.g. split1"));
+
+    auto* hubPivotFifoLabel = new QLabel(QStringLiteral("Source FIFO"), hubPivotGroup);
+    hubPivotFifoLabel->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+    auto* hubPivotFifoEdit = new QLineEdit(hubPivotGroup);
+    hubPivotFifoEdit->setObjectName(QStringLiteral("AiePropertiesField"));
+    hubPivotFifoEdit->setPlaceholderText(QStringLiteral("e.g. A"));
+
+    auto* hubBranchesValue  = makeHubValueLabel();
+    auto* hubOffsetsValue   = makeHubValueLabel();
+    auto* hubDepthValue     = makeHubValueLabel();
+    auto* hubValueTypeValue = makeHubValueLabel();
+    auto* hubDimensionsValue = makeHubValueLabel();
+
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Name")),       hubPivotNameEdit);
+    hubPivotForm->addRow(hubPivotFifoLabel,                              hubPivotFifoEdit);
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Branches")),   hubBranchesValue);
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Offsets")),    hubOffsetsValue);
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Depth")),      hubDepthValue);
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Value Type")), hubValueTypeValue);
+    hubPivotForm->addRow(makeHubKeyLabel(QStringLiteral("Dimensions")), hubDimensionsValue);
+
+    m_hubPivotGroup      = hubPivotGroup;
+    m_hubPivotNameEdit   = hubPivotNameEdit;
+    m_hubPivotFifoLabel  = hubPivotFifoLabel;
+    m_hubPivotFifoEdit   = hubPivotFifoEdit;
+    m_hubBranchesValue   = hubBranchesValue;
+    m_hubOffsetsValue    = hubOffsetsValue;
+    m_hubDepthValue      = hubDepthValue;
+    m_hubValueTypeValue  = hubValueTypeValue;
+    m_hubDimensionsValue = hubDimensionsValue;
+
     auto* ddrGroup = new QGroupBox(QStringLiteral("DDR Runtime"), fieldsHost);
     ddrGroup->setObjectName(QStringLiteral("AiePropertiesSectionCard"));
     new QVBoxLayout(ddrGroup);
@@ -196,6 +252,7 @@ void AiePropertiesPanel::buildUi()
 
     fieldsLayout->addWidget(tileGroup);
     fieldsLayout->addWidget(fifoGroup);
+    fieldsLayout->addWidget(hubPivotGroup);
     fieldsLayout->addWidget(ddrGroup);
     fieldsLayout->addStretch(1);
 
@@ -221,6 +278,11 @@ void AiePropertiesPanel::buildUi()
             this, [this](int) { applyFifoProperties(); });
     connect(fifoDimensionsEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyFifoProperties);
+
+    connect(hubPivotNameEdit, &QLineEdit::editingFinished,
+            this, &AiePropertiesPanel::applyHubPivotProperties);
+    connect(hubPivotFifoEdit, &QLineEdit::editingFinished,
+            this, &AiePropertiesPanel::applyHubPivotProperties);
 }
 
 void AiePropertiesPanel::bindCanvasSignalsIfNeeded()
@@ -267,13 +329,16 @@ void AiePropertiesPanel::showSelectionState(SelectionKind kind,
         m_detailLabel->setText(detail);
     }
 
-    const bool showTile = (kind == SelectionKind::Tile);
-    const bool showFifo = (kind == SelectionKind::FifoWire);
-    const bool showDdr  = (kind == SelectionKind::DdrBlock);
+    const bool showTile     = (kind == SelectionKind::Tile);
+    const bool showFifo     = (kind == SelectionKind::FifoWire);
+    const bool showHubPivot = (kind == SelectionKind::HubPivotWire);
+    const bool showDdr      = (kind == SelectionKind::DdrBlock);
     if (m_tileGroup)
         m_tileGroup->setVisible(showTile);
     if (m_fifoGroup)
         m_fifoGroup->setVisible(showFifo);
+    if (m_hubPivotGroup)
+        m_hubPivotGroup->setVisible(showHubPivot);
     if (m_ddrGroup)
         m_ddrGroup->setVisible(showDdr);
 }
@@ -361,6 +426,80 @@ void AiePropertiesPanel::refreshSelection()
         }
 
         const auto fifo = wire->objectFifo().value();
+        const bool isPivot = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Split ||
+                               fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Join);
+
+        if (isPivot) {
+            const bool isSplit = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Split);
+
+            // Count arm branches: find the hub block at endpoint B, count ports by arm role.
+            int numBranches = 0;
+            if (wire->b().attached.has_value()) {
+                auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(
+                    m_document->findItem(wire->b().attached->itemId));
+                if (hubBlock) {
+                    // Split arms are producer ports; join arms are consumer ports.
+                    const Canvas::PortRole armRole = isSplit
+                        ? Canvas::PortRole::Producer
+                        : Canvas::PortRole::Consumer;
+                    for (const auto& port : hubBlock->ports()) {
+                        if (port.role == armRole)
+                            ++numBranches;
+                    }
+                }
+            }
+
+            // Compute offsets string from mirrored dimensions.
+            QString offsetsStr;
+            if (numBranches > 0) {
+                int elemCount = 1024;
+                if (!fifo.type.dimensions.isEmpty()) {
+                    int count = 1;
+                    for (const QString& d : fifo.type.dimensions.split(u'x', Qt::SkipEmptyParts))
+                        count *= d.trimmed().toInt();
+                    if (count > 0)
+                        elemCount = count;
+                }
+                const int stride = elemCount / numBranches;
+                QStringList parts;
+                parts.reserve(numBranches);
+                for (int i = 0; i < numBranches; ++i)
+                    parts.append(QString::number(stride * i));
+                offsetsStr = parts.join(QStringLiteral(", "));
+            }
+
+            m_updatingUi = true;
+            if (m_hubPivotFifoLabel)
+                m_hubPivotFifoLabel->setText(isSplit
+                    ? QStringLiteral("Source FIFO")
+                    : QStringLiteral("Destination FIFO"));
+            if (m_hubPivotNameEdit)
+                m_hubPivotNameEdit->setText(fifo.hubName);
+            if (m_hubPivotFifoEdit)
+                m_hubPivotFifoEdit->setText(fifo.name);
+            if (m_hubBranchesValue)
+                m_hubBranchesValue->setText(numBranches > 0
+                    ? QString::number(numBranches) : QStringLiteral("-"));
+            if (m_hubOffsetsValue)
+                m_hubOffsetsValue->setText(offsetsStr.isEmpty()
+                    ? QStringLiteral("-") : offsetsStr);
+            if (m_hubDepthValue)
+                m_hubDepthValue->setText(QString::number(fifo.depth));
+            if (m_hubValueTypeValue)
+                m_hubValueTypeValue->setText(fifo.type.valueType.isEmpty()
+                    ? QStringLiteral("i32") : fifo.type.valueType);
+            if (m_hubDimensionsValue)
+                m_hubDimensionsValue->setText(fifo.type.dimensions.isEmpty()
+                    ? QStringLiteral("-") : fifo.type.dimensions);
+            m_updatingUi = false;
+
+            showSelectionState(SelectionKind::HubPivotWire,
+                               isSplit ? QStringLiteral("Split hub wire selected")
+                                       : QStringLiteral("Join hub wire selected"),
+                               QStringLiteral("Edit hub name and source/destination FIFO."));
+            return;
+        }
+
         m_updatingUi = true;
         if (m_fifoWireIdValue)
             m_fifoWireIdValue->setText(wire->id().toString());
@@ -438,6 +577,23 @@ void AiePropertiesPanel::applyFifoProperties()
     config.depth = m_fifoDepthSpin->value();
     config.type.valueType = m_fifoTypeCombo->currentText().trimmed().toLower();
     config.type.dimensions = m_fifoDimensionsEdit->text().trimmed();
+
+    wire->setObjectFifo(config);
+    m_document->notifyChanged();
+}
+
+void AiePropertiesPanel::applyHubPivotProperties()
+{
+    if (m_updatingUi || !m_document || !m_hubPivotNameEdit || !m_hubPivotFifoEdit)
+        return;
+
+    auto* wire = selectedFifoWire();
+    if (!wire)
+        return;
+
+    Canvas::CanvasWire::ObjectFifoConfig config = wire->objectFifo().value();
+    config.hubName = m_hubPivotNameEdit->text().trimmed();
+    config.name    = m_hubPivotFifoEdit->text().trimmed();
 
     wire->setObjectFifo(config);
     m_document->notifyChanged();
