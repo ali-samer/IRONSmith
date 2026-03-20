@@ -942,6 +942,21 @@ HlirResult<void> HlirBridge::runtimeAddParam(const std::string& paramName) {
     return parseJsonResult<void>(jsonRes.value());
 }
 
+HlirResult<void> HlirBridge::runtimeAddMainSize(const std::string& size) {
+    PyObject* args = Py_BuildValue("(s)", size.c_str());
+
+    auto pyRes = callBuilderMethod("runtime_add_main_size", args);
+    Py_DECREF(args);
+
+    if (!pyRes) return std::unexpected(pyRes.error());
+
+    auto jsonRes = extractJsonString(pyRes.value());
+    Py_DECREF(pyRes.value());
+
+    if (!jsonRes) return std::unexpected(jsonRes.error());
+    return parseJsonResult<void>(jsonRes.value());
+}
+
 HlirResult<void> HlirBridge::runtimeAddWorker(const ComponentId& workerId) {
     PyObject* args = Py_BuildValue("(s)", workerId.value.c_str());
 

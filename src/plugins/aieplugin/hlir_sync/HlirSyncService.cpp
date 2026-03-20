@@ -1211,9 +1211,12 @@ void HlirSyncService::buildRuntime()
 
     const auto& items = m_document->items();
 
-    // --- Pass 1: Find fill SHIMs (DDR → SHIM) and drain SHIMs (SHIM → DDR) ---
+    // --- Pass 1: Find fill SHIMs (DDR → SHIM) and drain SHIMs (SHIM → DDR).
+    //     Also retain the DDR↔SHIM wire: its ObjectFifo dimensions = total DDR buffer size. ---
     QSet<Canvas::ObjectId> fillShimIds;
     QSet<Canvas::ObjectId> drainShimIds;
+    QHash<Canvas::ObjectId, Canvas::CanvasWire*> fillShimDdrWires;
+    QHash<Canvas::ObjectId, Canvas::CanvasWire*> drainShimDdrWires;
 
     for (const auto& item : items) {
         auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
@@ -1238,13 +1241,17 @@ void HlirSyncService::buildRuntime()
         if (aDdr && !bDdr) {
             // DDR → SHIM: blockB is a fill SHIM
             const auto parsedB = parseTileSpecId(blockB->specId());
-            if (parsedB && parsedB->kind == hlir::TileKind::SHIM)
+            if (parsedB && parsedB->kind == hlir::TileKind::SHIM) {
                 fillShimIds.insert(blockB->id());
+                fillShimDdrWires.insert(blockB->id(), wire);
+            }
         } else if (!aDdr && bDdr) {
             // SHIM → DDR: blockA is a drain SHIM
             const auto parsedA = parseTileSpecId(blockA->specId());
-            if (parsedA && parsedA->kind == hlir::TileKind::SHIM)
+            if (parsedA && parsedA->kind == hlir::TileKind::SHIM) {
                 drainShimIds.insert(blockA->id());
+                drainShimDdrWires.insert(blockA->id(), wire);
+            }
         }
     }
 
@@ -1255,7 +1262,8 @@ void HlirSyncService::buildRuntime()
     struct ShimFifoEntry {
         hlir::ComponentId   fifoId;
         hlir::ComponentId   shimTileId;
-        Canvas::CanvasWire* wire      = nullptr;
+        Canvas::CanvasWire* wire    = nullptr;  // SHIM→compute FIFO wire (transfer size)
+        Canvas::CanvasWire* ddrWire = nullptr;  // DDR→SHIM wire (total buffer size for main())
         std::string         paramName;
     };
 
@@ -1287,14 +1295,14 @@ void HlirSyncService::buildRuntime()
         if (fillShimIds.contains(blockA->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockA->id());
             if (!shimTileId.empty())
-                fillEntries.append({fifoId, shimTileId, wire});
+                fillEntries.append({fifoId, shimTileId, wire, fillShimDdrWires.value(blockA->id())});
         }
 
         // Consumer SHIM is a drain SHIM → Drain (array → SHIM → DDR)
         if (drainShimIds.contains(blockB->id())) {
             const hlir::ComponentId shimTileId = m_tileMap.value(blockB->id());
             if (!shimTileId.empty())
-                drainEntries.append({fifoId, shimTileId, wire});
+                drainEntries.append({fifoId, shimTileId, wire, drainShimDdrWires.value(blockB->id())});
         }
     }
 
@@ -1314,34 +1322,52 @@ void HlirSyncService::buildRuntime()
             m_bridge->runtimeAddWorker(workerId);
     }
 
-    // Input types: use the FIFO wire's configured tensor type; fall back to defaultTypeId
+    // rt.sequence type = FIFO transfer dims; main() buffer size = DDR wire dims.
     for (int i = 0; i < fillEntries.size(); ++i) {
         hlir::ComponentId typeId = defaultTypeId;
+        QString mainSize;
+        QString valueType = QStringLiteral("int32");
         if (auto* w = fillEntries[i].wire; w && w->hasObjectFifo()) {
             const auto& cfg = w->objectFifo().value();
-            if (!cfg.type.dimensions.isEmpty()) {
-                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                       ? QStringLiteral("int32") : cfg.type.valueType;
-                typeId = ensureTensorType(cfg.type.dimensions, vt);
-            }
+            valueType = (cfg.type.valueType == QStringLiteral("i32"))
+                            ? QStringLiteral("int32") : cfg.type.valueType;
+            // Transfer size: FIFO dims; fall back to DDR dims if not yet configured
+            QString transferDims = cfg.type.dimensions.trimmed();
+            if (transferDims.isEmpty() && fillEntries[i].ddrWire
+                    && fillEntries[i].ddrWire->hasObjectFifo())
+                transferDims = fillEntries[i].ddrWire->objectFifo().value().type.dimensions.trimmed();
+            if (!transferDims.isEmpty())
+                typeId = ensureTensorType(transferDims, valueType);
         }
+        // Total buffer size from DDR→SHIM wire
+        if (auto* d = fillEntries[i].ddrWire; d && d->hasObjectFifo())
+            mainSize = d->objectFifo().value().type.dimensions.trimmed();
         if (!typeId.empty())
             m_bridge->runtimeAddInputType(typeId);
+        m_bridge->runtimeAddMainSize(mainSize.toStdString());
     }
 
     // Output types: same pattern
     for (int i = 0; i < drainEntries.size(); ++i) {
         hlir::ComponentId typeId = defaultTypeId;
+        QString mainSize;
+        QString valueType = QStringLiteral("int32");
         if (auto* w = drainEntries[i].wire; w && w->hasObjectFifo()) {
             const auto& cfg = w->objectFifo().value();
-            if (!cfg.type.dimensions.isEmpty()) {
-                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                       ? QStringLiteral("int32") : cfg.type.valueType;
-                typeId = ensureTensorType(cfg.type.dimensions, vt);
-            }
+            valueType = (cfg.type.valueType == QStringLiteral("i32"))
+                            ? QStringLiteral("int32") : cfg.type.valueType;
+            QString transferDims = cfg.type.dimensions.trimmed();
+            if (transferDims.isEmpty() && drainEntries[i].ddrWire
+                    && drainEntries[i].ddrWire->hasObjectFifo())
+                transferDims = drainEntries[i].ddrWire->objectFifo().value().type.dimensions.trimmed();
+            if (!transferDims.isEmpty())
+                typeId = ensureTensorType(transferDims, valueType);
         }
+        if (auto* d = drainEntries[i].ddrWire; d && d->hasObjectFifo())
+            mainSize = d->objectFifo().value().type.dimensions.trimmed();
         if (!typeId.empty())
             m_bridge->runtimeAddOutputType(typeId);
+        m_bridge->runtimeAddMainSize(mainSize.toStdString());
     }
 
     // Param names: use FIFO wire's configured name; fall back to "input_N"/"output_N"

@@ -874,16 +874,13 @@ class GUIXMLSerializer:
                     size_expr = "N"
                     break
 
-        # Fall back to runtime input type if still no size or dtype found
-        if (size_expr is None or dtype_value is None) and program.runtime and len(program.runtime.input_types) > 0:
+        # Dtype only — size is resolved per-param below so each param can differ.
+        if dtype_value is None and program.runtime and len(program.runtime.input_types) > 0:
             first_type_ref = program.runtime.input_types[0]
             if isinstance(first_type_ref, str) and first_type_ref in program.symbols:
                 tensor_type = program.symbols[first_type_ref].value
-                if isinstance(tensor_type, TensorType):
-                    if tensor_type.shape and len(tensor_type.shape) > 0:
-                        size_expr = str(tensor_type.shape[0])
-                    if dtype_value is None and tensor_type.dtype:
-                        dtype_value = str(tensor_type.dtype.value)
+                if isinstance(tensor_type, TensorType) and tensor_type.dtype:
+                    dtype_value = str(tensor_type.dtype.value)
 
         # Add variable assignments for constants used in size expression
         # Find all constant symbols
@@ -904,7 +901,14 @@ class GUIXMLSerializer:
         # Add blank line for readability
         body_elem.text = '\n'
 
-        # Add tensor initializations
+        # Add tensor initializations.
+        # If a program-level symbol (data_ty / vector_ty / N) provides a canonical buffer
+        # size, use it for every param (preserves backwards-compatibility with symbolic
+        # designs like vector_vector_mul or vector_exp where the FIFO carries sub-tiles but
+        # the main() buffer is the full logical size).
+        # When no such symbol exists (pure-canvas designs with concrete FIFO types), derive
+        # each param's size individually from its own runtime type so that params with
+        # different sizes (e.g. split/join designs) are allocated correctly.
         if program.runtime and program.runtime.param_names:
             for i, param_name in enumerate(program.runtime.param_names):
                 tensor_elem = SubElement(body_elem, 'Tensor')
@@ -913,17 +917,51 @@ class GUIXMLSerializer:
                 tensor_elem.tail = '\n'
 
                 init_elem = SubElement(tensor_elem, 'init')
-                # Use extracted size and dtype, or defaults
-                size_arg = size_expr if size_expr else 'data_size'
-                # Use dtype directly - bfloat16 comes from ml_dtypes, not numpy
-                # For numpy types like int32, float32, add np. prefix
-                if dtype_value:
-                    if dtype_value == 'bfloat16':
-                        dtype_arg = 'bfloat16'  # From ml_dtypes
+
+                # Check for explicit per-param main() size (set via runtimeAddMainSize).
+                # These override both global symbols and per-param type resolution.
+                main_sizes = getattr(program.runtime, 'main_sizes', [])
+                explicit_main_size = main_sizes[i] if i < len(main_sizes) else None
+
+                if explicit_main_size:
+                    size_arg = explicit_main_size
+                    if dtype_value:
+                        dtype_arg = 'bfloat16' if dtype_value == 'bfloat16' else f'np.{dtype_value}'
                     else:
-                        dtype_arg = f'np.{dtype_value}'  # numpy types
+                        dtype_arg = 'bfloat16'
+                elif size_expr:
+                    # Global symbol found — use it for every param (symbolic / legacy path).
+                    size_arg = size_expr
+                    if dtype_value:
+                        dtype_arg = 'bfloat16' if dtype_value == 'bfloat16' else f'np.{dtype_value}'
+                    else:
+                        dtype_arg = 'bfloat16'
                 else:
-                    dtype_arg = 'bfloat16'
+                    # No global symbol — resolve size and dtype per-param from its own
+                    # runtime type (canvas designs with concrete per-param FIFO types).
+                    if i < len(program.runtime.input_types):
+                        param_type_ref = str(program.runtime.input_types[i])
+                    elif i - len(program.runtime.input_types) < len(program.runtime.output_types):
+                        param_type_ref = str(program.runtime.output_types[i - len(program.runtime.input_types)])
+                    else:
+                        param_type_ref = None
+
+                    param_size = None
+                    param_dtype = None
+                    if param_type_ref and param_type_ref in program.symbols:
+                        pt = program.symbols[param_type_ref].value
+                        if isinstance(pt, TensorType):
+                            if pt.shape and len(pt.shape) > 0:
+                                param_size = str(pt.shape[0])
+                            if pt.dtype:
+                                param_dtype = str(pt.dtype.value)
+
+                    size_arg = param_size if param_size else 'data_size'
+                    resolved_dtype = param_dtype if param_dtype else dtype_value
+                    if resolved_dtype:
+                        dtype_arg = 'bfloat16' if resolved_dtype == 'bfloat16' else f'np.{resolved_dtype}'
+                    else:
+                        dtype_arg = 'bfloat16'
 
                 # Determine if input or output
                 if i < len(program.runtime.input_types):

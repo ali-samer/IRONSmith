@@ -64,8 +64,8 @@ private:
     void applyFifoProperties();
     void applyHubPivotProperties();
     void rebuildDdrGroup(Canvas::CanvasBlock* ddrBlock);
-    void applyDdrEntry(Canvas::ObjectId wireId, const QString& name,
-                       const QString& dims, const QString& type);
+    void applyDdrEntry(Canvas::ObjectId fifoWireId, Canvas::ObjectId ddrWireId,
+                       const QString& name, const QString& dims, const QString& type);
 
     QPointer<AieService> m_service;
     QPointer<Canvas::Api::ICanvasHost> m_canvasHost;

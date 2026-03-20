@@ -405,6 +405,11 @@ public:
     /// @return Success or errors
     HlirResult<void> runtimeAddParam(const std::string& paramName);
 
+    /// Override the main() host buffer size for the next runtime param.
+    /// @param size Size expression (e.g. "n_fifo_elems"); empty = use type dims
+    /// @return Success or errors
+    HlirResult<void> runtimeAddMainSize(const std::string& size);
+
     /// Add worker to runtime for StartWorkers
     /// @param workerId Worker ID
     /// @return Success or errors
