@@ -27,6 +27,24 @@ namespace Aie::Internal {
 
 Q_LOGGING_CATEGORY(hlirSyncLog, "ironsmith.aie.hlir")
 
+// Map MLIR short-form type aliases to the Python DataType enum names.
+static QString normalizeValueType(const QString& vt)
+{
+    static const QHash<QString, QString> aliases = {
+        { QStringLiteral("i8"),   QStringLiteral("int8")    },
+        { QStringLiteral("i16"),  QStringLiteral("int16")   },
+        { QStringLiteral("i32"),  QStringLiteral("int32")   },
+        { QStringLiteral("i64"),  QStringLiteral("int64")   },
+        { QStringLiteral("ui8"),  QStringLiteral("uint8")   },
+        { QStringLiteral("ui16"), QStringLiteral("uint16")  },
+        { QStringLiteral("ui32"), QStringLiteral("uint32")  },
+        { QStringLiteral("bf16"), QStringLiteral("bfloat16") },
+        { QStringLiteral("f32"),  QStringLiteral("float32") },
+        { QStringLiteral("f64"),  QStringLiteral("float64") },
+    };
+    return aliases.value(vt, vt);
+}
+
 HlirSyncService::HlirSyncService(QObject* parent)
     : QObject(parent)
 {
@@ -217,13 +235,8 @@ void HlirSyncService::syncCanvas()
             const auto& cfg = wire->objectFifo().value();
             baseName = cfg.name;
             depth = cfg.depth;
-            if (!cfg.type.dimensions.isEmpty()) {
-                // Normalise "i32" → "int32" so the Python DataType enum accepts it
-                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                       ? QStringLiteral("int32")
-                                       : cfg.type.valueType;
-                typeId = ensureTensorType(cfg.type.dimensions, vt);
-            }
+            if (!cfg.type.dimensions.isEmpty())
+                typeId = ensureTensorType(cfg.type.dimensions, normalizeValueType(cfg.type.valueType));
             // else: dimensions unspecified → keep defaultTypeId (shared data type)
         } else {
             baseName = QStringLiteral("fifo_%1_to_%2").arg(producerSpecId, consumerSpecId);
@@ -341,12 +354,8 @@ void HlirSyncService::syncSplitsAndJoins()
             fifoDepth = cfg.depth;
             fifoValueType = cfg.type.valueType.isEmpty() ? QStringLiteral("i32") : cfg.type.valueType;
             fifoDimensions = cfg.type.dimensions;
-            if (!cfg.type.dimensions.isEmpty()) {
-                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                       ? QStringLiteral("int32")
-                                       : cfg.type.valueType;
-                typeId = ensureTensorType(cfg.type.dimensions, vt);
-            }
+            if (!cfg.type.dimensions.isEmpty())
+                typeId = ensureTensorType(cfg.type.dimensions, normalizeValueType(cfg.type.valueType));
             // else: dimensions unspecified → keep defaultTypeId (shared data type)
             elemCount = elementCountFromDims(cfg.type.dimensions);
         }
@@ -867,8 +876,7 @@ hlir::ComponentId
 HlirSyncService::ensureTensorType(const QString& dimensions, const QString& valueType)
 {
     // Return a cached or newly registered tensor type derived from dimensions and dtype.
-    // Normalise short aliases the Python DataType enum doesn't accept
-    const QString vt = (valueType == QStringLiteral("i32")) ? QStringLiteral("int32") : valueType;
+    const QString vt = normalizeValueType(valueType);
 
     const QString key = dimensions + u'|' + vt;
     if (m_typeMap.contains(key))
@@ -929,11 +937,8 @@ void HlirSyncService::buildWorkers()
     auto typeIdForWire = [&](Canvas::CanvasWire* wire) -> hlir::ComponentId {
         if (wire && wire->hasObjectFifo()) {
             const auto& cfg = wire->objectFifo().value();
-            if (!cfg.type.dimensions.isEmpty()) {
-                const QString vt = (cfg.type.valueType == QStringLiteral("i32"))
-                                       ? QStringLiteral("int32") : cfg.type.valueType;
-                return ensureTensorType(cfg.type.dimensions, vt);
-            }
+            if (!cfg.type.dimensions.isEmpty())
+                return ensureTensorType(cfg.type.dimensions, normalizeValueType(cfg.type.valueType));
         }
         return defaultTypeId;
     };
@@ -1329,8 +1334,7 @@ void HlirSyncService::buildRuntime()
         QString valueType = QStringLiteral("int32");
         if (auto* w = fillEntries[i].wire; w && w->hasObjectFifo()) {
             const auto& cfg = w->objectFifo().value();
-            valueType = (cfg.type.valueType == QStringLiteral("i32"))
-                            ? QStringLiteral("int32") : cfg.type.valueType;
+            valueType = normalizeValueType(cfg.type.valueType);
             // Transfer size: FIFO dims; fall back to DDR dims if not yet configured
             QString transferDims = cfg.type.dimensions.trimmed();
             if (transferDims.isEmpty() && fillEntries[i].ddrWire
@@ -1354,8 +1358,7 @@ void HlirSyncService::buildRuntime()
         QString valueType = QStringLiteral("int32");
         if (auto* w = drainEntries[i].wire; w && w->hasObjectFifo()) {
             const auto& cfg = w->objectFifo().value();
-            valueType = (cfg.type.valueType == QStringLiteral("i32"))
-                            ? QStringLiteral("int32") : cfg.type.valueType;
+            valueType = normalizeValueType(cfg.type.valueType);
             QString transferDims = cfg.type.dimensions.trimmed();
             if (transferDims.isEmpty() && drainEntries[i].ddrWire
                     && drainEntries[i].ddrWire->hasObjectFifo())

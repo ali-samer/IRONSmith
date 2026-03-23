@@ -44,6 +44,11 @@ class GUIXMLSerializer:
             pretty_print: Whether to format output with indentation
         """
         self.pretty_print = pretty_print
+        self._param_names: set[str] = set()  # JIT function parameter names, set per-serialize
+
+    def _safe_fifo_var(self, name: str) -> str:
+        """Return the Python variable name for a fifo, prefixing with 'of_' if it conflicts with a JIT param."""
+        return f"of_{name}" if name in self._param_names else name
 
     def _get_type_name(self, type_ref: Any) -> str:
         """
@@ -133,6 +138,12 @@ class GUIXMLSerializer:
 
     def _build_xml(self, program: Program) -> Element:
         """Build GUI XML tree from Program."""
+        # Collect JIT param names so fifo vars that collide can be prefixed with 'of_'.
+        if program.runtime and program.runtime.param_names:
+            self._param_names = set(program.runtime.param_names)
+        else:
+            self._param_names = set()
+
         root = Element('Module')
         root.set('name', program.name)
         root.text = '\n'
@@ -374,7 +385,7 @@ class GUIXMLSerializer:
     def _add_gui_object_fifo(self, parent: Element, fifo: ObjectFifo):
         """Add ObjectFifo in GUI XML format."""
         fifo_elem = SubElement(parent, 'ObjectFifo')
-        fifo_elem.set('name', fifo.name)
+        fifo_elem.set('name', self._safe_fifo_var(fifo.name))
         fifo_elem.text = '\n'
         fifo_elem.tail = '\n'
 
@@ -393,7 +404,7 @@ class GUIXMLSerializer:
         forward_elem = SubElement(parent, 'ObjectFifoForward')
         forward_elem.set('name', forward_op.name)
         source_name = forward_op.source if isinstance(forward_op.source, str) else forward_op.source.name
-        forward_elem.set('source', source_name)
+        forward_elem.set('source', self._safe_fifo_var(source_name))
         if forward_op.placement is not None:
             forward_elem.set('placement', f"Tile({forward_op.placement.x}, {forward_op.placement.y})")
         forward_elem.tail = '\n'
@@ -413,7 +424,7 @@ class GUIXMLSerializer:
         # Source as child element
         source_name = split_op.source if isinstance(split_op.source, str) else split_op.source.name
         source_elem = SubElement(split_elem, 'source')
-        source_elem.text = source_name
+        source_elem.text = self._safe_fifo_var(source_name)
         source_elem.tail = '\n'
 
         # Number of outputs
@@ -452,7 +463,7 @@ class GUIXMLSerializer:
         # Dest as child element
         dest_name = join_op.dest if isinstance(join_op.dest, str) else join_op.dest.name
         dest_elem = SubElement(join_elem, 'dest')
-        dest_elem.text = dest_name
+        dest_elem.text = self._safe_fifo_var(dest_name)
         dest_elem.tail = '\n'
 
         # Number of inputs
@@ -505,7 +516,7 @@ class GUIXMLSerializer:
             if isinstance(arg, FifoBinding):
                 # It's a FIFO binding
                 fifo_name = arg.fifo if isinstance(arg.fifo, str) else arg.fifo.name
-                arg_elem.set('ref', fifo_name)
+                arg_elem.set('ref', self._safe_fifo_var(fifo_name))
                 if arg.index is not None:
                     arg_elem.set('index', str(arg.index))
                 # Map enum values to full words for GUI XML
@@ -584,7 +595,7 @@ class GUIXMLSerializer:
 
         # Target FIFO
         fifo_name = fill_op.fifo if isinstance(fill_op.fifo, str) else fill_op.fifo.name
-        fill_elem.set('target', fifo_name)
+        fill_elem.set('target', self._safe_fifo_var(fifo_name))
 
         # Source parameter - use binding name (lowercase with _in suffix)
         # to match the sequence binding names and avoid shadowing
@@ -628,7 +639,7 @@ class GUIXMLSerializer:
 
         # Source FIFO
         fifo_name = drain_op.fifo if isinstance(drain_op.fifo, str) else drain_op.fifo.name
-        drain_elem.set('source', fifo_name)
+        drain_elem.set('source', self._safe_fifo_var(fifo_name))
 
         # Target parameter - use binding name (lowercase with _out suffix)
         # to match the sequence binding names and avoid shadowing
