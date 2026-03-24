@@ -65,6 +65,7 @@ private:
     bool kernelMatchesFilter(const KernelAsset& kernel, const QString& filterText) const;
 
     CardRefs createCard(const KernelAsset& kernel);
+    CardRefs createListItem(const KernelAsset& kernel);
     void showPreviewDialog(const QString& kernelId, bool openMetadataTab = false);
 
     void setSelectedKernel(const QString& kernelId);
@@ -92,6 +93,7 @@ private:
     QPointer<QVBoxLayout> m_cardsLayout;
     QPointer<QButtonGroup> m_selectionGroup;
 
+    bool m_listViewMode = false;
     QVector<CardRefs> m_cards;
 };
 
