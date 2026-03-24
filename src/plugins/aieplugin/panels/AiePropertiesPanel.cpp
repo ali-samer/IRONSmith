@@ -788,17 +788,24 @@ void AiePropertiesPanel::rebuildDdrGroup(Canvas::CanvasBlock* ddrBlock)
         QString name = defaultName;
         QString dims = QStringLiteral("1024");
         QString type = QStringLiteral("i32");
+        bool isMatrix = false;
+        Canvas::CanvasWire::TensorTilerConfig tapCfg;
         if (fifoWire->hasObjectFifo()) {
             const auto& cfg = fifoWire->objectFifo().value();
             if (!cfg.name.isEmpty())           name = cfg.name;
             if (!cfg.type.valueType.isEmpty()) type = cfg.type.valueType;
         }
-        // Total buffer size lives on the DDR→SHIM wire
+        // Total buffer size and TAP config live on the DDR→SHIM wire
         if (ddrWire && ddrWire->hasObjectFifo()) {
-            const QString d = ddrWire->objectFifo().value().type.dimensions.trimmed();
+            const auto& ddrCfg = ddrWire->objectFifo().value();
+            const QString d = ddrCfg.type.dimensions.trimmed();
             if (!d.isEmpty()) dims = d;
+            isMatrix = (ddrCfg.type.mode == Canvas::CanvasWire::DimensionMode::Matrix);
+            if (ddrCfg.type.tap.has_value())
+                tapCfg = *ddrCfg.type.tap;
         }
 
+        // ── Top row: Name | Dims | Type | Mode ──────────────────────────────
         auto* row = new QWidget(content);
         auto* rowLayout = new QHBoxLayout(row);
         rowLayout->setContentsMargins(0, 0, 0, 0);
@@ -811,7 +818,7 @@ void AiePropertiesPanel::rebuildDdrGroup(Canvas::CanvasBlock* ddrBlock)
 
         auto* dimsEdit = new QLineEdit(dims, row);
         dimsEdit->setObjectName(QStringLiteral("AiePropertiesField"));
-        dimsEdit->setPlaceholderText(QStringLiteral("e.g. 1024"));
+        dimsEdit->setPlaceholderText(QStringLiteral("e.g. 1024 or MxN"));
 
         auto* typeCombo = new QComboBox(row);
         typeCombo->setObjectName(QStringLiteral("AiePropertiesField"));
@@ -819,19 +826,67 @@ void AiePropertiesPanel::rebuildDdrGroup(Canvas::CanvasBlock* ddrBlock)
         const int tidx = typeCombo->findText(type.trimmed().toLower());
         typeCombo->setCurrentIndex(tidx >= 0 ? tidx : typeCombo->findText(QStringLiteral("i32")));
 
+        auto* modeCombo = new QComboBox(row);
+        modeCombo->setObjectName(QStringLiteral("AiePropertiesField"));
+        modeCombo->addItems({QStringLiteral("Vector"), QStringLiteral("Matrix")});
+        modeCombo->setCurrentIndex(isMatrix ? 1 : 0);
+
         rowLayout->addWidget(nameEdit);
         rowLayout->addWidget(dimsEdit, 1);
         rowLayout->addWidget(typeCombo);
+        rowLayout->addWidget(modeCombo);
         contentLayout->addWidget(row);
 
+        // ── TAP section (only shown in Matrix mode) ──────────────────────────
+        auto* tapWidget = new QWidget(content);
+        tapWidget->setVisible(isMatrix);
+        auto* tapForm = new QFormLayout(tapWidget);
+        tapForm->setContentsMargins(16, 2, 0, 4);
+        tapForm->setSpacing(3);
+        tapForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+
+        const auto makeTapField = [tapWidget](const QString& val, const QString& placeholder) {
+            auto* e = new QLineEdit(val, tapWidget);
+            e->setObjectName(QStringLiteral("AiePropertiesField"));
+            e->setPlaceholderText(placeholder);
+            return e;
+        };
+        auto* tileDimsEdit   = makeTapField(tapCfg.tileDims,      QStringLiteral("e.g. 1 x 512"));
+        auto* tileCountsEdit = makeTapField(tapCfg.tileCounts,    QStringLiteral("e.g. rows x cols // 512"));
+        auto* repeatEdit     = makeTapField(tapCfg.patternRepeat, QStringLiteral("1"));
+
+        tapForm->addRow(QStringLiteral("Tile Dimensions"), tileDimsEdit);
+        tapForm->addRow(QStringLiteral("Tile Counts"),     tileCountsEdit);
+        tapForm->addRow(QStringLiteral("Pattern Repeat"),  repeatEdit);
+        contentLayout->addWidget(tapWidget);
+
+        connect(modeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                tapWidget, [tapWidget](int idx) { tapWidget->setVisible(idx == 1); });
+
+        // ── Apply function ───────────────────────────────────────────────────
         const Canvas::ObjectId fifoWireId = fifoWire->id();
         const Canvas::ObjectId ddrWireId  = ddrWire ? ddrWire->id() : Canvas::ObjectId{};
-        const auto applyFn = [this, fifoWireId, ddrWireId, nameEdit, dimsEdit, typeCombo]() {
-            applyDdrEntry(fifoWireId, ddrWireId, nameEdit->text(), dimsEdit->text(), typeCombo->currentText());
+        const auto applyFn = [this, fifoWireId, ddrWireId,
+                               nameEdit, dimsEdit, typeCombo, modeCombo,
+                               tileDimsEdit, tileCountsEdit, repeatEdit]() {
+            Canvas::CanvasWire::TensorTilerConfig tap;
+            tap.tileDims      = tileDimsEdit->text().trimmed();
+            tap.tileCounts    = tileCountsEdit->text().trimmed();
+            tap.patternRepeat = repeatEdit->text().trimmed();
+            tap.pruneStep     = false;
+            tap.index         = 0;
+            applyDdrEntry(fifoWireId, ddrWireId,
+                          nameEdit->text(), dimsEdit->text(), typeCombo->currentText(),
+                          modeCombo->currentIndex() == 1, tap);
         };
-        connect(nameEdit,  &QLineEdit::editingFinished,  this, applyFn);
-        connect(dimsEdit,  &QLineEdit::editingFinished,  this, applyFn);
-        connect(typeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+        connect(nameEdit,       &QLineEdit::editingFinished, this, applyFn);
+        connect(dimsEdit,       &QLineEdit::editingFinished, this, applyFn);
+        connect(tileDimsEdit,   &QLineEdit::editingFinished, this, applyFn);
+        connect(tileCountsEdit, &QLineEdit::editingFinished, this, applyFn);
+        connect(repeatEdit,     &QLineEdit::editingFinished, this, applyFn);
+        connect(typeCombo,  QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [applyFn](int) { applyFn(); });
+        connect(modeCombo,  QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, [applyFn](int) { applyFn(); });
     };
 
@@ -864,7 +919,9 @@ void AiePropertiesPanel::applyDdrEntry(Canvas::ObjectId fifoWireId,
                                         Canvas::ObjectId ddrWireId,
                                         const QString& name,
                                         const QString& dims,
-                                        const QString& type)
+                                        const QString& type,
+                                        bool isMatrix,
+                                        const Canvas::CanvasWire::TensorTilerConfig& tap)
 {
     if (m_updatingUi || !m_document)
         return;
@@ -882,7 +939,7 @@ void AiePropertiesPanel::applyDdrEntry(Canvas::ObjectId fifoWireId,
         fifoWire->setObjectFifo(cfg);
     }
 
-    // Write total buffer dimensions to the DDR→SHIM wire
+    // Write total buffer dimensions, mode, and TAP to the DDR→SHIM wire
     auto* ddrWire = dynamic_cast<Canvas::CanvasWire*>(m_document->findItem(ddrWireId));
     if (ddrWire) {
         Canvas::CanvasWire::ObjectFifoConfig cfg;
@@ -891,6 +948,13 @@ void AiePropertiesPanel::applyDdrEntry(Canvas::ObjectId fifoWireId,
         else
             cfg.depth = 1;
         cfg.type.dimensions = dims.trimmed();
+        cfg.type.mode = isMatrix
+            ? Canvas::CanvasWire::DimensionMode::Matrix
+            : Canvas::CanvasWire::DimensionMode::Vector;
+        if (isMatrix && !tap.tileDims.isEmpty())
+            cfg.type.tap = tap;
+        else
+            cfg.type.tap.reset();
         ddrWire->setObjectFifo(cfg);
     }
 

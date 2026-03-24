@@ -13,6 +13,7 @@
 #include <QtGui/QFont>
 #include <QtGui/QFontMetricsF>
 #include <QtGui/QPainter>
+#include <QtSvg/QSvgRenderer>
 #include <QtWidgets/QApplication>
 
 #include <algorithm>
@@ -139,7 +140,7 @@ QString normalizedObjectFifoName(QString name)
 {
     name = name.trimmed();
     if (name.isEmpty())
-        return QStringLiteral("in");
+        return QStringLiteral("of");
     return name;
 }
 
@@ -317,6 +318,28 @@ void CanvasWire::draw(QPainter& p, const CanvasRenderContext& ctx) const
         CanvasStyle::drawWirePath(p, aAnchor, aBorder, aFabric, bFabric, bBorder, bAnchor, route,
                                   ctx.zoom, ctx.selected(id()), m_arrowPolicy);
     }
+
+}
+
+void CanvasWire::drawPortBadge(QPainter& p, const CanvasRenderContext& ctx, bool badgeAtB) const
+{
+    if (!m_objectFifo.has_value() ||
+        m_objectFifo->type.mode != CanvasWire::DimensionMode::Matrix)
+        return;
+
+    const Endpoint& ep = badgeAtB ? m_b : m_a;
+    if (!ep.attached.has_value())
+        return;
+
+    QPointF anchor, border, fabric;
+    endpointScene(ep, ctx, &anchor, &border, &fabric);
+
+    static QSvgRenderer xRenderer(QStringLiteral(":/ui/icons/svg/port_x_badge.svg"));
+    const double r = std::clamp(7.0 / ctx.zoom, 5.0, 14.0);
+    const QRectF badgeRect(anchor.x() - r, anchor.y() - r, r * 2.0, r * 2.0);
+    p.save();
+    xRenderer.render(&p, badgeRect);
+    p.restore();
 }
 
 QRectF CanvasWire::boundsScene() const
