@@ -460,19 +460,21 @@ void AiePropertiesPanel::refreshSelection()
 
         const auto fifo = wire->objectFifo().value();
         const bool isPivot = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Split ||
-                               fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Join);
+                               fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Join  ||
+                               fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Forward);
 
         if (isPivot) {
-            const bool isSplit = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Split);
+            const bool isSplit    = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Split);
+            const bool isBroadcast = (fifo.operation == Canvas::CanvasWire::ObjectFifoOperation::Forward);
 
             // Count arm branches: find the hub block at endpoint B, count ports by arm role.
+            // Broadcast arms are producer ports (same role as split arms).
             int numBranches = 0;
             if (wire->b().attached.has_value()) {
                 auto* hubBlock = dynamic_cast<Canvas::CanvasBlock*>(
                     m_document->findItem(wire->b().attached->itemId));
                 if (hubBlock) {
-                    // Split arms are producer ports; join arms are consumer ports.
-                    const Canvas::PortRole armRole = isSplit
+                    const Canvas::PortRole armRole = (isSplit || isBroadcast)
                         ? Canvas::PortRole::Producer
                         : Canvas::PortRole::Consumer;
                     for (const auto& port : hubBlock->ports()) {
@@ -482,9 +484,9 @@ void AiePropertiesPanel::refreshSelection()
                 }
             }
 
-            // Compute offsets string from mirrored dimensions.
+            // Compute offsets string — not applicable for broadcasts (full FIFO forwarded).
             QString offsetsStr;
-            if (numBranches > 0) {
+            if (!isBroadcast && numBranches > 0) {
                 int elemCount = 1024;
                 if (!fifo.type.dimensions.isEmpty()) {
                     int count = 1;
@@ -502,8 +504,13 @@ void AiePropertiesPanel::refreshSelection()
             }
 
             m_updatingUi = true;
+            if (m_hubPivotGroup)
+                m_hubPivotGroup->setTitle(isBroadcast
+                    ? QStringLiteral("Broadcast")
+                    : isSplit ? QStringLiteral("Split")
+                              : QStringLiteral("Join"));
             if (m_hubPivotFifoLabel)
-                m_hubPivotFifoLabel->setText(isSplit
+                m_hubPivotFifoLabel->setText(isSplit || isBroadcast
                     ? QStringLiteral("Source FIFO")
                     : QStringLiteral("Destination FIFO"));
             if (m_hubPivotNameEdit)
@@ -527,8 +534,9 @@ void AiePropertiesPanel::refreshSelection()
             m_updatingUi = false;
 
             showSelectionState(SelectionKind::HubPivotWire,
-                               isSplit ? QStringLiteral("Split hub wire selected")
-                                       : QStringLiteral("Join hub wire selected"),
+                               isBroadcast ? QStringLiteral("Broadcast hub wire selected")
+                               : isSplit   ? QStringLiteral("Split hub wire selected")
+                                           : QStringLiteral("Join hub wire selected"),
                                QStringLiteral("Edit hub name and source/destination FIFO."));
             return;
         }

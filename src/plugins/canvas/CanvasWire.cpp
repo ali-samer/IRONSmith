@@ -153,23 +153,31 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
 {
     const QString name = normalizedObjectFifoName(config.name);
 
-    // Pivot wire of a split/join: render as "SPLIT/JOIN: {hubName}, {fifoName}".
+    // Pivot wire of a split/join/broadcast: render as "SPLIT/JOIN/BCAST: {hubName}, {fifoName}".
     if (!config.hubName.trimmed().isEmpty()) {
-        const QString prefix = (config.operation == CanvasWire::ObjectFifoOperation::Join)
-            ? QStringLiteral("JOIN: ")
+        const QString prefix =
+            (config.operation == CanvasWire::ObjectFifoOperation::Join)
+                ? QStringLiteral("JOIN: ")
+            : (config.operation == CanvasWire::ObjectFifoOperation::Forward)
+                ? QStringLiteral("BCAST: ")
             : QStringLiteral("SPLIT: ");
         return prefix + QStringLiteral("%1, %2").arg(config.hubName.trimmed(), name);
     }
 
+    // Arm wire of a broadcast hub: no annotation (arm names are never used in generated code).
+    if (config.operation == CanvasWire::ObjectFifoOperation::Forward)
+        return {};
+
+    // Arm wire of a split/join hub: show only the sub-FIFO name (concise, near the tile port).
+    if (config.operation == CanvasWire::ObjectFifoOperation::Split ||
+        config.operation == CanvasWire::ObjectFifoOperation::Join)
+        return name;
+
     const int depth = normalizedObjectFifoDepth(config.depth);
     const QString valueType = normalizeObjectFifoType(config.type.valueType);
-    const QString opPrefix =
-        (config.operation == CanvasWire::ObjectFifoOperation::Forward)
-            ? QStringLiteral("FWD: ")
-            : QString();
 
     if (compact)
-        return opPrefix + QStringLiteral("FIFO<\"%1\", D:%2>").arg(name).arg(depth);
+        return QStringLiteral("FIFO<\"%1\", D:%2>").arg(name).arg(depth);
 
     QString text = QStringLiteral("FIFO<\"%1\", D:%2, T:%3>").arg(name).arg(depth).arg(valueType);
     const QString dimensions = config.type.dimensions.trimmed();
@@ -177,7 +185,7 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
         text.chop(1);
         text += QStringLiteral(", Dim:%1>").arg(dimensions);
     }
-    return opPrefix + text;
+    return text;
 }
 
 struct AnnotationAnchor final {
@@ -188,9 +196,26 @@ struct AnnotationAnchor final {
 
 AnnotationAnchor annotationAnchorForPath(const std::vector<QPointF>& pathScene,
                                          const CanvasWire::Endpoint& a,
-                                         const CanvasWire::Endpoint& b)
+                                         const CanvasWire::Endpoint& b,
+                                         bool nearB = false)
 {
     if (pathScene.size() >= 2) {
+        if (nearB) {
+            // Use the last segment so the annotation sits near the B endpoint (tile port).
+            const QPointF first  = pathScene[pathScene.size() - 2];
+            const QPointF second = pathScene[pathScene.size() - 1];
+            const QPointF delta  = second - first;
+            const double len2    = delta.x() * delta.x() + delta.y() * delta.y();
+            const double len     = std::sqrt(len2);
+            QPointF dir(1.0, 0.0);
+            if (len > 1e-6)
+                dir = QPointF(delta.x() / len, delta.y() / len);
+            // Anchor at 25% from B (75% from the preceding waypoint).
+            const QPointF anchor(first.x() * 0.25 + second.x() * 0.75,
+                                 first.y() * 0.25 + second.y() * 0.75);
+            return {anchor, dir, len};
+        }
+
         double bestLen2 = -1.0;
         QPointF bestMidpoint = pathScene.front();
         QPointF bestDir(1.0, 0.0);
@@ -250,7 +275,8 @@ QRectF annotationRectForPath(const QString& text,
                              const CanvasWire::Endpoint& a,
                              const CanvasWire::Endpoint& b,
                              ObjectId wireId,
-                             const CanvasRenderContext& ctx)
+                             const CanvasRenderContext& ctx,
+                             bool nearB = false)
 {
     const QString normalized = text.trimmed();
     if (normalized.isEmpty())
@@ -266,7 +292,7 @@ QRectF annotationRectForPath(const QString& text,
     const QSizeF textSize = metrics.size(Qt::TextSingleLine, normalized);
     const QSizeF boxSize(textSize.width() + (Constants::kWireAnnotationPadX * 2.0 * scale),
                          textSize.height() + (Constants::kWireAnnotationPadY * 2.0 * scale));
-    const AnnotationAnchor anchor = annotationAnchorForPath(pathScene, a, b);
+    const AnnotationAnchor anchor = annotationAnchorForPath(pathScene, a, b, nearB);
     const QPointF normal(-anchor.tangent.y(), anchor.tangent.x());
 
     const WireAnnotationVisibilityMode visibility = effectiveWireAnnotationVisibility(ctx);
@@ -548,11 +574,19 @@ QString CanvasWire::annotationText(AnnotationDetail detail, const CanvasRenderCo
 
     // Arm wire of a split/join hub: hub is always at endpoint A for arm wires.
     // Only check m_a so pivot wires (hub at endpoint B) fall through to the ObjectFifo check.
+    // Broadcast arm wires (Forward op, no hubName) suppress the index — arms aren't referenced
+    // individually in generated code.
     QString hubArmLabel;
     if (m_a.attached.has_value()) {
         const auto& ref = m_a.attached.value();
-        if (ctx.hubArmLabelForEndpoint(ref.itemId, ref.portId, hubArmLabel))
+        if (ctx.hubArmLabelForEndpoint(ref.itemId, ref.portId, hubArmLabel)) {
+            const bool isBroadcastArm = m_objectFifo.has_value()
+                && m_objectFifo->operation == ObjectFifoOperation::Forward
+                && m_objectFifo->hubName.trimmed().isEmpty();
+            if (isBroadcastArm)
+                return {};
             return hubArmLabel;
+        }
     }
 
     if (m_objectFifo.has_value())
@@ -580,7 +614,13 @@ QRectF CanvasWire::annotationRect(const CanvasRenderContext& ctx, AnnotationDeta
     if (detail == AnnotationDetail::Hidden)
         return {};
 
-    return annotationRectForPath(annotationText(detail, ctx), resolvedPathScene(ctx), m_a, m_b, id(), ctx);
+    // Arm wires of split/join hubs anchor their label near the B endpoint (tile port side).
+    const bool nearB = m_objectFifo.has_value()
+        && m_objectFifo->hubName.trimmed().isEmpty()
+        && (m_objectFifo->operation == ObjectFifoOperation::Split ||
+            m_objectFifo->operation == ObjectFifoOperation::Join);
+
+    return annotationRectForPath(annotationText(detail, ctx), resolvedPathScene(ctx), m_a, m_b, id(), ctx, nearB);
 }
 
 } // namespace Canvas

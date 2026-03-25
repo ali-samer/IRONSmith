@@ -500,7 +500,30 @@ void HlirSyncService::syncSplitsAndJoins()
             }
 
             ++bcastIdx;
-            const QString bcastName = QStringLiteral("bcast") + QString::number(bcastIdx);
+            // Use user-set hub name from the pivot wire if present; otherwise auto-generate.
+            const QString existingBcastName = (pivotWire->hasObjectFifo())
+                ? pivotWire->objectFifo().value().hubName.trimmed()
+                : QString();
+            const QString bcastName = existingBcastName.isEmpty()
+                ? QStringLiteral("bcast") + QString::number(bcastIdx)
+                : existingBcastName;
+            // Write broadcast name and resolved FIFO name to the pivot wire for annotation.
+            // Safe: syncCanvas() skips wires whose endpoints have empty specId (hubs).
+            {
+                Canvas::CanvasWire::ObjectFifoConfig cfg =
+                    pivotWire->hasObjectFifo() ? pivotWire->objectFifo().value()
+                                               : Canvas::CanvasWire::ObjectFifoConfig{};
+                if (existingBcastName.isEmpty())
+                    cfg.hubName = bcastName;
+                if (bcastPreferred.isEmpty() || bcastPreferred != srcFifo->baseName)
+                    cfg.name = srcFifo->baseName;
+                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Forward;
+                cfg.depth = srcFifo->depth;
+                cfg.type.valueType = srcFifo->valueType;
+                cfg.type.dimensions = srcFifo->dimensions;
+                pivotWire->setObjectFifo(cfg);
+            }
+
             const std::map<std::string, std::string> metadata = {
                 {"placement", pivotBlock->specId().toStdString()}
             };
@@ -516,6 +539,21 @@ void HlirSyncService::syncSplitsAndJoins()
                 m_branchTypeMap[hubBlock->id()] = srcFifo->typeId;
             } else {
                 qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync broadcast" << bcastName;
+            }
+
+            // Mark broadcast arm wires with Forward + empty hubName so they show no annotation.
+            for (const auto& port : hubBlock->ports()) {
+                if (port.role != Canvas::PortRole::Producer)
+                    continue;
+                auto* armWire = portToArmWire.value(port.id, nullptr);
+                if (!armWire)
+                    continue;
+                Canvas::CanvasWire::ObjectFifoConfig cfg =
+                    armWire->hasObjectFifo() ? armWire->objectFifo().value()
+                                             : Canvas::CanvasWire::ObjectFifoConfig{};
+                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Forward;
+                cfg.hubName   = QString();
+                armWire->setObjectFifo(cfg);
             }
 
         } else if (pivotRole == Canvas::PortRole::Consumer) {
@@ -571,6 +609,16 @@ void HlirSyncService::syncSplitsAndJoins()
                 else
                     name = splitName + QStringLiteral("_out") + QString::number(idx + 1);
                 outputNames.push_back(name.toStdString());
+                // Mark arm wire so its annotation shows only the sub-FIFO name, near the tile port.
+                if (armWire) {
+                    Canvas::CanvasWire::ObjectFifoConfig cfg =
+                        armWire->hasObjectFifo() ? armWire->objectFifo().value()
+                                                 : Canvas::CanvasWire::ObjectFifoConfig{};
+                    cfg.name      = QString::fromStdString(outputNames.back());
+                    cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Split;
+                    cfg.hubName   = QString(); // empty hubName = arm wire, not pivot
+                    armWire->setObjectFifo(cfg);
+                }
             }
 
             if (outputNames.empty())
@@ -655,6 +703,16 @@ void HlirSyncService::syncSplitsAndJoins()
                 else
                     name = joinName + QStringLiteral("_in") + QString::number(idx + 1);
                 inputNames.push_back(name.toStdString());
+                // Mark arm wire so its annotation shows only the sub-FIFO name, near the tile port.
+                if (armWire) {
+                    Canvas::CanvasWire::ObjectFifoConfig cfg =
+                        armWire->hasObjectFifo() ? armWire->objectFifo().value()
+                                                 : Canvas::CanvasWire::ObjectFifoConfig{};
+                    cfg.name      = QString::fromStdString(inputNames.back());
+                    cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Join;
+                    cfg.hubName   = QString(); // empty hubName = arm wire, not pivot
+                    armWire->setObjectFifo(cfg);
+                }
             }
 
             if (inputNames.empty())
