@@ -19,8 +19,11 @@ target_include_directories(CodeGenBridge
 )
 
 # Bake the absolute path to main.py so it's found regardless of working directory.
+# Find the Python executable path so the right interpreter is used on each platform
+string(REPLACE "\\" "/" _python3_exe "${Python3_EXECUTABLE}")
 target_compile_definitions(CodeGenBridge PRIVATE
     CODEGEN_MAIN_PY="${CMAKE_SOURCE_DIR}/src/aiecad_compiler/main.py"
+    PYTHON_EXECUTABLE="${_python3_exe}"
 )
 
 # Platform-specific settings

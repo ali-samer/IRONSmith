@@ -125,16 +125,28 @@ CodeGenResult<CodeGenOutput> CodeGenBridge::runPythonScript(
     const std::vector<std::string>& args,
     const std::optional<std::filesystem::path>& workingDir)
 {
-    // Build command line
-    std::string command = "python \"" + script + "\"";
+    // Build command line — use the Python interpreter found by CMake at configure time
+    // so the correct executable is used on each platform
+#ifdef PYTHON_EXECUTABLE
+    std::string pythonExe = PYTHON_EXECUTABLE;
+#elif defined(__APPLE__)
+    std::string pythonExe = "python3";
+#else
+    std::string pythonExe = "python";
+#endif
+    std::string innerArgs = "\"" + script + "\"";
     for (const auto& arg : args) {
-        // Quote arguments that contain spaces
         if (arg.find(' ') != std::string::npos) {
-            command += " \"" + arg + "\"";
+            innerArgs += " \"" + arg + "\"";
         } else {
-            command += " " + arg;
+            innerArgs += " " + arg;
         }
     }
+#ifdef _WIN32
+    std::string command = "cmd /c \"\"" + pythonExe + "\" " + innerArgs + "\"";
+#else
+    std::string command = "\"" + pythonExe + "\" " + innerArgs;
+#endif
 
     // Change to working directory if specified
     std::filesystem::path originalDir;

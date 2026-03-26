@@ -482,7 +482,7 @@ public:
 // (both DDR wires and object FIFO wires) count toward a tile's channel
 // budget. DDR itself is excluded — it is not a real tile with a channel limit.
 //   SHIM   — 4 channels  (error at 5 or more)
-//   MEM    — 6 channels  (error at 7 or more)
+//   MEM    — 12 channels (error at 13 or more)
 //   AIE    — 4 channels  (error at 5 or more)
 // ---------------------------------------------------------------------------
 
@@ -492,7 +492,7 @@ class DmaChannelLimitCheck : public IVerificationCheck
     {
         switch (kind) {
             case NodeKind::SHIM:    return 4;
-            case NodeKind::MEM:     return 6;
+            case NodeKind::MEM:     return 12;
             case NodeKind::COMPUTE: return 4;
             case NodeKind::DDR:     return INT_MAX;
         }
