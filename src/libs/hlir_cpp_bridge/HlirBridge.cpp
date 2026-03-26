@@ -11,6 +11,25 @@ using json = nlohmann::json;
 namespace hlir {
 
 // ============================================================================
+// Python interpreter lifetime — reference-counted so multiple HlirBridge
+// instances in the same process share one interpreter session.
+// ============================================================================
+
+static int s_pyRefCount = 0;
+
+static void pyAddRef()
+{
+    if (s_pyRefCount++ == 0)
+        Py_Initialize();
+}
+
+static void pyRelease()
+{
+    if (--s_pyRefCount == 0)
+        Py_Finalize();
+}
+
+// ============================================================================
 // Constructor / Destructor
 // ============================================================================
 
@@ -83,7 +102,7 @@ HlirBridge::~HlirBridge() {
     Py_XDECREF(m_runtime);
     Py_XDECREF(m_builder);
     Py_XDECREF(m_hlirModule);
-    Py_Finalize();
+    pyRelease();
 }
 
 // ============================================================================

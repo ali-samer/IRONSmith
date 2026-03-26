@@ -16,6 +16,7 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
+#include <QtCore/QFileInfo>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
@@ -26,6 +27,26 @@
 namespace Aie::Internal {
 
 Q_LOGGING_CATEGORY(hlirSyncLog, "ironsmith.aie.hlir")
+
+bool HlirSyncService::s_animateSteps = true;
+
+/// Derives the design name from the output directory path.
+/// outputDir is "<bundlePath>/codegen", bundlePath ends with "<Name>.ironsmith",
+/// so the design name is the bundle directory name without its extension.
+static QString designNameFromOutputDir(const QString& outputDir)
+{
+    // e.g. "/path/MatrixVectorMul.ironsmith/codegen" -> "MatrixVectorMul"
+    const QString bundleDirName = QFileInfo(outputDir).dir().dirName();
+    return QFileInfo(bundleDirName).completeBaseName();
+}
+
+QString HlirSyncService::generatedScriptPath() const
+{
+    if (m_outputDir.isEmpty())
+        return {};
+    const QString designName = designNameFromOutputDir(m_outputDir);
+    return m_outputDir + QStringLiteral("/generated_") + designName + QStringLiteral(".py");
+}
 
 // Prefix Python keywords with "of_" so they are valid variable names.
 static QString sanitizePythonName(const QString& name)
@@ -773,7 +794,7 @@ void HlirSyncService::verifyDesign()
         const bool passed = !DesignVerifier::hasErrors(result.issues);
         emit stepLogged(passed, result.displayName);
         QCoreApplication::processEvents();
-        QThread::msleep(250);
+        if (s_animateSteps) QThread::msleep(250);
         if (!passed) {
             for (const auto& issue : result.issues)
                 if (issue.severity == VerificationIssue::Severity::Error)
@@ -822,7 +843,7 @@ void HlirSyncService::generateCode()
     const auto emitStep = [this](const QString& label, bool ok) {
         emit stepLogged(ok, label);
         QCoreApplication::processEvents();
-        QThread::msleep(250);
+        if (s_animateSteps) QThread::msleep(250);
     };
 
     // Step 1: Verify the design before generating code
@@ -865,9 +886,11 @@ void HlirSyncService::generateCode()
         return;
     }
 
-    // Step 4: Export to GUI XML — "_gui.xml" suffix triggers the XMLTransformer step
+    // Step 4: Export to GUI XML — "_gui.xml" suffix triggers the XMLTransformer step.
+    // Use the design name so the code generator produces generated_<Name>.py.
     QDir().mkpath(m_outputDir);
-    const QString xmlPath = m_outputDir + QStringLiteral("/design_gui.xml");
+    const QString designName = designNameFromOutputDir(m_outputDir);
+    const QString xmlPath = m_outputDir + QStringLiteral("/") + designName + QStringLiteral("_gui.xml");
     auto exportResult = m_bridge->exportToGuiXml(xmlPath.toStdString());
     emitStep(tr("Exporting design to XML"), exportResult.has_value());
     if (!exportResult) {
