@@ -13,6 +13,7 @@
 #include "aieplugin/panels/AieNewDesignDialog.hpp"
 #include "aieplugin/panels/AiePropertiesPanel.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
+#include "aieplugin/symbol_table/SymbolsPanel.hpp"
 #include "aieplugin/hlir_sync/HlirSyncService.hpp"
 
 #include "codeeditor/api/ICodeEditorService.hpp"
@@ -33,16 +34,21 @@ void AiePlugin::registerSidebarTools(const RuntimeDependencies& deps)
 {
     registerLayoutSidebarTool(deps);
     registerPropertiesSidebarTool(deps);
+    registerSymbolsSidebarTool(deps);
     registerKernelsSidebarTool(deps);
 
     if (!m_sidebarRegistry)
         return;
 
+    if (m_propertiesShortcutController)
+        m_propertiesShortcutController->setSidebarRegistry(m_sidebarRegistry);
+
     connect(m_sidebarRegistry, &Core::ISidebarRegistry::toolOpenStateChanged, this,
             [this](const QString& id, bool open) {
                 if (id != kLayoutSidebarToolId &&
                     id != kKernelsSidebarToolId &&
-                    id != kPropertiesSidebarToolId) {
+                    id != kPropertiesSidebarToolId &&
+                    id != kSymbolsSidebarToolId) {
                     return;
                 }
                 m_sidebarState.setPanelOpen(id, open);
@@ -155,6 +161,41 @@ void AiePlugin::registerPropertiesSidebarTool(const RuntimeDependencies& deps)
     m_propertiesToolRegistered = true;
 }
 
+void AiePlugin::registerSymbolsSidebarTool(const RuntimeDependencies& deps)
+{
+    if (!deps.uiHost)
+        return;
+
+    if (!m_sidebarRegistry)
+        m_sidebarRegistry = deps.uiHost->sidebarRegistry();
+    if (!m_sidebarRegistry || m_symbolsToolRegistered)
+        return;
+
+    Core::SidebarToolSpec spec;
+    spec.id = kSymbolsSidebarToolId;
+    spec.title = QStringLiteral("Symbols");
+    spec.iconResource = QStringLiteral(":/ui/icons/svg/table_icon.svg");
+    spec.side = Core::SidebarSide::Right;
+    spec.family = Core::SidebarFamily::Vertical;
+    spec.region = Core::SidebarRegion::Additive;
+    spec.rail = Core::SidebarRail::Top;
+    spec.order = 2;
+    spec.toolTip = QStringLiteral("Symbols");
+
+    const auto factory = [controller = QPointer<SymbolsController>(m_symbolsController)](QWidget* parent)
+        -> QWidget* {
+        return new SymbolsPanel(controller, parent);
+    };
+
+    QString error;
+    if (!m_sidebarRegistry->registerTool(spec, factory, &error)) {
+        qCWarning(aiepluginlog) << "AiePlugin: register symbols tool failed:" << error;
+        return;
+    }
+
+    m_symbolsToolRegistered = true;
+}
+
 void AiePlugin::persistSidebarOpenState()
 {
     if (!m_sidebarRegistry)
@@ -168,6 +209,9 @@ void AiePlugin::persistSidebarOpenState()
 
     if (m_propertiesToolRegistered)
         m_sidebarState.setPanelOpen(kPropertiesSidebarToolId, m_sidebarRegistry->isToolOpen(kPropertiesSidebarToolId));
+
+    if (m_symbolsToolRegistered)
+        m_sidebarState.setPanelOpen(kSymbolsSidebarToolId, m_sidebarRegistry->isToolOpen(kSymbolsSidebarToolId));
 }
 
 void AiePlugin::restoreSidebarOpenState()
@@ -183,6 +227,9 @@ void AiePlugin::restoreSidebarOpenState()
 
     if (m_propertiesToolRegistered && m_sidebarState.panelOpen(kPropertiesSidebarToolId))
         m_sidebarRegistry->requestShowTool(kPropertiesSidebarToolId);
+
+    if (m_symbolsToolRegistered && m_sidebarState.panelOpen(kSymbolsSidebarToolId))
+        m_sidebarRegistry->requestShowTool(kSymbolsSidebarToolId);
 }
 
 void AiePlugin::connectHeaderInfo(const RuntimeDependencies& deps)
