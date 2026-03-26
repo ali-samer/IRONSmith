@@ -197,6 +197,10 @@ QString objectFifoOperationToString(CanvasWire::ObjectFifoOperation operation)
 {
     switch (operation) {
         case CanvasWire::ObjectFifoOperation::Forward: return u"forward"_s;
+        case CanvasWire::ObjectFifoOperation::Fill: return u"fill"_s;
+        case CanvasWire::ObjectFifoOperation::Drain: return u"drain"_s;
+        case CanvasWire::ObjectFifoOperation::Split: return u"split"_s;
+        case CanvasWire::ObjectFifoOperation::Join: return u"join"_s;
         case CanvasWire::ObjectFifoOperation::Fifo: return u"fifo"_s;
     }
     return u"fifo"_s;
@@ -207,6 +211,14 @@ CanvasWire::ObjectFifoOperation objectFifoOperationFromString(const QString& tex
     const QString key = text.trimmed().toLower();
     if (key == u"forward"_s || key == u"fwd"_s || key == u"forward_fifo"_s || key == u"forward-fifo"_s)
         return CanvasWire::ObjectFifoOperation::Forward;
+    if (key == u"fill"_s)
+        return CanvasWire::ObjectFifoOperation::Fill;
+    if (key == u"drain"_s)
+        return CanvasWire::ObjectFifoOperation::Drain;
+    if (key == u"split"_s)
+        return CanvasWire::ObjectFifoOperation::Split;
+    if (key == u"join"_s)
+        return CanvasWire::ObjectFifoOperation::Join;
     return CanvasWire::ObjectFifoOperation::Fifo;
 }
 

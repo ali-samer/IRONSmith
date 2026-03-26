@@ -43,6 +43,8 @@ QString hubKindToString(DesignLinkHubKind kind)
         case DesignLinkHubKind::Split: return u"split"_s;
         case DesignLinkHubKind::Join: return u"join"_s;
         case DesignLinkHubKind::Broadcast: return u"broadcast"_s;
+        case DesignLinkHubKind::Distribute: return u"distribute"_s;
+        case DesignLinkHubKind::Collect: return u"collect"_s;
     }
     return u"split"_s;
 }
@@ -60,6 +62,14 @@ bool hubKindFromString(const QString& text, DesignLinkHubKind& out)
     }
     if (key == u"broadcast"_s) {
         out = DesignLinkHubKind::Broadcast;
+        return true;
+    }
+    if (key == u"distribute"_s) {
+        out = DesignLinkHubKind::Distribute;
+        return true;
+    }
+    if (key == u"collect"_s) {
+        out = DesignLinkHubKind::Collect;
         return true;
     }
     return false;
@@ -130,6 +140,8 @@ QString objectFifoOperationToString(DesignLink::ObjectFifo::Operation operation)
 {
     switch (operation) {
         case DesignLink::ObjectFifo::Operation::Forward: return u"forward"_s;
+        case DesignLink::ObjectFifo::Operation::Fill:    return u"fill"_s;
+        case DesignLink::ObjectFifo::Operation::Drain:   return u"drain"_s;
         case DesignLink::ObjectFifo::Operation::Split:   return u"split"_s;
         case DesignLink::ObjectFifo::Operation::Join:    return u"join"_s;
         case DesignLink::ObjectFifo::Operation::Fifo:    return u"fifo"_s;
@@ -142,6 +154,10 @@ DesignLink::ObjectFifo::Operation objectFifoOperationFromString(const QString& t
     const QString key = text.trimmed().toLower();
     if (key == u"forward"_s || key == u"fwd"_s || key == u"forward_fifo"_s || key == u"forward-fifo"_s)
         return DesignLink::ObjectFifo::Operation::Forward;
+    if (key == u"fill"_s)
+        return DesignLink::ObjectFifo::Operation::Fill;
+    if (key == u"drain"_s)
+        return DesignLink::ObjectFifo::Operation::Drain;
     if (key == u"split"_s)
         return DesignLink::ObjectFifo::Operation::Split;
     if (key == u"join"_s)

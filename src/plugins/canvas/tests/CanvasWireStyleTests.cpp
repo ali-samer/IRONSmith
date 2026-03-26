@@ -89,6 +89,32 @@ TEST(CanvasWireStyleTests, ForwardObjectFifoAnnotationAndClone)
     EXPECT_EQ(clonedFifo.operation, CanvasWire::ObjectFifoOperation::Forward);
 }
 
+TEST(CanvasWireStyleTests, FillAndDrainObjectFifoAnnotations)
+{
+    CanvasWire::Endpoint a;
+    CanvasWire::Endpoint b;
+    const CanvasRenderContext ctx{};
+
+    CanvasWire fillWire(a, b);
+    CanvasWire::ObjectFifoConfig fillFifo;
+    fillFifo.name = QStringLiteral("in");
+    fillFifo.depth = 2;
+    fillFifo.operation = CanvasWire::ObjectFifoOperation::Fill;
+    fillWire.setObjectFifo(fillFifo);
+    EXPECT_EQ(fillWire.annotationText(CanvasWire::AnnotationDetail::Compact, ctx),
+              QStringLiteral("FILL"));
+
+    CanvasWire drainWire(a, b);
+    CanvasWire::ObjectFifoConfig drainFifo;
+    drainFifo.name = QStringLiteral("out");
+    drainFifo.depth = 4;
+    drainFifo.operation = CanvasWire::ObjectFifoOperation::Drain;
+    drainFifo.type.valueType = QStringLiteral("i16");
+    drainWire.setObjectFifo(drainFifo);
+    EXPECT_EQ(drainWire.annotationText(CanvasWire::AnnotationDetail::Full, ctx),
+              QStringLiteral("DRAIN"));
+}
+
 TEST(CanvasLinkWireStyleTests, RoleColorsMatchConstants)
 {
     const auto producer = Support::linkWireStyle(Support::LinkWireRole::Producer);

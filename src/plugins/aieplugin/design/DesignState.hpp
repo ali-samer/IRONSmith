@@ -22,7 +22,9 @@ enum class DesignNodeKind : unsigned char {
 enum class DesignLinkHubKind : unsigned char {
     Split,
     Join,
-    Broadcast
+    Broadcast,
+    Distribute,
+    Collect
 };
 
 struct DesignPort final {
@@ -67,6 +69,8 @@ struct DesignLink final {
         enum class Operation : unsigned char {
             Fifo,
             Forward,
+            Fill,
+            Drain,
             Split,
             Join
         };

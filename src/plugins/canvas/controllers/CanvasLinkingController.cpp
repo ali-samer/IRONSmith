@@ -58,6 +58,96 @@ std::optional<WireArrowPolicy> arrowPolicyFromPortRoles(const CanvasDocument* do
     return std::nullopt;
 }
 
+bool isDdrBlock(const CanvasDocument* doc, ObjectId itemId)
+{
+    if (!doc)
+        return false;
+
+    const auto* block = dynamic_cast<const CanvasBlock*>(doc->findItem(itemId));
+    return block && block->specId().trimmed() == QStringLiteral("ddr");
+}
+
+struct DirectedLinkPorts final {
+    PortRef producer;
+    PortRef consumer;
+};
+
+std::optional<DirectedLinkPorts> directedLinkPorts(const CanvasDocument* doc,
+                                                   const PortRef& a,
+                                                   const PortRef& b)
+{
+    if (!doc)
+        return std::nullopt;
+
+    CanvasPort aMeta;
+    CanvasPort bMeta;
+    if (!doc->getPort(a.itemId, a.portId, aMeta) || !doc->getPort(b.itemId, b.portId, bMeta))
+        return std::nullopt;
+
+    if (aMeta.role == PortRole::Producer && bMeta.role == PortRole::Consumer)
+        return DirectedLinkPorts{a, b};
+    if (bMeta.role == PortRole::Producer && aMeta.role == PortRole::Consumer)
+        return DirectedLinkPorts{b, a};
+
+    return std::nullopt;
+}
+
+std::optional<CanvasWire::ObjectFifoOperation> inferredDdrOperation(const CanvasDocument* doc,
+                                                                    const PortRef& start,
+                                                                    const PortRef& end)
+{
+    const bool startDdr = isDdrBlock(doc, start.itemId);
+    const bool endDdr = isDdrBlock(doc, end.itemId);
+    if (startDdr == endDdr)
+        return std::nullopt;
+
+    const auto directed = directedLinkPorts(doc, start, end);
+    if (!directed.has_value()) {
+        const auto inferredFromHub = [&](const PortRef& endpoint, bool endpointIsStart)
+            -> std::optional<CanvasWire::ObjectFifoOperation> {
+            const auto* block = dynamic_cast<const CanvasBlock*>(doc->findItem(endpoint.itemId));
+            if (!block || !block->isLinkHub())
+                return std::nullopt;
+
+            const auto* content = dynamic_cast<const BlockContentSymbol*>(block->content());
+            if (!content)
+                return std::nullopt;
+
+            const QString symbol = content->symbol().trimmed();
+            if (symbol == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol)
+                return CanvasWire::ObjectFifoOperation::Fill;
+            if (symbol == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol)
+                return CanvasWire::ObjectFifoOperation::Drain;
+
+            const bool joinHub =
+                symbol == Support::linkHubStyle(Support::LinkHubKind::Join).symbol ||
+                symbol == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol;
+            const bool splitLikeHub =
+                symbol == Support::linkHubStyle(Support::LinkHubKind::Split).symbol ||
+                symbol == Support::linkHubStyle(Support::LinkHubKind::Broadcast).symbol ||
+                symbol == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol;
+            if (!joinHub && !splitLikeHub)
+                return std::nullopt;
+
+            const bool hubIsProducer = joinHub ? endpointIsStart : !endpointIsStart;
+            return hubIsProducer ? CanvasWire::ObjectFifoOperation::Drain
+                                 : CanvasWire::ObjectFifoOperation::Fill;
+        };
+
+        if (const auto op = inferredFromHub(start, true); op.has_value())
+            return op;
+        if (const auto op = inferredFromHub(end, false); op.has_value())
+            return op;
+
+        return startDdr ? CanvasWire::ObjectFifoOperation::Fill
+                        : CanvasWire::ObjectFifoOperation::Drain;
+    }
+
+    const bool producerDdr = isDdrBlock(doc, directed->producer.itemId);
+    return producerDdr ? CanvasWire::ObjectFifoOperation::Fill
+                       : CanvasWire::ObjectFifoOperation::Drain;
+}
+
 QString defaultObjectFifoNameForPort(const CanvasDocument* doc, const PortRef& portRef)
 {
     if (!doc)
@@ -88,6 +178,10 @@ std::optional<Support::LinkHubKind> hubKindFromBlock(CanvasBlock* block)
         return Support::LinkHubKind::Join;
     if (symbol == Support::linkHubStyle(Support::LinkHubKind::Broadcast).symbol)
         return Support::LinkHubKind::Broadcast;
+    if (symbol == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol)
+        return Support::LinkHubKind::Distribute;
+    if (symbol == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol)
+        return Support::LinkHubKind::Collect;
     return std::nullopt;
 }
 
@@ -99,10 +193,12 @@ std::optional<Support::LinkWireRole> wireRoleForHubConnection(CanvasBlock* hub, 
 
     switch (*kind) {
         case Support::LinkHubKind::Join:
+        case Support::LinkHubKind::Collect:
             return hubIsStart ? Support::LinkWireRole::Producer
                               : Support::LinkWireRole::Consumer;
         case Support::LinkHubKind::Split:
         case Support::LinkHubKind::Broadcast:
+        case Support::LinkHubKind::Distribute:
             return hubIsStart ? Support::LinkWireRole::Consumer
                               : Support::LinkWireRole::Producer;
     }
@@ -379,8 +475,14 @@ std::optional<CanvasWire::ObjectFifoConfig>
 CanvasLinkingController::defaultObjectFifoConfig(const PortRef& start,
                                                  const PortRef& end) const
 {
+    const auto ddrOperation =
+        (m_linkingMode == CanvasController::LinkingMode::Normal)
+            ? inferredDdrOperation(m_doc, start, end)
+            : std::nullopt;
+
     if (m_linkingMode != CanvasController::LinkingMode::Fifo &&
-        m_linkingMode != CanvasController::LinkingMode::ForwardFifo)
+        m_linkingMode != CanvasController::LinkingMode::ForwardFifo &&
+        !ddrOperation.has_value())
         return std::nullopt;
 
     CanvasWire::ObjectFifoConfig config;
@@ -390,12 +492,30 @@ CanvasLinkingController::defaultObjectFifoConfig(const PortRef& start,
     config.type.valueType = QStringLiteral("i32");
     config.type.dimensions.clear();
 
-    config.operation = (m_linkingMode == CanvasController::LinkingMode::ForwardFifo)
-        ? CanvasWire::ObjectFifoOperation::Forward
-        : CanvasWire::ObjectFifoOperation::Fifo;
+    if (ddrOperation.has_value()) {
+        config.operation = *ddrOperation;
+    } else {
+        config.operation = (m_linkingMode == CanvasController::LinkingMode::ForwardFifo)
+            ? CanvasWire::ObjectFifoOperation::Forward
+            : CanvasWire::ObjectFifoOperation::Fifo;
+    }
 
     if (!m_doc)
         return config;
+
+    if (const auto directed = directedLinkPorts(m_doc, start, end); directed.has_value()) {
+        config.name = defaultObjectFifoNameForPort(m_doc, directed->consumer);
+        return config;
+    }
+
+    if (config.operation == CanvasWire::ObjectFifoOperation::Fill) {
+        config.name = defaultObjectFifoNameForPort(m_doc, end);
+        return config;
+    }
+    if (config.operation == CanvasWire::ObjectFifoOperation::Drain) {
+        config.name = defaultObjectFifoNameForPort(m_doc, start);
+        return config;
+    }
 
     CanvasPort startMeta;
     CanvasPort endMeta;

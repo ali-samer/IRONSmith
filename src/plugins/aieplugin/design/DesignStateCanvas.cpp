@@ -59,6 +59,14 @@ bool detectHubKind(const Canvas::CanvasBlock& block, DesignLinkHubKind& outKind)
         outKind = DesignLinkHubKind::Broadcast;
         return true;
     }
+    if (symbol == Canvas::Support::linkHubStyle(Canvas::Support::LinkHubKind::Distribute).symbol) {
+        outKind = DesignLinkHubKind::Distribute;
+        return true;
+    }
+    if (symbol == Canvas::Support::linkHubStyle(Canvas::Support::LinkHubKind::Collect).symbol) {
+        outKind = DesignLinkHubKind::Collect;
+        return true;
+    }
     return false;
 }
 
@@ -68,6 +76,8 @@ Canvas::Support::LinkHubKind toCanvasHubKind(DesignLinkHubKind kind)
         case DesignLinkHubKind::Split: return Canvas::Support::LinkHubKind::Split;
         case DesignLinkHubKind::Join: return Canvas::Support::LinkHubKind::Join;
         case DesignLinkHubKind::Broadcast: return Canvas::Support::LinkHubKind::Broadcast;
+        case DesignLinkHubKind::Distribute: return Canvas::Support::LinkHubKind::Distribute;
+        case DesignLinkHubKind::Collect: return Canvas::Support::LinkHubKind::Collect;
     }
     return Canvas::Support::LinkHubKind::Split;
 }
@@ -90,6 +100,10 @@ DesignLink::ObjectFifo::Operation toDesignObjectFifoOperation(Canvas::CanvasWire
     switch (operation) {
         case Canvas::CanvasWire::ObjectFifoOperation::Forward:
             return DesignLink::ObjectFifo::Operation::Forward;
+        case Canvas::CanvasWire::ObjectFifoOperation::Fill:
+            return DesignLink::ObjectFifo::Operation::Fill;
+        case Canvas::CanvasWire::ObjectFifoOperation::Drain:
+            return DesignLink::ObjectFifo::Operation::Drain;
         case Canvas::CanvasWire::ObjectFifoOperation::Split:
             return DesignLink::ObjectFifo::Operation::Split;
         case Canvas::CanvasWire::ObjectFifoOperation::Join:
@@ -105,6 +119,10 @@ Canvas::CanvasWire::ObjectFifoOperation toCanvasObjectFifoOperation(DesignLink::
     switch (operation) {
         case DesignLink::ObjectFifo::Operation::Forward:
             return Canvas::CanvasWire::ObjectFifoOperation::Forward;
+        case DesignLink::ObjectFifo::Operation::Fill:
+            return Canvas::CanvasWire::ObjectFifoOperation::Fill;
+        case DesignLink::ObjectFifo::Operation::Drain:
+            return Canvas::CanvasWire::ObjectFifoOperation::Drain;
         case DesignLink::ObjectFifo::Operation::Split:
             return Canvas::CanvasWire::ObjectFifoOperation::Split;
         case DesignLink::ObjectFifo::Operation::Join:

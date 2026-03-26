@@ -55,10 +55,15 @@ inline constexpr char PROJECT_RECENT_ITEMID[] = "project.recent";
 // Canvas Item Ids
 inline constexpr char CANVAS_SELECT_ITEMID[] = "canvas.select";
 inline constexpr char CANVAS_PAN_ITEMID[] = "canvas.pan";
+inline constexpr char CANVAS_LINKING_MENU_ITEMID[] = "canvas.menu.linking";
+inline constexpr char CANVAS_MOVEMENT_PATTERNS_MENU_ITEMID[] = "canvas.menu.movement_patterns";
+inline constexpr char CANVAS_DDR_TRANSFERS_MENU_ITEMID[] = "canvas.menu.ddr_transfers";
 inline constexpr char CANVAS_LINK_ITEMID[] = "canvas.link";
 inline constexpr char CANVAS_LINK_SPLIT_ITEMID[] = "canvas.link.split";
 inline constexpr char CANVAS_LINK_JOIN_ITEMID[] = "canvas.link.join";
 inline constexpr char CANVAS_LINK_BROADCAST_ITEMID[] = "canvas.link.broadcast";
+inline constexpr char CANVAS_LINK_DISTRIBUTE_ITEMID[] = "canvas.link.distribute";
+inline constexpr char CANVAS_LINK_COLLECT_ITEMID[] = "canvas.link.collect";
 inline constexpr char CANVAS_LINK_FIFO_ITEMID[] = "canvas.link.fifo";
 inline constexpr char CANVAS_LINK_FORWARD_FIFO_ITEMID[] = "canvas.link.forward_fifo";
 

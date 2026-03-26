@@ -62,6 +62,8 @@
         <file>icons/svg/c_icon.svg</file>
         <file>icons/svg/broadcast_link_icon.svg</file>
         <file>icons/svg/broadcast_mesh_icon.svg</file>
+        <file>icons/svg/distribute_mesh_icon.svg</file>
+        <file>icons/svg/collect_mesh_icon.svg</file>
         <file>icons/svg/zoom_fit_icon.svg</file>
         <file>icons/svg/zoom_in_icon.svg</file>
         <file>icons/svg/zoom_out_icon.svg</file>

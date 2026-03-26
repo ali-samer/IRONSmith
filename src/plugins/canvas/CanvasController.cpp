@@ -548,6 +548,14 @@ void CanvasController::onCanvasKeyPressed(int key, Qt::KeyboardModifiers mods)
 				setLinkingMode(LinkingMode::Broadcast);
 				return;
 			}
+			if (key == Qt::Key_D) {
+				setLinkingMode(LinkingMode::Distribute);
+				return;
+			}
+			if (key == Qt::Key_C) {
+				setLinkingMode(LinkingMode::Collect);
+				return;
+			}
 			if (key == Qt::Key_F) {
 				if (mods.testFlag(Qt::ShiftModifier))
 					setLinkingMode(LinkingMode::ForwardFifo);
