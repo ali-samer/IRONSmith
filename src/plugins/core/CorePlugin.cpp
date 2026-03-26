@@ -4,6 +4,11 @@
 #include "core/CorePlugin.hpp"
 
 #include <QtGui/QAction>
+#include <QtWidgets/QHBoxLayout>
+#include <QtWidgets/QMenu>
+#include <QtWidgets/QToolButton>
+#include <QtWidgets/QWidget>
+#include <QtWidgets/QWidgetAction>
 #include <QtCore/QDebug>
 #include <QElapsedTimer>
 
@@ -159,8 +164,13 @@ void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 	auto* actSplit = new QAction(tr("Split"), this);
 	auto* actJoin = new QAction(tr("Join"), this);
 	auto* actBroadcast = new QAction(tr("Broadcast"), this);
+	auto* actDistribute = new QAction(tr("Distribute"), this);
+	auto* actCollect = new QAction(tr("Collect"), this);
 	auto* actFifo = new QAction(tr("FIFO"), this);
 	auto* actForwardFifo = new QAction(tr("FWD FIFO"), this);
+	auto* actLinkingMenu = new QAction(tr("Linking"), this);
+	auto* actMovementPatternsMenu = new QAction(tr("Movement Patterns"), this);
+	auto* actDdrTransfersMenu = new QAction(tr("DDR Transfers"), this);
 
 	actSelect->setCheckable(true);
 	actPan->setCheckable(true);
@@ -168,6 +178,8 @@ void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 	actSplit->setCheckable(true);
 	actJoin->setCheckable(true);
 	actBroadcast->setCheckable(true);
+	actDistribute->setCheckable(true);
+	actCollect->setCheckable(true);
 	actFifo->setCheckable(true);
 	actForwardFifo->setCheckable(true);
 
@@ -177,33 +189,101 @@ void CorePlugin::setupHomePageCommands(Core::IUiHost* uiHost)
 	actSplit->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/split_mesh_icon.svg"), QSize(20, 20)));
 	actJoin->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/join_mesh_icon.svg"), QSize(20, 20)));
 	actBroadcast->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/broadcast_mesh_icon.svg"), QSize(20, 20)));
+	actDistribute->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/distribute_mesh_icon.svg"), QSize(20, 20)));
+	actCollect->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/collect_mesh_icon.svg"), QSize(20, 20)));
 	actFifo->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/fifo_icon.svg"), QSize(20, 20)));
 	actForwardFifo->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/forward_fifo_icon.svg"), QSize(20, 20)));
+	actLinkingMenu->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/link_icon.svg"), QSize(20, 20)));
+	actMovementPatternsMenu->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/split_mesh_icon.svg"), QSize(20, 20)));
+	actDdrTransfersMenu->setIcon(Ui::IconLoader::load(QStringLiteral(":/ui/icons/svg/distribute_mesh_icon.svg"), QSize(20, 20)));
 
 	actFifo->setToolTip(tr("FIFO Link Mode: create ObjectFIFO links"));
 	actForwardFifo->setToolTip(tr("Forward FIFO Mode: create FWD ObjectFIFO links"));
+	actLinkingMenu->setToolTip(tr("Linking tools"));
+	actMovementPatternsMenu->setToolTip(tr("Split, join, and broadcast patterns"));
+	actDdrTransfersMenu->setToolTip(tr("DDR transfer patterns"));
+
+	actLink->setData(QString::fromLatin1(Constants::CANVAS_LINK_ITEMID));
+	actSplit->setData(QString::fromLatin1(Constants::CANVAS_LINK_SPLIT_ITEMID));
+	actJoin->setData(QString::fromLatin1(Constants::CANVAS_LINK_JOIN_ITEMID));
+	actBroadcast->setData(QString::fromLatin1(Constants::CANVAS_LINK_BROADCAST_ITEMID));
+	actDistribute->setData(QString::fromLatin1(Constants::CANVAS_LINK_DISTRIBUTE_ITEMID));
+	actCollect->setData(QString::fromLatin1(Constants::CANVAS_LINK_COLLECT_ITEMID));
+	actFifo->setData(QString::fromLatin1(Constants::CANVAS_LINK_FIFO_ITEMID));
+	actForwardFifo->setData(QString::fromLatin1(Constants::CANVAS_LINK_FORWARD_FIFO_ITEMID));
+
+	auto buildHorizontalDropDownMenu = [this](std::initializer_list<QAction*> actions) {
+		auto* menu = new QMenu();
+		menu->setObjectName("RibbonDropDownMenu");
+
+		for (QAction* action : actions) {
+			if (!action)
+				continue;
+			action->setParent(menu);
+		}
+
+		auto* host = new QWidget(menu);
+		host->setObjectName("RibbonDropDownMenuHost");
+		auto* row = new QHBoxLayout(host);
+		row->setContentsMargins(6, 6, 6, 6);
+		row->setSpacing(6);
+
+		for (QAction* action : actions) {
+			if (!action)
+				continue;
+
+			auto* button = new QToolButton(host);
+			button->setObjectName("RibbonDropDownMenuButton");
+			button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+			button->setAutoRaise(true);
+			button->setDefaultAction(action);
+			button->setIconSize(QSize(20, 20));
+			button->setCheckable(action->isCheckable());
+			row->addWidget(button);
+
+			connect(button, &QToolButton::clicked, menu, [menu]() {
+				menu->close();
+			});
+		}
+
+		auto* widgetAction = new QWidgetAction(menu);
+		widgetAction->setDefaultWidget(host);
+		menu->addAction(widgetAction);
+		return menu;
+	};
+
+	actLinkingMenu->setMenu(buildHorizontalDropDownMenu({actLink, actFifo, actForwardFifo}));
+	actMovementPatternsMenu->setMenu(buildHorizontalDropDownMenu({actSplit, actJoin, actBroadcast}));
+	actDdrTransfersMenu->setMenu(buildHorizontalDropDownMenu({actDistribute, actCollect}));
 
 	RibbonPresentation smallPres;
 	smallPres.size = RibbonVisualSize::Small;
 	smallPres.iconPlacement = RibbonIconPlacement::AboveText;
 	smallPres.iconPx = 20;
 
-	RibbonPresentation linkPres = smallPres;
-	linkPres.size = RibbonVisualSize::Large;
-	linkPres.iconPx = 28;
+	RibbonPresentation menuPres = smallPres;
+	menuPres.size = RibbonVisualSize::Small;
+	menuPres.iconPlacement = RibbonIconPlacement::TextOnly;
+	menuPres.iconPx = 0;
 
-	auto canvasRoot = RibbonNode::makeColumn("canvas_root");
-	auto& canvasTopRow = canvasRoot->addRow("canvas_top_row");
-	canvasTopRow.addCommand(Constants::CANVAS_SELECT_ITEMID, actSelect, RibbonControlType::ToggleButton, smallPres);
-	canvasTopRow.addCommand(Constants::CANVAS_PAN_ITEMID, actPan, RibbonControlType::ToggleButton, smallPres);
-	canvasTopRow.addCommand(Constants::CANVAS_LINK_ITEMID, actLink, RibbonControlType::ToggleButton, linkPres);
-
-	auto& canvasLinkRow = canvasRoot->addRow("canvas_link_row");
-	canvasLinkRow.addCommand(Constants::CANVAS_LINK_SPLIT_ITEMID, actSplit, RibbonControlType::ToggleButton, smallPres);
-	canvasLinkRow.addCommand(Constants::CANVAS_LINK_JOIN_ITEMID, actJoin, RibbonControlType::ToggleButton, smallPres);
-	canvasLinkRow.addCommand(Constants::CANVAS_LINK_BROADCAST_ITEMID, actBroadcast, RibbonControlType::ToggleButton, smallPres);
-	canvasLinkRow.addCommand(Constants::CANVAS_LINK_FIFO_ITEMID, actFifo, RibbonControlType::ToggleButton, smallPres);
-	canvasLinkRow.addCommand(Constants::CANVAS_LINK_FORWARD_FIFO_ITEMID, actForwardFifo, RibbonControlType::ToggleButton, smallPres);
+	auto canvasRoot = RibbonNode::makeRow("canvas_root");
+	auto& canvasLeft = canvasRoot->addRow("canvas_left");
+	canvasLeft.addCommand(Constants::CANVAS_SELECT_ITEMID, actSelect, RibbonControlType::ToggleButton, smallPres);
+	canvasLeft.addCommand(Constants::CANVAS_PAN_ITEMID, actPan, RibbonControlType::ToggleButton, smallPres);
+	canvasRoot->addSeparator("canvas_section_separator");
+	auto& canvasRight = canvasRoot->addColumn("canvas_right");
+	canvasRight.addCommand(Constants::CANVAS_LINKING_MENU_ITEMID,
+	                       actLinkingMenu,
+	                       RibbonControlType::DropDownButton,
+	                       menuPres);
+	canvasRight.addCommand(Constants::CANVAS_MOVEMENT_PATTERNS_MENU_ITEMID,
+	                       actMovementPatternsMenu,
+	                       RibbonControlType::DropDownButton,
+	                       menuPres);
+	canvasRight.addCommand(Constants::CANVAS_DDR_TRANSFERS_MENU_ITEMID,
+	                       actDdrTransfersMenu,
+	                       RibbonControlType::DropDownButton,
+	                       menuPres);
 
 	if (const auto res = uiHost->setRibbonGroupLayout(Constants::RIBBON_TAB_HOME,
 	                                                  Constants::RIBBON_TAB_HOME_CANVAS_GROUP,

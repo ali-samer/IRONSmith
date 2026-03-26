@@ -25,8 +25,11 @@ namespace {
 class RibbonCommandTileWidget final : public QWidget
 {
 public:
-    explicit RibbonCommandTileWidget(QAction* action, RibbonControlType control, QWidget* parent = nullptr)
-        : QWidget(parent), m_action(action), m_control(control)
+    explicit RibbonCommandTileWidget(QAction* action,
+                                     RibbonControlType control,
+                                     RibbonPresentation presentation,
+                                     QWidget* parent = nullptr)
+        : QWidget(parent), m_action(action), m_control(control), m_presentation(std::move(presentation))
     {
         setObjectName("RibbonCommandTile");
         setAttribute(Qt::WA_StyledBackground, true);
@@ -46,9 +49,20 @@ public:
         m_caption->setObjectName("RibbonCommandCaption");
         m_caption->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
         m_caption->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        m_caption->setWordWrap(false);
 
-        v->addWidget(m_icon, 1);
-        v->addWidget(m_caption, 0);
+        if (m_presentation.iconPlacement == RibbonIconPlacement::TextOnly) {
+            m_icon->hide();
+            m_caption->setObjectName("RibbonCommandFieldCaption");
+            m_caption->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            m_caption->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            v->addWidget(m_caption, 1);
+            setProperty("ribbonTextOnly", true);
+        } else {
+            v->addWidget(m_icon, 1);
+            v->addWidget(m_caption, 0);
+            setProperty("ribbonTextOnly", false);
+        }
 
         if (m_action) {
             QObject::connect(m_action, &QAction::changed, this, [this] { syncFromAction(); });
@@ -143,6 +157,7 @@ private:
 
     QAction* m_action = nullptr;
     RibbonControlType m_control = RibbonControlType::Button;
+    RibbonPresentation m_presentation;
     QLabel* m_icon = nullptr;
     QLabel* m_caption = nullptr;
     QSize m_iconSize;
@@ -150,6 +165,9 @@ private:
 
 QSize tileMinSizeFor(const RibbonPresentation& pres)
 {
+    if (pres.iconPlacement == RibbonIconPlacement::TextOnly)
+        return QSize(154, 20);
+
     switch (pres.size) {
         case RibbonVisualSize::Large:
             return QSize(Ui::UiStyle::RibbonCommandLargeMinWidthPx,
@@ -430,11 +448,12 @@ QWidget* CommandRibbonWidget::buildLeafCommandWidget(const RibbonNode& node, QWi
     if (node.controlType() == RibbonControlType::ToggleButton && !act->isCheckable())
         act->setCheckable(true);
 
-    auto* tile = new RibbonCommandTileWidget(act, node.controlType(), parent);
+    auto* tile = new RibbonCommandTileWidget(act, node.controlType(), node.presentation(), parent);
 
     tile->setProperty("ribbonCommandId", node.id());
     tile->setProperty("ribbonVisualSize",
                       (node.presentation().size == RibbonVisualSize::Large) ? "large" : "small");
+    tile->setProperty("ribbonTextOnly", node.presentation().iconPlacement == RibbonIconPlacement::TextOnly);
 
     const RibbonPresentation& pres = node.presentation();
     const int iconPx = defaultIconPxFor(pres);

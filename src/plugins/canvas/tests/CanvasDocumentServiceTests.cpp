@@ -219,6 +219,85 @@ TEST(CanvasDocumentServiceTests, MetadataUpdatesRoundTripAcrossReopen)
     EXPECT_TRUE(reopenedMetadata.contains(QStringLiteral("symbols")));
 }
 
+TEST(CanvasDocumentServiceTests, FillObjectFifoOperationRoundTripsAcrossReopen)
+{
+    ensureCoreApp();
+
+    QTemporaryDir temp;
+    ASSERT_TRUE(temp.isValid());
+
+    const QString bundlePath = QDir(temp.path()).filePath(QStringLiteral("FillObjectFifoRoundTrip.ironsmith"));
+    ASSERT_TRUE(QDir().mkpath(bundlePath));
+
+    StubCanvasHost host;
+    Canvas::Internal::CanvasDocumentServiceImpl service;
+    service.setCanvasHost(&host);
+
+    Canvas::Api::CanvasDocumentCreateRequest createRequest;
+    createRequest.bundlePath = bundlePath;
+    createRequest.persistenceRelativePath = QStringLiteral("canvas/document.json");
+
+    Canvas::Api::CanvasDocumentHandle handle;
+    const Utils::Result createResult = service.createDocument(createRequest, handle);
+    ASSERT_TRUE(createResult.ok) << createResult.errors.join("\n").toStdString();
+    ASSERT_TRUE(handle.isValid());
+
+    auto* producer = host.document()->createBlock(QRectF(0.0, 0.0, 96.0, 64.0), false);
+    auto* consumer = host.document()->createBlock(QRectF(180.0, 0.0, 96.0, 64.0), false);
+    ASSERT_NE(producer, nullptr);
+    ASSERT_NE(consumer, nullptr);
+    producer->setSpecId(QStringLiteral("ddr"));
+    consumer->setSpecId(QStringLiteral("shim0_0"));
+
+    const Canvas::PortId producerPort =
+        producer->addPort(Canvas::PortSide::Right, 0.5, Canvas::PortRole::Producer, QStringLiteral("OUT"));
+    const Canvas::PortId consumerPort =
+        consumer->addPort(Canvas::PortSide::Left, 0.5, Canvas::PortRole::Consumer, QStringLiteral("IN"));
+    ASSERT_FALSE(producerPort.isNull());
+    ASSERT_FALSE(consumerPort.isNull());
+
+    Canvas::CanvasWire::Endpoint a;
+    a.attached = Canvas::PortRef{producer->id(), producerPort};
+    Canvas::CanvasWire::Endpoint b;
+    b.attached = Canvas::PortRef{consumer->id(), consumerPort};
+
+    auto wire = std::make_unique<Canvas::CanvasWire>(a, b);
+    wire->setId(host.document()->allocateId());
+    Canvas::CanvasWire::ObjectFifoConfig fifo;
+    fifo.name = QStringLiteral("in");
+    fifo.depth = 2;
+    fifo.operation = Canvas::CanvasWire::ObjectFifoOperation::Fill;
+    wire->setObjectFifo(fifo);
+    ASSERT_TRUE(host.document()->insertItem(host.document()->items().size(), std::move(wire)));
+
+    const Utils::Result saveResult = service.saveDocument(handle);
+    ASSERT_TRUE(saveResult.ok) << saveResult.errors.join("\n").toStdString();
+
+    const Utils::Result closeResult = service.closeDocument(handle,
+        Canvas::Api::CanvasDocumentCloseReason::UserClosed);
+    ASSERT_TRUE(closeResult.ok) << closeResult.errors.join("\n").toStdString();
+
+    Canvas::Api::CanvasDocumentOpenRequest openRequest;
+    openRequest.bundlePath = bundlePath;
+    openRequest.persistencePath = handle.persistencePath;
+
+    Canvas::Api::CanvasDocumentHandle reopened;
+    const Utils::Result openResult = service.openDocument(openRequest, reopened);
+    ASSERT_TRUE(openResult.ok) << openResult.errors.join("\n").toStdString();
+
+    bool foundFillWire = false;
+    for (const auto& item : host.document()->items()) {
+        const auto* reopenedWire = dynamic_cast<const Canvas::CanvasWire*>(item.get());
+        if (!reopenedWire || !reopenedWire->hasObjectFifo())
+            continue;
+
+        const auto& objectFifo = reopenedWire->objectFifo().value();
+        EXPECT_EQ(objectFifo.operation, Canvas::CanvasWire::ObjectFifoOperation::Fill);
+        foundFillWire = true;
+    }
+    EXPECT_TRUE(foundFillWire);
+}
+
 TEST(CanvasDocumentServiceTests, AieManagedBlocksRoundTripWithoutPersistedBounds)
 {
     ensureCoreApp();

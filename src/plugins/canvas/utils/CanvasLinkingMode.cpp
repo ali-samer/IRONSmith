@@ -9,7 +9,9 @@ bool isHubLinkingMode(CanvasController::LinkingMode mode)
 {
     return mode == CanvasController::LinkingMode::Split ||
            mode == CanvasController::LinkingMode::Join ||
-           mode == CanvasController::LinkingMode::Broadcast;
+           mode == CanvasController::LinkingMode::Broadcast ||
+           mode == CanvasController::LinkingMode::Distribute ||
+           mode == CanvasController::LinkingMode::Collect;
 }
 
 bool linkingModeUsesObjectFifo(CanvasController::LinkingMode mode)
@@ -24,6 +26,8 @@ QString linkingModeLabel(CanvasController::LinkingMode mode)
         case CanvasController::LinkingMode::Split: return QStringLiteral("SPLIT");
         case CanvasController::LinkingMode::Join: return QStringLiteral("JOIN");
         case CanvasController::LinkingMode::Broadcast: return QStringLiteral("BROADCAST");
+        case CanvasController::LinkingMode::Distribute: return QStringLiteral("DISTRIBUTE");
+        case CanvasController::LinkingMode::Collect: return QStringLiteral("COLLECT");
         case CanvasController::LinkingMode::Fifo: return QStringLiteral("FIFO");
         case CanvasController::LinkingMode::ForwardFifo: return QStringLiteral("FWD_FIFO");
         case CanvasController::LinkingMode::Normal: return QString();
@@ -37,6 +41,8 @@ std::optional<LinkHubKind> linkHubKindForMode(CanvasController::LinkingMode mode
         case CanvasController::LinkingMode::Split: return LinkHubKind::Split;
         case CanvasController::LinkingMode::Join: return LinkHubKind::Join;
         case CanvasController::LinkingMode::Broadcast: return LinkHubKind::Broadcast;
+        case CanvasController::LinkingMode::Distribute: return LinkHubKind::Distribute;
+        case CanvasController::LinkingMode::Collect: return LinkHubKind::Collect;
         case CanvasController::LinkingMode::Normal:
         case CanvasController::LinkingMode::Fifo:
         case CanvasController::LinkingMode::ForwardFifo:
@@ -47,7 +53,8 @@ std::optional<LinkHubKind> linkHubKindForMode(CanvasController::LinkingMode mode
 
 LinkWireRole linkStartWireRole(CanvasController::LinkingMode mode)
 {
-    if (mode == CanvasController::LinkingMode::Join)
+    if (mode == CanvasController::LinkingMode::Join ||
+        mode == CanvasController::LinkingMode::Collect)
         return LinkWireRole::Consumer;
     if (mode == CanvasController::LinkingMode::Broadcast)
         return LinkWireRole::BroadcastProducer;
@@ -56,7 +63,8 @@ LinkWireRole linkStartWireRole(CanvasController::LinkingMode mode)
 
 LinkWireRole linkFinishWireRole(CanvasController::LinkingMode mode)
 {
-    if (mode == CanvasController::LinkingMode::Join)
+    if (mode == CanvasController::LinkingMode::Join ||
+        mode == CanvasController::LinkingMode::Collect)
         return LinkWireRole::Producer;
     if (mode == CanvasController::LinkingMode::Broadcast)
         return LinkWireRole::Broadcast;

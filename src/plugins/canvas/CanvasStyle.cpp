@@ -20,6 +20,51 @@ static double clamped(const double v, const double lo, const double hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
+struct AnnotationPaletteColors final {
+    const char* fill = Constants::kWireAnnotationFillColor;
+    const char* outline = Constants::kWireAnnotationOutlineColor;
+    const char* text = Constants::kWireAnnotationTextColor;
+    const char* selectedFill = Constants::kWireAnnotationSelectedFillColor;
+    const char* selectedOutline = Constants::kWireAnnotationSelectedOutlineColor;
+    const char* selectedText = Constants::kWireAnnotationSelectedTextColor;
+};
+
+AnnotationPaletteColors annotationPaletteColors(WireAnnotationPalette palette)
+{
+    switch (palette) {
+        case WireAnnotationPalette::Forward:
+            return {
+                Constants::kWireAnnotationForwardFillColor,
+                Constants::kWireAnnotationForwardOutlineColor,
+                Constants::kWireAnnotationForwardTextColor,
+                Constants::kWireAnnotationForwardSelectedFillColor,
+                Constants::kWireAnnotationForwardSelectedOutlineColor,
+                Constants::kWireAnnotationForwardSelectedTextColor
+            };
+        case WireAnnotationPalette::Fill:
+            return {
+                Constants::kWireAnnotationDrainFillColor,
+                Constants::kWireAnnotationDrainOutlineColor,
+                Constants::kWireAnnotationDrainTextColor,
+                Constants::kWireAnnotationDrainSelectedFillColor,
+                Constants::kWireAnnotationDrainSelectedOutlineColor,
+                Constants::kWireAnnotationDrainSelectedTextColor
+            };
+        case WireAnnotationPalette::Drain:
+            return {
+                Constants::kWireAnnotationFillFillColor,
+                Constants::kWireAnnotationFillOutlineColor,
+                Constants::kWireAnnotationFillTextColor,
+                Constants::kWireAnnotationFillSelectedFillColor,
+                Constants::kWireAnnotationFillSelectedOutlineColor,
+                Constants::kWireAnnotationFillSelectedTextColor
+            };
+        case WireAnnotationPalette::Default:
+            return {};
+    }
+    return {};
+}
+
 void CanvasStyle::drawBlockFrame(QPainter& p, const QRectF& boundsScene, double zoom)
 {
     drawBlockFrame(p, boundsScene, zoom,
@@ -238,7 +283,7 @@ void CanvasStyle::drawWireAnnotation(QPainter& p,
                                      double zoom,
                                      const QString& text,
                                      bool selected,
-                                     bool forwardObjectFifo,
+                                     WireAnnotationPalette palette,
                                      bool scaleWithZoom)
 {
     if (!annotationRect.isValid())
@@ -252,28 +297,11 @@ void CanvasStyle::drawWireAnnotation(QPainter& p,
 
     const double base = 1.0 / clamped(zoom, 0.25, 8.0);
     const double penW = clamped(base, 0.25, 1.5);
+    const AnnotationPaletteColors colors = annotationPaletteColors(palette);
 
-    const QColor outlineColor = QColor(selected
-                                           ? (forwardObjectFifo
-                                                  ? Constants::kWireAnnotationForwardSelectedOutlineColor
-                                                  : Constants::kWireAnnotationSelectedOutlineColor)
-                                           : (forwardObjectFifo
-                                                  ? Constants::kWireAnnotationForwardOutlineColor
-                                                  : Constants::kWireAnnotationOutlineColor));
-    const QColor fillColor = QColor(selected
-                                        ? (forwardObjectFifo
-                                               ? Constants::kWireAnnotationForwardSelectedFillColor
-                                               : Constants::kWireAnnotationSelectedFillColor)
-                                        : (forwardObjectFifo
-                                               ? Constants::kWireAnnotationForwardFillColor
-                                               : Constants::kWireAnnotationFillColor));
-    const QColor textColor = QColor(selected
-                                        ? (forwardObjectFifo
-                                               ? Constants::kWireAnnotationForwardSelectedTextColor
-                                               : Constants::kWireAnnotationSelectedTextColor)
-                                        : (forwardObjectFifo
-                                               ? Constants::kWireAnnotationForwardTextColor
-                                               : Constants::kWireAnnotationTextColor));
+    const QColor outlineColor = QColor(selected ? colors.selectedOutline : colors.outline);
+    const QColor fillColor = QColor(selected ? colors.selectedFill : colors.fill);
+    const QColor textColor = QColor(selected ? colors.selectedText : colors.text);
 
     QPen pen(outlineColor);
     pen.setWidthF(penW);

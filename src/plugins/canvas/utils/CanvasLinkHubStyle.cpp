@@ -25,6 +25,16 @@ LinkHubStyle linkHubStyle(LinkHubKind kind)
                     QColor(Constants::kLinkHubBroadcastFill),
                     QColor(Constants::kLinkHubBroadcastOutline),
                     QColor(Constants::kLinkHubBroadcastText)};
+        case LinkHubKind::Distribute:
+            return {QStringLiteral("D"),
+                    QColor(Constants::kLinkHubDistributeFill),
+                    QColor(Constants::kLinkHubDistributeOutline),
+                    QColor(Constants::kLinkHubDistributeText)};
+        case LinkHubKind::Collect:
+            return {QStringLiteral("C"),
+                    QColor(Constants::kLinkHubCollectFill),
+                    QColor(Constants::kLinkHubCollectOutline),
+                    QColor(Constants::kLinkHubCollectText)};
     }
     return {QStringLiteral("?"),
             QColor(Constants::kBlockFillColor),

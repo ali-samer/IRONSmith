@@ -36,6 +36,8 @@ public:
     enum class ObjectFifoOperation : uint8_t {
         Fifo,
         Forward,
+        Fill,
+        Drain,
         Split,
         Join
     };

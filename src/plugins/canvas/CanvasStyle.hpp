@@ -16,6 +16,13 @@ class QPainter;
 
 namespace Canvas {
 
+enum class WireAnnotationPalette : unsigned char {
+    Default,
+    Forward,
+    Fill,
+    Drain
+};
+
 struct CANVAS_EXPORT CanvasStyle final
 {
     static void drawBlockFrame(QPainter& p, const QRectF& boundsScene, double zoom);
@@ -59,7 +66,7 @@ struct CANVAS_EXPORT CanvasStyle final
                                    double zoom,
                                    const QString& text,
                                    bool selected,
-                                   bool forwardObjectFifo,
+                                   WireAnnotationPalette palette,
                                    bool scaleWithZoom = true);
 
     static void drawWirePath(QPainter& p,

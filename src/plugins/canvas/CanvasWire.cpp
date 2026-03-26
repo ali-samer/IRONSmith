@@ -7,6 +7,7 @@
 #include "canvas/CanvasStyle.hpp"
 #include "canvas/internal/CanvasWireRouting.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
+#include "canvas/utils/CanvasLinkHubStyle.hpp"
 
 #include <QtCore/QHashFunctions>
 #include <QtCore/QLineF>
@@ -151,6 +152,8 @@ int normalizedObjectFifoDepth(int depth)
 
 QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, bool compact)
 {
+    Q_UNUSED(compact);
+
     const QString name = normalizedObjectFifoName(config.name);
 
     // Pivot wire of a split/join/broadcast: render as "SPLIT/JOIN/BCAST: {hubName}, {fifoName}".
@@ -174,6 +177,19 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
     const int depth = normalizedObjectFifoDepth(config.depth);
     const QString valueType = normalizeObjectFifoType(config.type.valueType);
 
+    switch (config.operation) {
+        case CanvasWire::ObjectFifoOperation::Forward:
+            break;
+        case CanvasWire::ObjectFifoOperation::Fill:
+            return QStringLiteral("FILL");
+        case CanvasWire::ObjectFifoOperation::Drain:
+            return QStringLiteral("DRAIN");
+        case CanvasWire::ObjectFifoOperation::Fifo:
+        case CanvasWire::ObjectFifoOperation::Split:
+        case CanvasWire::ObjectFifoOperation::Join:
+            break;
+    }
+
     const QString fwdPrefix = (config.operation == CanvasWire::ObjectFifoOperation::Forward)
         ? QStringLiteral("FWD: ")
         : QString();
@@ -188,6 +204,86 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
         text += QStringLiteral(", Dim:%1>").arg(dimensions);
     }
     return text;
+}
+
+bool isDdrSpecId(const QString& specId)
+{
+    return specId.trimmed() == QStringLiteral("ddr");
+}
+
+bool isJoinHubSymbol(const QString& symbol)
+{
+    return symbol == Support::linkHubStyle(Support::LinkHubKind::Join).symbol ||
+           symbol == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol;
+}
+
+bool isSplitLikeHubSymbol(const QString& symbol)
+{
+    return symbol == Support::linkHubStyle(Support::LinkHubKind::Split).symbol ||
+           symbol == Support::linkHubStyle(Support::LinkHubKind::Broadcast).symbol ||
+           symbol == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol;
+}
+
+bool isDistributeHubSymbol(const QString& symbol)
+{
+    return symbol == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol;
+}
+
+bool isCollectHubSymbol(const QString& symbol)
+{
+    return symbol == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol;
+}
+
+QString legacyDdrAnnotationText(const CanvasWire::Endpoint& a,
+                                const CanvasWire::Endpoint& b,
+                                const CanvasRenderContext& ctx)
+{
+    if (!a.attached.has_value() || !b.attached.has_value())
+        return {};
+
+    QString specA;
+    QString specB;
+    if (!ctx.itemSpecId(a.attached->itemId, specA) || !ctx.itemSpecId(b.attached->itemId, specB))
+        return {};
+
+    const bool aDdr = isDdrSpecId(specA);
+    const bool bDdr = isDdrSpecId(specB);
+    if (aDdr == bDdr)
+        return {};
+
+    QString symbolA;
+    QString symbolB;
+    const bool hasSymbolA = ctx.itemSymbol(a.attached->itemId, symbolA);
+    const bool hasSymbolB = ctx.itemSymbol(b.attached->itemId, symbolB);
+
+    if (!aDdr && hasSymbolA) {
+        if (isDistributeHubSymbol(symbolA))
+            return QStringLiteral("FILL");
+        if (isCollectHubSymbol(symbolA))
+            return QStringLiteral("DRAIN");
+    }
+    if (!bDdr && hasSymbolB) {
+        if (isDistributeHubSymbol(symbolB))
+            return QStringLiteral("FILL");
+        if (isCollectHubSymbol(symbolB))
+            return QStringLiteral("DRAIN");
+    }
+
+    if (!aDdr && hasSymbolA) {
+        if (isJoinHubSymbol(symbolA))
+            return QStringLiteral("DRAIN");
+        if (isSplitLikeHubSymbol(symbolA))
+            return QStringLiteral("FILL");
+    }
+    if (!bDdr && hasSymbolB) {
+        if (isJoinHubSymbol(symbolB))
+            return QStringLiteral("FILL");
+        if (isSplitLikeHubSymbol(symbolB))
+            return QStringLiteral("DRAIN");
+    }
+
+    return aDdr ? QStringLiteral("FILL")
+                : QStringLiteral("DRAIN");
 }
 
 struct AnnotationAnchor final {
@@ -593,6 +689,10 @@ QString CanvasWire::annotationText(AnnotationDetail detail, const CanvasRenderCo
 
     if (m_objectFifo.has_value())
         return objectFifoAnnotationText(*m_objectFifo, detail == AnnotationDetail::Compact);
+
+    if (const QString legacyDdrLabel = legacyDdrAnnotationText(m_a, m_b, ctx);
+        !legacyDdrLabel.isEmpty())
+        return legacyDdrLabel;
 
     QString consumerHandleLabel;
     const auto resolveHandleLabel = [&](const Endpoint& endpoint) {
