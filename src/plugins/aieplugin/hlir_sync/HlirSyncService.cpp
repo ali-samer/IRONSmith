@@ -493,8 +493,10 @@ void HlirSyncService::syncSplitsAndJoins()
         consumerBlockFifos[blockB->id()].append(info);
     }
 
-    // Helper: pick the FifoInfo for a given tile, preferring the one whose baseName matches
-    // the user-selected name on the pivot wire. Falls back to the first available FIFO.
+    // Helper: pick the FifoInfo for a given tile.
+    // If preferredName is set, it MUST match a connected FIFO — returns nullptr if not found,
+    // so the user cannot label a hub with a FIFO that isn't connected to that tile.
+    // If no name is set, falls back to the first available FIFO.
     const auto pickFifo = [](const QList<FifoInfo>& list,
                               const QString& preferredName) -> const FifoInfo* {
         if (list.isEmpty())
@@ -504,6 +506,7 @@ void HlirSyncService::syncSplitsAndJoins()
                 if (info.baseName == preferredName)
                     return &info;
             }
+            return nullptr; // named FIFO not connected to this tile — reject
         }
         return &list.first();
     };
@@ -590,32 +593,51 @@ void HlirSyncService::syncSplitsAndJoins()
             // Pivot wire enters hub via consumer port → hub forwards the same FIFO to other consumers.
             const QString bcastPreferred = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().name.trimmed() : QString();
-            const FifoInfo* srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), bcastPreferred);
-            if (!srcFifo || srcFifo->fifoId.empty()) {
-                qCWarning(hlirSyncLog) << "HlirSyncService: broadcast has no source FIFO for tile"
-                                       << pivotBlock->specId();
-                continue;
-            }
 
+            // Assign hub name and write operation to the pivot wire immediately so the annotation
+            // shows "BCAST: bcast1, ..." even before a source FIFO is connected.
             ++bcastIdx;
-            // Use user-set hub name from the pivot wire if present; otherwise auto-generate.
             const QString existingBcastName = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().hubName.trimmed()
                 : QString();
             const QString bcastName = existingBcastName.isEmpty()
                 ? QStringLiteral("bcast") + QString::number(bcastIdx)
                 : existingBcastName;
-            // Write broadcast name and resolved FIFO name to the pivot wire for annotation.
-            // Safe: syncCanvas() skips wires whose endpoints have empty specId (hubs).
             {
                 Canvas::CanvasWire::ObjectFifoConfig cfg =
                     pivotWire->hasObjectFifo() ? pivotWire->objectFifo().value()
                                                : Canvas::CanvasWire::ObjectFifoConfig{};
                 if (existingBcastName.isEmpty())
                     cfg.hubName = bcastName;
+                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Forward;
+                pivotWire->setObjectFifo(cfg);
+            }
+
+            const FifoInfo* srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), bcastPreferred);
+            if (!srcFifo || srcFifo->fifoId.empty()) {
+                if (!bcastPreferred.isEmpty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: broadcast source FIFO '" << bcastPreferred
+                                           << "' is not connected to tile" << pivotBlock->specId()
+                                           << "— falling back to first available FIFO";
+                    srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), QString());
+                    if (srcFifo && !srcFifo->fifoId.empty()) {
+                        Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
+                        cfg.name = srcFifo->baseName;
+                        pivotWire->setObjectFifo(cfg);
+                    }
+                }
+                if (!srcFifo || srcFifo->fifoId.empty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: broadcast has no source FIFO for tile"
+                                           << pivotBlock->specId();
+                    continue;
+                }
+            }
+
+            // Update pivot wire annotation with resolved FIFO name and type.
+            {
+                Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
                 if (bcastPreferred.isEmpty() || bcastPreferred != srcFifo->baseName)
                     cfg.name = srcFifo->baseName;
-                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Forward;
                 cfg.depth = srcFifo->depth;
                 cfg.type.valueType = srcFifo->valueType;
                 cfg.type.dimensions = srcFifo->dimensions;
@@ -660,40 +682,60 @@ void HlirSyncService::syncSplitsAndJoins()
             // User-set name on pivot wire selects which FIFO to split when multiple are present.
             const QString splitPreferred = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().name.trimmed() : QString();
-            const FifoInfo* srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), splitPreferred);
-            if (!srcFifo || srcFifo->fifoId.empty()) {
-                qCWarning(hlirSyncLog) << "HlirSyncService: split has no source FIFO for tile"
-                                       << pivotBlock->specId();
-                continue;
-            }
 
-            // Collect output sub-FIFO names ordered by hub producer port index.
+            // Assign hub name and write operation to the pivot wire immediately so the annotation
+            // shows "SPLIT: split1, ..." even before a source FIFO is connected.
             ++splitIdx;
-            // Use user-set hub name from the pivot wire if present; otherwise auto-generate.
             const QString existingSplitName = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().hubName.trimmed()
                 : QString();
             const QString splitName = existingSplitName.isEmpty()
                 ? QStringLiteral("split") + QString::number(splitIdx)
                 : existingSplitName;
-            // Write split name and resolved FIFO name to the pivot wire for annotation.
-            // Preserve user-typed name if it matched; write resolved name otherwise.
-            // Safe: syncCanvas() skips wires whose endpoints have empty specId (hubs).
             {
                 Canvas::CanvasWire::ObjectFifoConfig cfg =
                     pivotWire->hasObjectFifo() ? pivotWire->objectFifo().value()
                                                : Canvas::CanvasWire::ObjectFifoConfig{};
                 if (existingSplitName.isEmpty())
                     cfg.hubName = splitName;
+                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Split;
+                pivotWire->setObjectFifo(cfg);
+            }
+
+            const FifoInfo* srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), splitPreferred);
+            if (!srcFifo || srcFifo->fifoId.empty()) {
+                if (!splitPreferred.isEmpty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: split source FIFO '" << splitPreferred
+                                           << "' is not connected to tile" << pivotBlock->specId()
+                                           << "— falling back to first available FIFO";
+                    srcFifo = pickFifo(consumerBlockFifos.value(pivotBlock->id()), QString());
+                    if (srcFifo && !srcFifo->fifoId.empty()) {
+                        Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
+                        cfg.name = srcFifo->baseName;
+                        pivotWire->setObjectFifo(cfg);
+                    }
+                }
+                if (!srcFifo || srcFifo->fifoId.empty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: split has no source FIFO for tile"
+                                           << pivotBlock->specId();
+                    continue;
+                }
+            }
+
+            // Update pivot wire annotation with resolved FIFO name and type.
+            // Preserve user-typed name if it matched; write resolved name otherwise.
+            {
+                Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
                 if (splitPreferred.isEmpty() || splitPreferred != srcFifo->baseName)
                     cfg.name = srcFifo->baseName;
-                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Split;
                 // Mirror source FIFO depth/type for the properties panel display.
                 cfg.depth = srcFifo->depth;
                 cfg.type.valueType = srcFifo->valueType;
                 cfg.type.dimensions = srcFifo->dimensions;
                 pivotWire->setObjectFifo(cfg);
             }
+
+            // Collect output sub-FIFO names ordered by hub producer port index.
 
             std::vector<std::string> outputNames;
             for (const auto& port : hubBlock->ports()) {
@@ -754,40 +796,60 @@ void HlirSyncService::syncSplitsAndJoins()
             // User-set name on pivot wire selects which FIFO to join into when multiple are present.
             const QString joinPreferred = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().name.trimmed() : QString();
-            const FifoInfo* dstFifo = pickFifo(producerBlockFifos.value(pivotBlock->id()), joinPreferred);
-            if (!dstFifo || dstFifo->fifoId.empty()) {
-                qCWarning(hlirSyncLog) << "HlirSyncService: join has no dest FIFO for tile"
-                                       << pivotBlock->specId();
-                continue;
-            }
 
-            // Collect input sub-FIFO names ordered by hub consumer port index.
+            // Assign hub name and write operation to the pivot wire immediately so the annotation
+            // shows "JOIN: join1, ..." even before a dest FIFO is connected.
             ++joinIdx;
-            // Use user-set hub name from the pivot wire if present; otherwise auto-generate.
             const QString existingJoinName = (pivotWire->hasObjectFifo())
                 ? pivotWire->objectFifo().value().hubName.trimmed()
                 : QString();
             const QString joinName = existingJoinName.isEmpty()
                 ? QStringLiteral("join") + QString::number(joinIdx)
                 : existingJoinName;
-            // Write join name and resolved FIFO name to the pivot wire for annotation.
-            // Preserve user-typed name if it matched; write resolved name otherwise.
-            // Safe: syncCanvas() skips wires whose endpoints have empty specId (hubs).
             {
                 Canvas::CanvasWire::ObjectFifoConfig cfg =
                     pivotWire->hasObjectFifo() ? pivotWire->objectFifo().value()
                                                : Canvas::CanvasWire::ObjectFifoConfig{};
                 if (existingJoinName.isEmpty())
                     cfg.hubName = joinName;
+                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Join;
+                pivotWire->setObjectFifo(cfg);
+            }
+
+            const FifoInfo* dstFifo = pickFifo(producerBlockFifos.value(pivotBlock->id()), joinPreferred);
+            if (!dstFifo || dstFifo->fifoId.empty()) {
+                if (!joinPreferred.isEmpty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: join dest FIFO '" << joinPreferred
+                                           << "' is not connected to tile" << pivotBlock->specId()
+                                           << "— falling back to first available FIFO";
+                    dstFifo = pickFifo(producerBlockFifos.value(pivotBlock->id()), QString());
+                    if (dstFifo && !dstFifo->fifoId.empty()) {
+                        Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
+                        cfg.name = dstFifo->baseName;
+                        pivotWire->setObjectFifo(cfg);
+                    }
+                }
+                if (!dstFifo || dstFifo->fifoId.empty()) {
+                    qCWarning(hlirSyncLog) << "HlirSyncService: join has no dest FIFO for tile"
+                                           << pivotBlock->specId();
+                    continue;
+                }
+            }
+
+            // Update pivot wire annotation with resolved FIFO name and type.
+            // Preserve user-typed name if it matched; write resolved name otherwise.
+            {
+                Canvas::CanvasWire::ObjectFifoConfig cfg = pivotWire->objectFifo().value();
                 if (joinPreferred.isEmpty() || joinPreferred != dstFifo->baseName)
                     cfg.name = dstFifo->baseName;
-                cfg.operation = Canvas::CanvasWire::ObjectFifoOperation::Join;
                 // Mirror destination FIFO depth/type for the properties panel display.
                 cfg.depth = dstFifo->depth;
                 cfg.type.valueType = dstFifo->valueType;
                 cfg.type.dimensions = dstFifo->dimensions;
                 pivotWire->setObjectFifo(cfg);
             }
+
+            // Collect input sub-FIFO names ordered by hub consumer port index.
 
             std::vector<std::string> inputNames;
             for (const auto& port : hubBlock->ports()) {
