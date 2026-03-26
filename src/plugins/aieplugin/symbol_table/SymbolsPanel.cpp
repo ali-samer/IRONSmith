@@ -213,6 +213,10 @@ void SymbolsPanel::buildUi()
     buildEditorPages();
     editorHostLayout->addWidget(editorStack, 1);
 
+    // Allow each pane to shrink freely so the handle is always draggable.
+    listCard->setMinimumHeight(40);
+    editorHost->setMinimumHeight(40);
+
     splitter->addWidget(listCard);
     splitter->addWidget(editorHost);
     splitter->setStretchFactor(0, 3);
