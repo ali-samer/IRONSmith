@@ -14,6 +14,7 @@
 #include "aieplugin/panels/AieNewDesignDialog.hpp"
 #include "aieplugin/panels/AiePropertiesPanel.hpp"
 #include "aieplugin/panels/AieToolPanel.hpp"
+#include "aieplugin/symbol_table/SymbolsPanel.hpp"
 #include "aieplugin/hlir_sync/AieOutputLog.hpp"
 #include "aieplugin/hlir_sync/HlirDirectExecution.hpp"
 #include "aieplugin/hlir_sync/HlirSyncService.hpp"
@@ -38,17 +39,22 @@ void AiePlugin::registerSidebarTools(const RuntimeDependencies& deps)
 {
     registerLayoutSidebarTool(deps);
     registerPropertiesSidebarTool(deps);
+    registerSymbolsSidebarTool(deps);
     registerKernelsSidebarTool(deps);
     registerLogSidebarTool(deps);
 
     if (!m_sidebarRegistry)
         return;
 
+    if (m_propertiesShortcutController)
+        m_propertiesShortcutController->setSidebarRegistry(m_sidebarRegistry);
+
     connect(m_sidebarRegistry, &Core::ISidebarRegistry::toolOpenStateChanged, this,
             [this](const QString& id, bool open) {
                 if (id != kLayoutSidebarToolId &&
                     id != kKernelsSidebarToolId &&
-                    id != kPropertiesSidebarToolId) {
+                    id != kPropertiesSidebarToolId &&
+                    id != kSymbolsSidebarToolId) {
                     return;
                 }
                 m_sidebarState.setPanelOpen(id, open);
@@ -174,15 +180,15 @@ void AiePlugin::registerLogSidebarTool(const RuntimeDependencies& deps)
         return;
 
     Core::SidebarToolSpec spec;
-    spec.id       = kLogSidebarToolId;
-    spec.title    = QStringLiteral("Log");
+    spec.id = kLogSidebarToolId;
+    spec.title = QStringLiteral("Log");
     spec.iconResource = QStringLiteral(":/ui/icons/svg/text_file_icon.svg");
-    spec.side     = Core::SidebarSide::Right;
-    spec.family   = Core::SidebarFamily::Vertical;
-    spec.region   = Core::SidebarRegion::Exclusive;
-    spec.rail     = Core::SidebarRail::Bottom;
-    spec.order    = 0;
-    spec.toolTip  = QStringLiteral("Build & Verification Log");
+    spec.side = Core::SidebarSide::Right;
+    spec.family = Core::SidebarFamily::Vertical;
+    spec.region = Core::SidebarRegion::Exclusive;
+    spec.rail = Core::SidebarRail::Bottom;
+    spec.order = 0;
+    spec.toolTip = QStringLiteral("Build & Verification Log");
 
     const auto factory = [this](QWidget* parent) -> QWidget* {
         auto* panel = new AieLogPanel(m_outputLog, parent);
@@ -199,6 +205,41 @@ void AiePlugin::registerLogSidebarTool(const RuntimeDependencies& deps)
     m_logToolRegistered = true;
 }
 
+void AiePlugin::registerSymbolsSidebarTool(const RuntimeDependencies& deps)
+{
+    if (!deps.uiHost)
+        return;
+
+    if (!m_sidebarRegistry)
+        m_sidebarRegistry = deps.uiHost->sidebarRegistry();
+    if (!m_sidebarRegistry || m_symbolsToolRegistered)
+        return;
+
+    Core::SidebarToolSpec spec;
+    spec.id = kSymbolsSidebarToolId;
+    spec.title = QStringLiteral("Symbols");
+    spec.iconResource = QStringLiteral(":/ui/icons/svg/table_icon.svg");
+    spec.side = Core::SidebarSide::Right;
+    spec.family = Core::SidebarFamily::Vertical;
+    spec.region = Core::SidebarRegion::Additive;
+    spec.rail = Core::SidebarRail::Top;
+    spec.order = 2;
+    spec.toolTip = QStringLiteral("Symbols");
+
+    const auto factory = [controller = QPointer<SymbolsController>(m_symbolsController)](QWidget* parent)
+        -> QWidget* {
+        return new SymbolsPanel(controller, parent);
+    };
+
+    QString error;
+    if (!m_sidebarRegistry->registerTool(spec, factory, &error)) {
+        qCWarning(aiepluginlog) << "AiePlugin: register symbols tool failed:" << error;
+        return;
+    }
+
+    m_symbolsToolRegistered = true;
+}
+
 void AiePlugin::persistSidebarOpenState()
 {
     if (!m_sidebarRegistry)
@@ -212,6 +253,9 @@ void AiePlugin::persistSidebarOpenState()
 
     if (m_propertiesToolRegistered)
         m_sidebarState.setPanelOpen(kPropertiesSidebarToolId, m_sidebarRegistry->isToolOpen(kPropertiesSidebarToolId));
+
+    if (m_symbolsToolRegistered)
+        m_sidebarState.setPanelOpen(kSymbolsSidebarToolId, m_sidebarRegistry->isToolOpen(kSymbolsSidebarToolId));
 }
 
 void AiePlugin::restoreSidebarOpenState()
@@ -227,6 +271,9 @@ void AiePlugin::restoreSidebarOpenState()
 
     if (m_propertiesToolRegistered && m_sidebarState.panelOpen(kPropertiesSidebarToolId))
         m_sidebarRegistry->requestShowTool(kPropertiesSidebarToolId);
+
+    if (m_symbolsToolRegistered && m_sidebarState.panelOpen(kSymbolsSidebarToolId))
+        m_sidebarRegistry->requestShowTool(kSymbolsSidebarToolId);
 }
 
 void AiePlugin::connectHeaderInfo(const RuntimeDependencies& deps)
@@ -307,10 +354,6 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
                     m_designOpenController->openBundlePath(result.bundlePath);
             });
 
-    // --- Output tab: Generate Code button ---
-    // Add a "Build" group to the Output ribbon tab and populate it with a
-    // Generate Code button that drives the HlirSyncService pipeline:
-    //   syncCanvas() → bridge.build() → exportToGuiXml() → CodeGenBridge::runCodeGen()
     deps.uiHost->ensureRibbonGroup(Core::Constants::RIBBON_TAB_OUTPUT,
                                    QStringLiteral("IRONSmith.Ribbon.Output.BuildGroup"),
                                    tr("Build"));
@@ -318,8 +361,6 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
     auto* actCodeGen = new QAction(tr("Generate\nCode"), this);
     actCodeGen->setIcon(QIcon(QStringLiteral(":/ui/icons/svg/generate_code.svg")));
     connect(actCodeGen, &QAction::triggered, this, [this]() {
-        // Open the log panel immediately so its slide-in animation plays before
-        // generateCode() starts blocking the main thread (animation is ~140 ms).
         if (m_sidebarRegistry)
             m_sidebarRegistry->requestShowTool(kLogSidebarToolId);
         QTimer::singleShot(200, this, [this]() {
@@ -346,9 +387,7 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
             m_directExec->execute(m_hlirSync->generatedScriptPath());
     });
 
-    // Route code generation and verification results to the Log panel.
     if (m_hlirSync && m_outputLog) {
-        // Open the log panel when a new run begins, then forward steps and final result.
         connect(m_hlirSync, &HlirSyncService::runStarted, this,
                 [this]() {
                     if (m_sidebarRegistry)

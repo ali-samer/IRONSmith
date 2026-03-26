@@ -31,10 +31,12 @@ class ICodeEditorService;
 namespace Aie::Internal {
 class AieService;
 class AiePanelState;
+class AiePropertiesShortcutController;
 class DesignOpenController;
 class DesignBundleLoader;
 class CanvasDocumentImporter;
 class KernelRegistryService;
 class KernelAssignmentController;
 class KernelToolboxController;
+class SymbolsController;
 }
