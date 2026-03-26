@@ -343,7 +343,7 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
     actExecute->setIcon(QIcon(QStringLiteral(":/ui/icons/svg/python_icon.svg")));
     connect(actExecute, &QAction::triggered, this, [this]() {
         if (m_directExec && m_hlirSync)
-            m_directExec->execute(m_hlirSync->outputDir());
+            m_directExec->execute(m_hlirSync->generatedScriptPath());
     });
 
     // Route code generation and verification results to the Log panel.
@@ -368,18 +368,21 @@ void AiePlugin::connectRibbonActions(const RuntimeDependencies& deps,
                         : QStringLiteral("Code generation failed.");
                     m_outputLog->finalizeRun(success, header + u'\n' + message);
 
-                    if (success && m_codeEditorService && !m_hlirSync->outputDir().isEmpty()) {
-                        const QString generatedFile =
-                            m_hlirSync->outputDir() + QStringLiteral("/generated_design.py");
-                        CodeEditor::Api::CodeEditorOpenRequest req;
-                        req.filePath   = generatedFile;
-                        req.languageHint = QStringLiteral("python");
-                        req.activate   = true;
-                        req.readOnly   = true;
-                        CodeEditor::Api::CodeEditorSessionHandle handle;
-                        const Utils::Result openResult = m_codeEditorService->openFile(req, handle);
-                        if (!openResult)
-                            qCWarning(aiepluginlog) << "AiePlugin: failed to open generated file:" << openResult.errors;
+                    if (success && m_codeEditorService) {
+                        const QString generatedFile = m_hlirSync->generatedScriptPath();
+                        if (!generatedFile.isEmpty()) {
+                            // openFile() reuses the existing tab if the file is already open,
+                            // activates it, and reveals the code editor sidebar.
+                            CodeEditor::Api::CodeEditorOpenRequest req;
+                            req.filePath     = generatedFile;
+                            req.languageHint = QStringLiteral("python");
+                            req.activate     = true;
+                            req.readOnly     = false;
+                            CodeEditor::Api::CodeEditorSessionHandle handle;
+                            const Utils::Result openResult = m_codeEditorService->openFile(req, handle);
+                            if (!openResult)
+                                qCWarning(aiepluginlog) << "AiePlugin: failed to open generated file:" << openResult.errors;
+                        }
                     }
                 });
 

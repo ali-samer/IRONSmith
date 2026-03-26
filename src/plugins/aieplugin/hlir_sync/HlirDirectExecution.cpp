@@ -16,14 +16,13 @@ HlirDirectExecution::HlirDirectExecution(QObject* parent)
 {
 }
 
-void HlirDirectExecution::execute(const QString& outputDir)
+void HlirDirectExecution::execute(const QString& scriptPath)
 {
-    if (outputDir.isEmpty()) {
+    if (scriptPath.isEmpty()) {
         emit executeFinished(false, tr("No design is open."));
         return;
     }
 
-    const QString scriptPath = outputDir + QStringLiteral("/generated_design.py");
     if (!QFileInfo::exists(scriptPath)) {
         emit executeFinished(false,
             tr("No generated code found — run Generate Code first.\n\nExpected: %1")
@@ -34,11 +33,12 @@ void HlirDirectExecution::execute(const QString& outputDir)
     emit runStarted();
     QCoreApplication::processEvents();
 
-    emit stepLogged(true, tr("Executing generated_design.py"));
+    const QString scriptName = QFileInfo(scriptPath).fileName();
+    emit stepLogged(true, tr("Executing %1").arg(scriptName));
     QCoreApplication::processEvents();
 
     QProcess process;
-    process.setWorkingDirectory(outputDir);
+    process.setWorkingDirectory(QFileInfo(scriptPath).absolutePath());
     process.setProcessChannelMode(QProcess::MergedChannels);
 
     const QString pythonExe = QStringLiteral(PYTHON_EXECUTABLE);

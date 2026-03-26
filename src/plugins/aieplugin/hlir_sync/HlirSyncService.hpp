@@ -47,6 +47,11 @@ public:
     /// The base output directory set by the most recent attachDocument() call.
     const QString& outputDir() const { return m_outputDir; }
 
+    /// Full path of the generated Python script for the current design,
+    /// e.g. <outputDir>/generated_MatrixVectorMul.py.
+    /// Returns an empty string when no document is attached.
+    QString generatedScriptPath() const;
+
     /// Set the kernel registry used to look up kernel assets during code generation.
     void setKernelRegistry(KernelRegistryService* registry);
 
