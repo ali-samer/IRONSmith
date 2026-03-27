@@ -38,7 +38,7 @@ public:
 	enum class Mode { Normal, Panning, Linking };
 	Q_ENUM(Mode)
 
-	enum class LinkingMode { Normal, Split, Join, Broadcast, Fifo, ForwardFifo };
+	enum class LinkingMode { Normal, Split, Join, Broadcast, Distribute, Collect, Fifo, ForwardFifo };
 	Q_ENUM(LinkingMode)
 
 	CanvasController(CanvasDocument* doc, CanvasView* view, CanvasSelectionModel* selection, QObject* parent = nullptr);

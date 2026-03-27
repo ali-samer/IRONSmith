@@ -7,6 +7,7 @@
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasPorts.hpp"
+#include "canvas/CanvasSymbolContent.hpp"
 #include "canvas/CanvasWire.hpp"
 #include "canvas/utils/CanvasGeometry.hpp"
 #include "canvas/utils/CanvasPortHitTest.hpp"
@@ -405,6 +406,46 @@ bool CanvasDocument::resolveHubArmLabelForEndpointThunk(void* user,
 {
     auto* doc = static_cast<const CanvasDocument*>(user);
     return doc ? doc->resolveHubArmLabelForEndpoint(itemId, portId, outLabel) : false;
+}
+
+bool CanvasDocument::resolveItemSpecId(ObjectId itemId, QString& outSpecId) const
+{
+    const auto* block = dynamic_cast<const CanvasBlock*>(findItem(itemId));
+    if (!block)
+        return false;
+
+    outSpecId = block->specId();
+    return true;
+}
+
+bool CanvasDocument::resolveItemSpecIdThunk(void* user,
+                                            ObjectId itemId,
+                                            QString& outSpecId)
+{
+    auto* doc = static_cast<const CanvasDocument*>(user);
+    return doc ? doc->resolveItemSpecId(itemId, outSpecId) : false;
+}
+
+bool CanvasDocument::resolveItemSymbol(ObjectId itemId, QString& outSymbol) const
+{
+    const auto* block = dynamic_cast<const CanvasBlock*>(findItem(itemId));
+    if (!block)
+        return false;
+
+    const auto* symbol = dynamic_cast<const BlockContentSymbol*>(block->content());
+    if (!symbol)
+        return false;
+
+    outSymbol = symbol->symbol();
+    return true;
+}
+
+bool CanvasDocument::resolveItemSymbolThunk(void* user,
+                                            ObjectId itemId,
+                                            QString& outSymbol)
+{
+    auto* doc = static_cast<const CanvasDocument*>(user);
+    return doc ? doc->resolveItemSymbol(itemId, outSymbol) : false;
 }
 
 bool CanvasDocument::isFabricPointBlockedThunk(const FabricCoord& coord, void* user)

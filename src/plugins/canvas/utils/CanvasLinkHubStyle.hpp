@@ -13,7 +13,9 @@ namespace Canvas::Support {
 enum class LinkHubKind : uint8_t {
     Split,
     Join,
-    Broadcast
+    Broadcast,
+    Distribute,
+    Collect
 };
 
 struct CANVAS_EXPORT LinkHubStyle final {

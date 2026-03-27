@@ -84,6 +84,26 @@ struct CANVAS_EXPORT CanvasRenderContext final {
             : false;
     }
 
+    using ResolveItemSpecIdFn = bool (*)(void*, ObjectId, QString& outSpecId);
+    ResolveItemSpecIdFn resolveItemSpecId = nullptr;
+    void* resolveItemSpecIdUser = nullptr;
+
+    bool itemSpecId(ObjectId itemId, QString& outSpecId) const {
+        return resolveItemSpecId
+            ? resolveItemSpecId(resolveItemSpecIdUser, itemId, outSpecId)
+            : false;
+    }
+
+    using ResolveItemSymbolFn = bool (*)(void*, ObjectId, QString& outSymbol);
+    ResolveItemSymbolFn resolveItemSymbol = nullptr;
+    void* resolveItemSymbolUser = nullptr;
+
+    bool itemSymbol(ObjectId itemId, QString& outSymbol) const {
+        return resolveItemSymbol
+            ? resolveItemSymbol(resolveItemSymbolUser, itemId, outSymbol)
+            : false;
+    }
+
     using IsFabricBlockedFn = bool (*)(const FabricCoord& coord, void* user);
     IsFabricBlockedFn isFabricBlocked = nullptr;
     void* isFabricBlockedUser = nullptr;

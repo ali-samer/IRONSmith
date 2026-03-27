@@ -87,6 +87,14 @@ public:
                                                    ObjectId itemId,
                                                    PortId portId,
                                                    QString& outLabel);
+    bool resolveItemSpecId(ObjectId itemId, QString& outSpecId) const;
+    static bool resolveItemSpecIdThunk(void* user,
+                                       ObjectId itemId,
+                                       QString& outSpecId);
+    bool resolveItemSymbol(ObjectId itemId, QString& outSymbol) const;
+    static bool resolveItemSymbolThunk(void* user,
+                                       ObjectId itemId,
+                                       QString& outSymbol);
 
 	QString statusText() const;
 	void setStatusText(QString text);

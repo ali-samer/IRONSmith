@@ -8,8 +8,8 @@
 
 #include <QStringList>
 #include <QLoggingCategory>
+#include <QMenu>
 #include <array>
-#include <QtCore/QSignalBlocker>
 #include <QtCore/QtGlobal>
 #include <QtGui/QActionGroup>
 
@@ -33,6 +33,24 @@
 Q_LOGGING_CATEGORY(canvaslog, "ironsmith.canvas")
 
 namespace Canvas::Internal {
+
+namespace {
+QAction* findMenuActionById(QAction* menuAction, const char* itemId)
+{
+    if (!menuAction || !menuAction->menu())
+        return nullptr;
+
+    const QString wanted = QString::fromLatin1(itemId);
+    const auto actions = menuAction->menu()->findChildren<QAction*>();
+    for (QAction* action : actions) {
+        if (!action)
+            continue;
+        if (action->data().toString() == wanted)
+            return action;
+    }
+    return nullptr;
+}
+} // namespace
 
 class CanvasPlugin final : public ExtensionSystem::IPlugin {
 	Q_OBJECT
@@ -64,10 +82,15 @@ private:
     struct RibbonActions final {
         QPointer<QAction> select;
         QPointer<QAction> pan;
+        QPointer<QAction> linkingMenu;
+        QPointer<QAction> movementPatternsMenu;
+        QPointer<QAction> ddrTransfersMenu;
         QPointer<QAction> link;
         QPointer<QAction> linkSplit;
         QPointer<QAction> linkJoin;
         QPointer<QAction> linkBroadcast;
+        QPointer<QAction> linkDistribute;
+        QPointer<QAction> linkCollect;
         QPointer<QAction> linkFifo;
         QPointer<QAction> linkForwardFifo;
 
@@ -172,13 +195,25 @@ void CanvasPlugin::connectRibbonActions(Core::IUiHost* uiHost)
 
     m_actions.select = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_SELECT_ITEMID);
     m_actions.pan = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_PAN_ITEMID);
-    m_actions.link = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_LINK_ITEMID);
-    m_actions.linkSplit = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_LINK_SPLIT_ITEMID);
-    m_actions.linkJoin = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_LINK_JOIN_ITEMID);
-    m_actions.linkBroadcast = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_LINK_BROADCAST_ITEMID);
-    m_actions.linkFifo = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP, Core::Constants::CANVAS_LINK_FIFO_ITEMID);
-    m_actions.linkForwardFifo = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP,
-                                      Core::Constants::CANVAS_LINK_FORWARD_FIFO_ITEMID);
+    m_actions.linkingMenu = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP,
+                                  Core::Constants::CANVAS_LINKING_MENU_ITEMID);
+    m_actions.movementPatternsMenu = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP,
+                                           Core::Constants::CANVAS_MOVEMENT_PATTERNS_MENU_ITEMID);
+    m_actions.ddrTransfersMenu = fetch(Core::Constants::RIBBON_TAB_HOME_CANVAS_GROUP,
+                                       Core::Constants::CANVAS_DDR_TRANSFERS_MENU_ITEMID);
+
+    m_actions.link = findMenuActionById(m_actions.linkingMenu, Core::Constants::CANVAS_LINK_ITEMID);
+    m_actions.linkFifo = findMenuActionById(m_actions.linkingMenu, Core::Constants::CANVAS_LINK_FIFO_ITEMID);
+    m_actions.linkForwardFifo = findMenuActionById(m_actions.linkingMenu,
+                                                   Core::Constants::CANVAS_LINK_FORWARD_FIFO_ITEMID);
+    m_actions.linkSplit = findMenuActionById(m_actions.movementPatternsMenu, Core::Constants::CANVAS_LINK_SPLIT_ITEMID);
+    m_actions.linkJoin = findMenuActionById(m_actions.movementPatternsMenu, Core::Constants::CANVAS_LINK_JOIN_ITEMID);
+    m_actions.linkBroadcast = findMenuActionById(m_actions.movementPatternsMenu,
+                                                 Core::Constants::CANVAS_LINK_BROADCAST_ITEMID);
+    m_actions.linkDistribute = findMenuActionById(m_actions.ddrTransfersMenu,
+                                                  Core::Constants::CANVAS_LINK_DISTRIBUTE_ITEMID);
+    m_actions.linkCollect = findMenuActionById(m_actions.ddrTransfersMenu,
+                                               Core::Constants::CANVAS_LINK_COLLECT_ITEMID);
 
     m_actions.autoRoute = fetch(Core::Constants::RIBBON_TAB_HOME_WIRES_GROUP, Core::Constants::CANVAS_WIRE_AUTO_ROUTE_ITEMID);
     m_actions.clearOverrides = fetch(Core::Constants::RIBBON_TAB_HOME_WIRES_GROUP, Core::Constants::CANVAS_WIRE_CLEAR_OVERRIDES_ITEMID);
@@ -197,6 +232,8 @@ void CanvasPlugin::connectRibbonActions(Core::IUiHost* uiHost)
                       m_actions.linkSplit.data(),
                       m_actions.linkJoin.data(),
                       m_actions.linkBroadcast.data(),
+                      m_actions.linkDistribute.data(),
+                      m_actions.linkCollect.data(),
                       m_actions.linkFifo.data(),
                       m_actions.linkForwardFifo.data()}) {
         if (act) {
@@ -215,11 +252,13 @@ void CanvasPlugin::connectRibbonActions(Core::IUiHost* uiHost)
             controller->setMode(CanvasController::Mode::Panning);
         });
     }
-    const std::array<std::pair<QAction*, CanvasController::LinkingMode>, 6> linkActions{{
+    const std::array<std::pair<QAction*, CanvasController::LinkingMode>, 8> linkActions{{
         {m_actions.link.data(), CanvasController::LinkingMode::Normal},
         {m_actions.linkSplit.data(), CanvasController::LinkingMode::Split},
         {m_actions.linkJoin.data(), CanvasController::LinkingMode::Join},
         {m_actions.linkBroadcast.data(), CanvasController::LinkingMode::Broadcast},
+        {m_actions.linkDistribute.data(), CanvasController::LinkingMode::Distribute},
+        {m_actions.linkCollect.data(), CanvasController::LinkingMode::Collect},
         {m_actions.linkFifo.data(), CanvasController::LinkingMode::Fifo},
         {m_actions.linkForwardFifo.data(), CanvasController::LinkingMode::ForwardFifo}
     }};
@@ -285,32 +324,31 @@ void CanvasPlugin::syncRibbonState(CanvasController* controller)
     if (!controller)
         return;
 
+    const auto syncChecked = [](QAction* action, bool checked) {
+        if (!action || action->isChecked() == checked)
+            return;
+        action->setChecked(checked);
+    };
+
     const auto mode = controller->mode();
     const auto linkMode = controller->linkingMode();
 
-    if (m_actions.select) {
-        QSignalBlocker block(m_actions.select);
-        m_actions.select->setChecked(mode == CanvasController::Mode::Normal);
-    }
-    if (m_actions.pan) {
-        QSignalBlocker block(m_actions.pan);
-        m_actions.pan->setChecked(mode == CanvasController::Mode::Panning);
-    }
+    syncChecked(m_actions.select, mode == CanvasController::Mode::Normal);
+    syncChecked(m_actions.pan, mode == CanvasController::Mode::Panning);
 
     const bool linking = (mode == CanvasController::Mode::Linking);
-    const std::array<std::pair<QAction*, CanvasController::LinkingMode>, 6> linkActions{{
+    const std::array<std::pair<QAction*, CanvasController::LinkingMode>, 8> linkActions{{
         {m_actions.link.data(), CanvasController::LinkingMode::Normal},
         {m_actions.linkSplit.data(), CanvasController::LinkingMode::Split},
         {m_actions.linkJoin.data(), CanvasController::LinkingMode::Join},
         {m_actions.linkBroadcast.data(), CanvasController::LinkingMode::Broadcast},
+        {m_actions.linkDistribute.data(), CanvasController::LinkingMode::Distribute},
+        {m_actions.linkCollect.data(), CanvasController::LinkingMode::Collect},
         {m_actions.linkFifo.data(), CanvasController::LinkingMode::Fifo},
         {m_actions.linkForwardFifo.data(), CanvasController::LinkingMode::ForwardFifo}
     }};
     for (const auto& [action, candidateMode] : linkActions) {
-        if (!action)
-            continue;
-        QSignalBlocker block(action);
-        action->setChecked(linking && linkMode == candidateMode);
+        syncChecked(action, linking && linkMode == candidateMode);
     }
 }
 
@@ -323,10 +361,15 @@ void CanvasPlugin::setCanvasActionsEnabled(bool enabled)
 
     setEnabled(m_actions.select);
     setEnabled(m_actions.pan);
+    setEnabled(m_actions.linkingMenu);
+    setEnabled(m_actions.movementPatternsMenu);
+    setEnabled(m_actions.ddrTransfersMenu);
     setEnabled(m_actions.link);
     setEnabled(m_actions.linkSplit);
     setEnabled(m_actions.linkJoin);
     setEnabled(m_actions.linkBroadcast);
+    setEnabled(m_actions.linkDistribute);
+    setEnabled(m_actions.linkCollect);
     setEnabled(m_actions.linkFifo);
     setEnabled(m_actions.linkForwardFifo);
     setEnabled(m_actions.autoRoute);

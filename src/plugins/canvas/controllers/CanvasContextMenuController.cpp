@@ -377,6 +377,10 @@ std::optional<Support::LinkHubKind> CanvasContextMenuController::hubKindForBlock
         return Support::LinkHubKind::Join;
     if (value == Support::linkHubStyle(Support::LinkHubKind::Broadcast).symbol)
         return Support::LinkHubKind::Broadcast;
+    if (value == Support::linkHubStyle(Support::LinkHubKind::Distribute).symbol)
+        return Support::LinkHubKind::Distribute;
+    if (value == Support::linkHubStyle(Support::LinkHubKind::Collect).symbol)
+        return Support::LinkHubKind::Collect;
     return std::nullopt;
 }
 

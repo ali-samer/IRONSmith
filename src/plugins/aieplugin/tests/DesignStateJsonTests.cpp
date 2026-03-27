@@ -142,3 +142,30 @@ TEST(DesignStateJsonTests, RoundTripSerializeParse)
 
     EXPECT_EQ(parsed.metadata.value(QStringLiteral("notes")).toString(), QStringLiteral("test"));
 }
+
+TEST(DesignStateJsonTests, FillObjectFifoOperationRoundTrips)
+{
+    DesignState state;
+
+    DesignLink link;
+    link.id = QStringLiteral("wire-fill");
+    link.from.nodeId = QStringLiteral("ddr");
+    link.from.port.side = Canvas::PortSide::Right;
+    link.from.port.role = Canvas::PortRole::Producer;
+    link.to.nodeId = QStringLiteral("shim0_0");
+    link.to.port.side = Canvas::PortSide::Left;
+    link.to.port.role = Canvas::PortRole::Consumer;
+    link.objectFifo.name = QStringLiteral("in");
+    link.objectFifo.operation = Aie::Internal::DesignLink::ObjectFifo::Operation::Fill;
+    link.hasObjectFifo = true;
+    state.links.push_back(link);
+
+    const QJsonObject json = Aie::Internal::serializeDesignState(state);
+
+    DesignState parsed;
+    const Utils::Result result = Aie::Internal::parseDesignState(json, parsed);
+    ASSERT_TRUE(result.ok) << result.errors.join("\n").toStdString();
+    ASSERT_EQ(parsed.links.size(), 1);
+    EXPECT_TRUE(parsed.links[0].hasObjectFifo);
+    EXPECT_EQ(parsed.links[0].objectFifo.operation, Aie::Internal::DesignLink::ObjectFifo::Operation::Fill);
+}
