@@ -154,6 +154,9 @@ private:
     QPointer<QTableWidget>   m_ddrInputsTable;
     QPointer<QTableWidget>   m_ddrOutputsTable;
     QPointer<QWidget>        m_ddrTapWidget;
+    QPointer<QComboBox>      m_ddrTapSourceCombo;   // "Custom" or "Symbol Table"
+    QPointer<QComboBox>      m_ddrTapSymbolCombo;   // TAP symbols (visible when source=Symbol)
+    QPointer<QWidget>        m_ddrTapCustomWidget;  // custom inline fields (visible when source=Custom)
     QPointer<QComboBox>      m_ddrTapModeCombo;
     QPointer<QLineEdit>      m_ddrTapTileDimsEdit;
     QPointer<QLineEdit>      m_ddrTapTileCountsEdit;

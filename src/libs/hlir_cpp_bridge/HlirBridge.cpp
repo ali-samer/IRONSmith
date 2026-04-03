@@ -597,6 +597,55 @@ HlirResult<ComponentId> HlirBridge::addTensorTiler2D(
     return parseJsonResult<ComponentId>(jsonRes.value());
 }
 
+HlirResult<ComponentId> HlirBridge::addTap(
+    const std::string& name,
+    const std::vector<std::string>& tensorDims,
+    const std::string& offset,
+    const std::vector<std::string>& sizes,
+    const std::vector<std::string>& strides,
+    bool pruneStep,
+    int index,
+    bool useTiler2D,
+    const ComponentId& providedId,
+    const std::map<std::string, std::string>& metadata)
+{
+    PyObject* tensorDimsList = buildPythonList(tensorDims);
+    PyObject* sizesList = buildPythonList(sizes);
+    PyObject* stridesList = buildPythonList(strides);
+    PyObject* metadataDict = buildMetadataDict(metadata);
+
+    const char* providedIdStr = providedId.value.empty() ? nullptr : providedId.value.c_str();
+    const char* offsetStr = offset.c_str();
+
+    PyObject* args = Py_BuildValue("(sOsOOOiOOs)",
+        name.c_str(),
+        tensorDimsList,
+        offsetStr,
+        sizesList,
+        stridesList,
+        pruneStep ? Py_True : Py_False,
+        index,
+        useTiler2D ? Py_True : Py_False,
+        metadataDict,
+        providedIdStr);
+
+    Py_DECREF(tensorDimsList);
+    Py_DECREF(sizesList);
+    Py_DECREF(stridesList);
+    Py_DECREF(metadataDict);
+
+    auto pyRes = callBuilderMethod("add_tap", args);
+    Py_DECREF(args);
+
+    if (!pyRes) return std::unexpected(pyRes.error());
+
+    auto jsonRes = extractJsonString(pyRes.value());
+    Py_DECREF(pyRes.value());
+
+    if (!jsonRes) return std::unexpected(jsonRes.error());
+    return parseJsonResult<ComponentId>(jsonRes.value());
+}
+
 HlirResult<ComponentId> HlirBridge::addFifoForward(
     const std::string& name,
     const ComponentId& sourceId,

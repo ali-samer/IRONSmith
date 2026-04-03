@@ -1143,6 +1143,24 @@ class CodeGenerator:
             return f"np.dtype[{dtype_label}]"
         return "np.dtype"
 
+    def _emit_tap_assignment(self, tap_id: str):
+        """
+        Emit a TensorAccessPattern(...) assignment statement.
+
+        Example output:
+            my_tap = TensorAccessPattern((256, 256), offset=0, sizes=[32, 32], strides=[256, 1])
+        """
+        name = self._get_node_attr(tap_id, 'label')
+        tensor_dims = self._get_node_attr(tap_id, 'tensor_dims') or ""
+        offset = self._get_node_attr(tap_id, 'offset') or "0"
+        sizes = self._get_node_attr(tap_id, 'sizes') or ""
+        strides = self._get_node_attr(tap_id, 'strides') or ""
+
+        sizes_list = "[" + sizes + "]" if sizes else "[]"
+        strides_list = "[" + strides + "]" if strides else "[]"
+        self._emit(f"{name} = TensorAccessPattern(({tensor_dims},), offset={offset}, "
+                   f"sizes={sizes_list}, strides={strides_list})")
+
     def _emit_tiler2d_assignment(self, tiler_id: str):
         """
         Emit a TensorTiler2D.group_tiler() assignment statement.
@@ -1337,7 +1355,7 @@ class CodeGenerator:
         if list_nodes:
             self._emit()
         
-        # Emit TensorTiler2D (TAP) definitions immediately before the runtime sequence
+        # Emit TAP definitions (TensorTiler2D and TensorAccessPattern) before the runtime sequence
         module_nodes_tap = self._find_nodes_by_kind('Module')
         if module_nodes_tap:
             tap_symbols = [c for c in self._get_children(module_nodes_tap[0], 'contains')
@@ -1346,10 +1364,14 @@ class CodeGenerator:
             if tap_symbols:
                 tiler_nodes = [c for c in self._get_children(tap_symbols[0], 'contains')
                                if self._get_node_attr(c, 'kind') == 'TensorTiler2D']
-                if tiler_nodes:
+                tap_nodes = [c for c in self._get_children(tap_symbols[0], 'contains')
+                             if self._get_node_attr(c, 'kind') == 'TensorAccessPattern']
+                if tiler_nodes or tap_nodes:
                     self._emit("# Tensor Access Patterns (TAPs)")
                     for tiler_id in tiler_nodes:
                         self._emit_tiler2d_assignment(tiler_id)
+                    for tap_id in tap_nodes:
+                        self._emit_tap_assignment(tap_id)
                     self._emit()
 
         # Generate Runtime

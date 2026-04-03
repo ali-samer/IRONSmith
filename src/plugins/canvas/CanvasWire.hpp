@@ -87,9 +87,10 @@ public:
         QString totalDims;                          // total DDR buffer dims, e.g. "128"
         QString valueType = QStringLiteral("i32"); // element dtype
         std::optional<QString> symbolRef;          // optional TypeAbstraction symbol name
+        std::optional<QString> tapSymbolRef;       // optional TAP symbol name from symbol table
         QString fifoName;                           // for hub arm wires: target FIFO name (e.g. "inA1")
         DimensionMode mode = DimensionMode::Vector; // Vector or Matrix TAP mode
-        std::optional<TensorTilerConfig> tap;       // TAP config when mode == Matrix
+        std::optional<TensorTilerConfig> tap;       // TAP config when mode == Matrix (custom)
     };
 
     struct Endpoint final {

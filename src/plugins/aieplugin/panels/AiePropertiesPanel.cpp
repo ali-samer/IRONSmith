@@ -793,11 +793,40 @@ void AiePropertiesPanel::buildUi()
         ddrTapForm->setVerticalSpacing(4);
         ddrTapForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-        auto* ddrTapModeCombo = new QComboBox(ddrTapWidget);
+        // TAP source toggle: Custom inline config vs. symbol from symbol table.
+        auto* ddrTapSourceCombo = new QComboBox(ddrTapWidget);
+        ddrTapSourceCombo->setObjectName(QStringLiteral("AiePropertiesField"));
+        ddrTapSourceCombo->addItems({QStringLiteral("Custom"), QStringLiteral("Symbol Table")});
+        {
+            auto* lbl = new QLabel(QStringLiteral("TAP Source"), ddrTapWidget);
+            lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+            ddrTapForm->addRow(lbl, ddrTapSourceCombo);
+        }
+
+        // Symbol selector (visible when source = Symbol Table).
+        auto* ddrTapSymbolCombo = new QComboBox(ddrTapWidget);
+        ddrTapSymbolCombo->setObjectName(QStringLiteral("AiePropertiesField"));
+        ddrTapSymbolCombo->setVisible(false);
+        {
+            auto* lbl = new QLabel(QStringLiteral("TAP Symbol"), ddrTapWidget);
+            lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+            ddrTapForm->addRow(lbl, ddrTapSymbolCombo);
+        }
+
+        // Custom inline config (visible when source = Custom).
+        auto* ddrTapCustomWidget = new QWidget(ddrTapWidget);
+        auto* ddrTapCustomForm = new QFormLayout(ddrTapCustomWidget);
+        ddrTapCustomForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+        ddrTapCustomForm->setContentsMargins(0, 0, 0, 0);
+        ddrTapCustomForm->setHorizontalSpacing(10);
+        ddrTapCustomForm->setVerticalSpacing(4);
+        ddrTapCustomForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+        auto* ddrTapModeCombo = new QComboBox(ddrTapCustomWidget);
         ddrTapModeCombo->setObjectName(QStringLiteral("AiePropertiesField"));
         ddrTapModeCombo->addItems({QStringLiteral("Vector"), QStringLiteral("Matrix")});
 
-        auto* ddrTapFieldsWidget = new QWidget(ddrTapWidget);
+        auto* ddrTapFieldsWidget = new QWidget(ddrTapCustomWidget);
         auto* ddrTapFieldsForm = new QFormLayout(ddrTapFieldsWidget);
         ddrTapFieldsForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
         ddrTapFieldsForm->setContentsMargins(0, 0, 0, 0);
@@ -833,15 +862,22 @@ void AiePropertiesPanel::buildUi()
         ddrTapFieldsWidget->setVisible(false);
 
         {
-            auto* lbl = new QLabel(QStringLiteral("Mode"), ddrTapWidget);
+            auto* lbl = new QLabel(QStringLiteral("Mode"), ddrTapCustomWidget);
             lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
-            ddrTapForm->addRow(lbl, ddrTapModeCombo);
+            ddrTapCustomForm->addRow(lbl, ddrTapModeCombo);
         }
-        ddrTapForm->addRow(ddrTapFieldsWidget);
+        ddrTapCustomForm->addRow(ddrTapFieldsWidget);
+        ddrTapForm->addRow(ddrTapCustomWidget);
 
         connect(ddrTapModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 ddrTapFieldsWidget, [ddrTapFieldsWidget](int idx) {
                     ddrTapFieldsWidget->setVisible(idx == 1);
+                });
+        connect(ddrTapSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [ddrTapCustomWidget, ddrTapSymbolCombo](int idx) {
+                    const bool isSymbol = (idx == 1);
+                    ddrTapCustomWidget->setVisible(!isSymbol);
+                    ddrTapSymbolCombo->setVisible(isSymbol);
                 });
 
         ddrGroupLayout->addWidget(ddrInputsLabel);
@@ -850,13 +886,16 @@ void AiePropertiesPanel::buildUi()
         ddrGroupLayout->addWidget(ddrOutputsTable);
         ddrGroupLayout->addWidget(ddrTapWidget);
 
-        m_ddrInputsTable      = ddrInputsTable;
-        m_ddrOutputsTable     = ddrOutputsTable;
-        m_ddrTapWidget        = ddrTapWidget;
-        m_ddrTapModeCombo     = ddrTapModeCombo;
-        m_ddrTapTileDimsEdit  = ddrTapTileDimsEdit;
+        m_ddrInputsTable       = ddrInputsTable;
+        m_ddrOutputsTable      = ddrOutputsTable;
+        m_ddrTapWidget         = ddrTapWidget;
+        m_ddrTapSourceCombo    = ddrTapSourceCombo;
+        m_ddrTapSymbolCombo    = ddrTapSymbolCombo;
+        m_ddrTapCustomWidget   = ddrTapCustomWidget;
+        m_ddrTapModeCombo      = ddrTapModeCombo;
+        m_ddrTapTileDimsEdit   = ddrTapTileDimsEdit;
         m_ddrTapTileCountsEdit = ddrTapTileCountsEdit;
-        m_ddrTapRepeatEdit    = ddrTapRepeatEdit;
+        m_ddrTapRepeatEdit     = ddrTapRepeatEdit;
     }
     m_ddrGroup = ddrGroup;
 
@@ -951,6 +990,14 @@ void AiePropertiesPanel::buildUi()
                 this, [this](int row, int) { applyDdrTableRow(false, row); });
         connect(m_ddrOutputsTable, &QTableWidget::currentCellChanged,
                 this, [this](int row, int, int, int) { onDdrTableRowSelected(false, row); });
+    }
+    if (m_ddrTapSourceCombo) {
+        connect(m_ddrTapSourceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this](int) { applyDdrTap(); });
+    }
+    if (m_ddrTapSymbolCombo) {
+        connect(m_ddrTapSymbolCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this](int) { applyDdrTap(); });
     }
     if (m_ddrTapModeCombo) {
         connect(m_ddrTapModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -2040,21 +2087,56 @@ void AiePropertiesPanel::onDdrTableRowSelected(bool isFill, int row)
     m_ddrTapWireId = wireId;
 
     m_updatingUi = true;
-    const bool isMatrix = wire->hasFillDrain()
-        && wire->fillDrain()->mode == Canvas::CanvasWire::DimensionMode::Matrix;
-    if (m_ddrTapModeCombo)
-        m_ddrTapModeCombo->setCurrentIndex(isMatrix ? 1 : 0);
 
-    if (wire->hasFillDrain() && wire->fillDrain()->tap.has_value()) {
-        const auto& tap = *wire->fillDrain()->tap;
-        if (m_ddrTapTileDimsEdit)   m_ddrTapTileDimsEdit->setText(tap.tileDims);
-        if (m_ddrTapTileCountsEdit) m_ddrTapTileCountsEdit->setText(tap.tileCounts);
-        if (m_ddrTapRepeatEdit)     m_ddrTapRepeatEdit->setText(tap.patternRepeat);
-    } else {
-        if (m_ddrTapTileDimsEdit)   m_ddrTapTileDimsEdit->clear();
-        if (m_ddrTapTileCountsEdit) m_ddrTapTileCountsEdit->clear();
-        if (m_ddrTapRepeatEdit)     m_ddrTapRepeatEdit->clear();
+    // Populate TAP symbol combo from the symbol table.
+    if (m_ddrTapSymbolCombo) {
+        m_ddrTapSymbolCombo->clear();
+        m_ddrTapSymbolCombo->addItem(QStringLiteral("— select TAP —"), QString{});
+        if (m_symbolsController) {
+            for (const auto& sym : m_symbolsController->symbols()) {
+                if (sym.kind != SymbolKind::TensorAccessPattern || sym.name.isEmpty())
+                    continue;
+                m_ddrTapSymbolCombo->addItem(sym.name, sym.name);
+            }
+        }
     }
+
+    const bool hasTapSymRef = wire->hasFillDrain()
+        && wire->fillDrain()->tapSymbolRef.has_value()
+        && !wire->fillDrain()->tapSymbolRef->isEmpty();
+
+    // Set source combo.
+    if (m_ddrTapSourceCombo)
+        m_ddrTapSourceCombo->setCurrentIndex(hasTapSymRef ? 1 : 0);
+    if (m_ddrTapCustomWidget)
+        m_ddrTapCustomWidget->setVisible(!hasTapSymRef);
+    if (m_ddrTapSymbolCombo)
+        m_ddrTapSymbolCombo->setVisible(hasTapSymRef);
+
+    if (hasTapSymRef) {
+        // Select the referenced symbol in the combo.
+        const QString& ref = *wire->fillDrain()->tapSymbolRef;
+        const int idx = m_ddrTapSymbolCombo ? m_ddrTapSymbolCombo->findData(ref) : -1;
+        if (m_ddrTapSymbolCombo)
+            m_ddrTapSymbolCombo->setCurrentIndex(idx >= 0 ? idx : 0);
+    } else {
+        const bool isMatrix = wire->hasFillDrain()
+            && wire->fillDrain()->mode == Canvas::CanvasWire::DimensionMode::Matrix;
+        if (m_ddrTapModeCombo)
+            m_ddrTapModeCombo->setCurrentIndex(isMatrix ? 1 : 0);
+
+        if (wire->hasFillDrain() && wire->fillDrain()->tap.has_value()) {
+            const auto& tap = *wire->fillDrain()->tap;
+            if (m_ddrTapTileDimsEdit)   m_ddrTapTileDimsEdit->setText(tap.tileDims);
+            if (m_ddrTapTileCountsEdit) m_ddrTapTileCountsEdit->setText(tap.tileCounts);
+            if (m_ddrTapRepeatEdit)     m_ddrTapRepeatEdit->setText(tap.patternRepeat);
+        } else {
+            if (m_ddrTapTileDimsEdit)   m_ddrTapTileDimsEdit->clear();
+            if (m_ddrTapTileCountsEdit) m_ddrTapTileCountsEdit->clear();
+            if (m_ddrTapRepeatEdit)     m_ddrTapRepeatEdit->clear();
+        }
+    }
+
     m_updatingUi = false;
 
     m_ddrTapWidget->setVisible(true);
@@ -2063,7 +2145,6 @@ void AiePropertiesPanel::onDdrTableRowSelected(bool isFill, int row)
 void AiePropertiesPanel::applyDdrTap()
 {
     if (m_updatingUi || !m_document || m_ddrTapWireId.isNull()) return;
-    if (!m_ddrTapModeCombo || !m_ddrTapTileDimsEdit) return;
 
     auto* wire = dynamic_cast<Canvas::CanvasWire*>(m_document->findItem(m_ddrTapWireId));
     if (!wire) return;
@@ -2072,19 +2153,31 @@ void AiePropertiesPanel::applyDdrTap()
         ? wire->fillDrain().value()
         : Canvas::CanvasWire::FillDrainConfig{};
 
-    const bool isMatrix = (m_ddrTapModeCombo->currentIndex() == 1);
-    fd.mode = isMatrix ? Canvas::CanvasWire::DimensionMode::Matrix
-                       : Canvas::CanvasWire::DimensionMode::Vector;
-    if (isMatrix) {
-        Canvas::CanvasWire::TensorTilerConfig tap;
-        tap.tileDims      = m_ddrTapTileDimsEdit->text().trimmed();
-        tap.tileCounts    = m_ddrTapTileCountsEdit->text().trimmed();
-        tap.patternRepeat = m_ddrTapRepeatEdit->text().trimmed();
-        tap.pruneStep     = false;
-        tap.index         = 0;
-        fd.tap = tap;
+    const bool useSymbol = m_ddrTapSourceCombo && m_ddrTapSourceCombo->currentIndex() == 1;
+    if (useSymbol) {
+        const QString symName = m_ddrTapSymbolCombo
+            ? m_ddrTapSymbolCombo->currentData().toString()
+            : QString{};
+        fd.tapSymbolRef = symName.isEmpty() ? std::nullopt : std::optional<QString>{symName};
+        fd.tap          = std::nullopt;
+        fd.mode         = Canvas::CanvasWire::DimensionMode::Vector;
     } else {
-        fd.tap = std::nullopt;
+        if (!m_ddrTapModeCombo || !m_ddrTapTileDimsEdit) return;
+        fd.tapSymbolRef = std::nullopt;
+        const bool isMatrix = (m_ddrTapModeCombo->currentIndex() == 1);
+        fd.mode = isMatrix ? Canvas::CanvasWire::DimensionMode::Matrix
+                           : Canvas::CanvasWire::DimensionMode::Vector;
+        if (isMatrix) {
+            Canvas::CanvasWire::TensorTilerConfig tap;
+            tap.tileDims      = m_ddrTapTileDimsEdit->text().trimmed();
+            tap.tileCounts    = m_ddrTapTileCountsEdit->text().trimmed();
+            tap.patternRepeat = m_ddrTapRepeatEdit->text().trimmed();
+            tap.pruneStep     = false;
+            tap.index         = 0;
+            fd.tap = tap;
+        } else {
+            fd.tap = std::nullopt;
+        }
     }
 
     wire->setFillDrain(fd);

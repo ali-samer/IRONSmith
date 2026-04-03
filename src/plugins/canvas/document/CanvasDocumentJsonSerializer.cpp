@@ -468,6 +468,8 @@ QJsonObject CanvasDocumentJsonSerializer::serialize(const CanvasDocument& docume
                 fdObj.insert(u"valueType"_s, fd.valueType);
                 if (fd.symbolRef.has_value() && !fd.symbolRef->isEmpty())
                     fdObj.insert(u"symbolRef"_s, *fd.symbolRef);
+                if (fd.tapSymbolRef.has_value() && !fd.tapSymbolRef->isEmpty())
+                    fdObj.insert(u"tapSymbolRef"_s, *fd.tapSymbolRef);
                 if (!fd.fifoName.isEmpty())
                     fdObj.insert(u"fifoName"_s, fd.fifoName);
                 fdObj.insert(u"mode"_s,
@@ -825,6 +827,9 @@ Utils::Result CanvasDocumentJsonSerializer::deserialize(const QJsonObject& json,
                 const QString fdSymRef = fillDrainObject.value(u"symbolRef"_s).toString();
                 if (!fdSymRef.isEmpty())
                     fd.symbolRef = fdSymRef;
+                const QString fdTapSymRef = fillDrainObject.value(u"tapSymbolRef"_s).toString();
+                if (!fdTapSymRef.isEmpty())
+                    fd.tapSymbolRef = fdTapSymRef;
                 fd.fifoName = fillDrainObject.value(u"fifoName"_s).toString();
                 fd.mode = fillDrainObject.value(u"mode"_s).toString() == u"matrix"_s
                               ? CanvasWire::DimensionMode::Matrix

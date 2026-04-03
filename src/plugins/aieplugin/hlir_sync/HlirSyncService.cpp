@@ -282,6 +282,26 @@ void HlirSyncService::syncCanvas()
         }
     }
 
+    // Re-add TAP symbols from the symbol table so user-defined TAPs are available
+    // for use in Fill/Drain operations.
+    if (m_symbolsController) {
+        for (const auto& sym : m_symbolsController->symbols()) {
+            if (sym.kind != SymbolKind::TensorAccessPattern || sym.name.isEmpty())
+                continue;
+            ensureTap(sym.name,
+                     sym.tap.rows,
+                     sym.tap.cols,
+                     sym.tap.offset,
+                     sym.tap.sizes,
+                     sym.tap.strides,
+                     sym.tap.useTiler2D,
+                     sym.tap.tensorDims,
+                     sym.tap.tileDims,
+                     sym.tap.tileCounts,
+                     sym.tap.patternRepeat);
+        }
+    }
+
     // Tiles are not rebuilt every sync — only remove ones that are no longer on the canvas.
     for (auto it = m_tileMap.begin(); it != m_tileMap.end(); ) {
         if (!currentIds.contains(it.key())) {
@@ -1235,6 +1255,83 @@ hlir::ComponentId HlirSyncService::ensureTensorTiler2D(
     return hlir::ComponentId{};
 }
 
+hlir::ComponentId HlirSyncService::ensureTap(
+    const QString& name,
+    int rows,
+    int cols,
+    int offset,
+    const QVector<int>& sizes,
+    const QVector<int>& strides,
+    bool useTiler2D,
+    const QString& tensorDims,
+    const QString& tileDims,
+    const QString& tileCounts,
+    const QString& patternRepeat)
+{
+    if (m_tilerMap.contains(name))
+        return m_tilerMap.value(name);
+
+    if (useTiler2D) {
+        // Use TensorTiler2D path with explicit tile dims/counts like the DDR block does.
+        Canvas::CanvasWire::TensorTilerConfig tap;
+        tap.tileDims      = tileDims;
+        tap.tileCounts    = tileCounts;
+        tap.patternRepeat = patternRepeat;
+        tap.pruneStep     = false;
+        tap.index         = 0;
+
+        // Use the tensorDims string if provided, otherwise fall back to rows x cols.
+        const QString totalDims = tensorDims.isEmpty()
+            ? QStringLiteral("%1 x %2").arg(rows).arg(cols)
+            : tensorDims;
+        const hlir::ComponentId id = ensureTensorTiler2D(name, tap, totalDims);
+        if (!id.value.empty())
+            m_tilerMap[name] = id;
+        else
+            qCWarning(hlirSyncLog) << "HlirSyncService: could not register TensorTiler2D TAP" << name;
+        return id;
+    }
+
+    // TensorAccessPattern path: pass sizes/strides directly.
+    std::vector<std::string> tapTensorDims;
+    tapTensorDims.push_back(QString::number(rows).toStdString());
+    tapTensorDims.push_back(QString::number(cols).toStdString());
+
+    std::vector<std::string> sizesStr;
+    sizesStr.reserve(sizes.size());
+    for (int s : sizes)
+        sizesStr.push_back(std::to_string(s));
+
+    std::vector<std::string> stridesStr;
+    stridesStr.reserve(strides.size());
+    for (int s : strides)
+        stridesStr.push_back(std::to_string(s));
+
+    auto result = m_bridge->addTap(
+        name.toStdString(),
+        tapTensorDims,
+        QString::number(offset).toStdString(),
+        sizesStr,
+        stridesStr,
+        false,  // pruneStep
+        0,      // index
+        false); // useTiler2D=false
+
+    if (result) {
+        m_tilerMap[name] = result.value();
+        return result.value();
+    }
+
+    const auto& diags = result.error();
+    if (!diags.empty()) {
+        qCWarning(hlirSyncLog) << "HlirSyncService: could not register TAP" << name
+                               << ":" << QString::fromStdString(diags[0].message);
+    } else {
+        qCWarning(hlirSyncLog) << "HlirSyncService: could not register TAP" << name;
+    }
+    return hlir::ComponentId{};
+}
+
 void HlirSyncService::buildWorkers()
 {
     // For each COMPUTE tile with a <<kernel: id>> stereotype:
@@ -1916,8 +2013,11 @@ void HlirSyncService::buildRuntime()
             hlir::ComponentId tapId;
             if (grp->ddrWire && grp->ddrWire->hasFillDrain()) {
                 const auto& fd = *grp->ddrWire->fillDrain();
-                if (fd.mode == Canvas::CanvasWire::DimensionMode::Matrix
-                    && fd.tap.has_value() && !fd.tap->tileDims.isEmpty()) {
+                if (fd.tapSymbolRef.has_value() && !fd.tapSymbolRef->isEmpty()) {
+                    // Symbol-table TAP: already pre-registered in m_tilerMap by ensureTap().
+                    tapId = m_tilerMap.value(*fd.tapSymbolRef);
+                } else if (fd.mode == Canvas::CanvasWire::DimensionMode::Matrix
+                           && fd.tap.has_value() && !fd.tap->tileDims.isEmpty()) {
                     const QString tilerName = QString::fromStdString(grp->paramName)
                                               + QStringLiteral("_tap");
                     tapId = ensureTensorTiler2D(tilerName, *fd.tap, ddrDims);
