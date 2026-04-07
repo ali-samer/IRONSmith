@@ -41,6 +41,8 @@ std::unique_ptr<CanvasItem> CanvasBlock::clone() const
     if (m_hasCustomColors)
         blk->setCustomColors(m_outlineColor, m_fillColor, m_labelColor);
     blk->setCornerRadius(m_cornerRadius);
+    if (m_coreFunctionConfig.has_value())
+        blk->setCoreFunctionConfig(*m_coreFunctionConfig);
     blk->setId(id());
     return blk;
 }
@@ -387,6 +389,16 @@ QRectF CanvasBlock::keepoutSceneRect() const
 void CanvasBlock::setContent(std::unique_ptr<BlockContent> content)
 {
     m_content = std::move(content);
+}
+
+void CanvasBlock::setCoreFunctionConfig(CoreFunctionConfig config)
+{
+    m_coreFunctionConfig = std::move(config);
+}
+
+void CanvasBlock::clearCoreFunctionConfig()
+{
+    m_coreFunctionConfig.reset();
 }
 
 } // namespace Canvas

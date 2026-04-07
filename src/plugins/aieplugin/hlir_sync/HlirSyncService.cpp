@@ -19,12 +19,16 @@
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QFileInfo>
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QRegularExpression>
 #include <QtCore/QSet>
 #include <QtCore/QThread>
 
 #include <filesystem>
+#include <unordered_set>
 
 namespace Aie::Internal {
 
@@ -217,8 +221,15 @@ void HlirSyncService::syncCanvas()
     for (const hlir::ComponentId& id : std::as_const(m_workerMap))
         m_bridge->remove(id);
     m_workerMap.clear();
-    for (const hlir::ComponentId& id : std::as_const(m_coreFuncMap))
-        m_bridge->remove(id);
+    {
+        // Multiple tiles may share the same default core function ComponentId.
+        // Deduplicate before removing to avoid double-free in the bridge.
+        std::unordered_set<std::string> seenCoreFns;
+        for (const hlir::ComponentId& id : std::as_const(m_coreFuncMap)) {
+            if (seenCoreFns.insert(id.value).second)
+                m_bridge->remove(id);
+        }
+    }
     m_coreFuncMap.clear();
     for (const hlir::ComponentId& id : std::as_const(m_kernelMap))
         m_bridge->remove(id);
@@ -1332,6 +1343,77 @@ hlir::ComponentId HlirSyncService::ensureTap(
     return hlir::ComponentId{};
 }
 
+// Parse the body_stmts JSON and return the params vector and the body array string.
+//
+// Two formats are supported:
+//
+//   Array format (inferred params — order = first appearance in depth-first walk):
+//     [ { "type": "Acquire", ... }, ... ]
+//
+//   Object format (explicit params — recommended when param order matters):
+//     { "params": ["matvec", "a_in", "b_in", "c_out"], "body": [ ... ] }
+//
+// Returns false if the JSON is unparseable or contains no params.
+static bool parseBodyStmtsJson(const QString& raw,
+                               std::vector<std::string>& outParams,
+                               QString& outBodyJson)
+{
+    using namespace Qt::StringLiterals;
+    outParams.clear();
+    outBodyJson.clear();
+
+    QJsonParseError parseErr;
+    const QJsonDocument doc = QJsonDocument::fromJson(raw.toUtf8(), &parseErr);
+    if (parseErr.error != QJsonParseError::NoError)
+        return false;
+
+    // --- Object format: explicit "params" + "body" ---
+    if (doc.isObject()) {
+        const QJsonObject obj = doc.object();
+        const QJsonArray paramsArr = obj.value(u"params"_s).toArray();
+        const QJsonArray bodyArr   = obj.value(u"body"_s).toArray();
+        if (paramsArr.isEmpty() || bodyArr.isEmpty())
+            return false;
+        for (const QJsonValue& v : paramsArr) {
+            const std::string s = v.toString().trimmed().toStdString();
+            if (!s.empty())
+                outParams.push_back(s);
+        }
+        outBodyJson = QString::fromUtf8(
+            QJsonDocument(bodyArr).toJson(QJsonDocument::Compact));
+        return !outParams.empty();
+    }
+
+    // --- Array format: infer params from first-appearance depth-first walk ---
+    if (!doc.isArray())
+        return false;
+
+    std::unordered_set<std::string> seen;
+    std::function<void(const QJsonArray&)> walk = [&](const QJsonArray& stmts) {
+        for (const QJsonValue& val : stmts) {
+            if (!val.isObject()) continue;
+            const QJsonObject stmt = val.toObject();
+            const QString type = stmt.value(u"type"_s).toString();
+
+            auto addIfNew = [&](const QString& name) {
+                const std::string s = name.trimmed().toStdString();
+                if (!s.empty() && seen.insert(s).second)
+                    outParams.push_back(s);
+            };
+
+            if (type == u"Acquire"_s || type == u"Release"_s)
+                addIfNew(stmt.value(u"fifo_param"_s).toString());
+            else if (type == u"KernelCall"_s)
+                addIfNew(stmt.value(u"kernel_param"_s).toString());
+            else if (stmt.contains(u"body"_s))
+                walk(stmt.value(u"body"_s).toArray());
+        }
+    };
+    walk(doc.array());
+    outBodyJson = raw;
+    return !outParams.empty();
+}
+
 void HlirSyncService::buildWorkers()
 {
     // For each COMPUTE tile with a <<kernel: id>> stereotype:
@@ -1526,11 +1608,36 @@ void HlirSyncService::buildWorkers()
         });
     }
 
-    // ---- Phase 2: one external kernel + core function per unique kernel ID ----
+    // ---- Phase 2: one external kernel per unique kernel ID ----
+    // ---- Phase 3: one core function per tile (shared when default, per-tile when custom) ----
+    // ---- Phase 4: one worker per tile ----
+    //
+    // Default tiles sharing the same kernel share one core function named "core_{kernelId}".
+    // Tiles with a custom body_stmts config each get their own "core_{tileName}" so that
+    // different tiles using the same kernel can independently use default or custom bodies.
+
+    auto functionNameFromSig = [](const QString& sig, const QString& fallback) -> QString {
+        const int paren = sig.indexOf(u'(');
+        if (paren < 0)
+            return fallback;
+        const QString beforeParen = sig.left(paren).trimmed();
+        const int spaceIdx = beforeParen.lastIndexOf(u' ');
+        const QString name = (spaceIdx >= 0)
+            ? beforeParen.sliced(spaceIdx + 1).trimmed()
+            : beforeParen;
+        return name.isEmpty() ? fallback : name;
+    };
+
+    // Build a lookup: blockId → CanvasBlock* for fast per-tile config access.
+    QHash<Canvas::ObjectId, const Canvas::CanvasBlock*> blockById;
+    for (const auto& docItem : items) {
+        if (const auto* blk = dynamic_cast<const Canvas::CanvasBlock*>(docItem.get()))
+            blockById.insert(blk->id(), blk);
+    }
 
     for (auto it = specsByKernelId.begin(); it != specsByKernelId.end(); ++it) {
-        const QString& kernelId   = it.key();
-        auto&          tileSpecs  = it.value();
+        const QString& kernelId  = it.key();
+        auto&          tileSpecs = it.value();
 
         if (tileSpecs.isEmpty())
             continue;
@@ -1541,9 +1648,7 @@ void HlirSyncService::buildWorkers()
             continue;
         }
 
-        // Use the first tile's endpoint counts to define the shared function signature.
-        // All tiles using the same kernel are expected to have the same number of
-        // inputs and outputs (matching the kernel's C++ parameter list).
+        // All tiles sharing a kernel have the same I/O count — use the first to build types.
         const auto& firstSpec = tileSpecs.first();
         const int numInputs  = firstSpec.inputs.size();
         const int numOutputs = firstSpec.outputs.size();
@@ -1557,25 +1662,9 @@ void HlirSyncService::buildWorkers()
         for (const QString& dir : kernel->includeDirs)
             includeDirs.push_back(dir.toStdString());
 
-        // Extract the actual C function name from the signature string:
-        // "void matvec_vectorized_i16_i32(...);" → "matvec_vectorized_i16_i32"
-        // Fall back to kernel->id if the signature is missing or unparseable.
-        auto functionNameFromSig = [](const QString& sig, const QString& fallback) -> QString {
-            const int paren = sig.indexOf(u'(');
-            if (paren < 0)
-                return fallback;
-            const QString beforeParen = sig.left(paren).trimmed();
-            const int spaceIdx = beforeParen.lastIndexOf(u' ');
-            const QString name = (spaceIdx >= 0)
-                ? beforeParen.sliced(spaceIdx + 1).trimmed()
-                : beforeParen;
-            return name.isEmpty() ? fallback : name;
-        };
-        const QString kernelFunctionName = functionNameFromSig(kernel->signature, kernel->id);
-
         auto kernelResult = m_bridge->addExternalKernel(
             "kernel_" + kernel->id.toStdString(),
-            kernelFunctionName.toStdString(),
+            functionNameFromSig(kernel->signature, kernel->id).toStdString(),
             kernel->absoluteEntryPath().toStdString(),
             argTypes,
             includeDirs,
@@ -1588,43 +1677,94 @@ void HlirSyncService::buildWorkers()
         }
         m_kernelMap[kernelId] = kernelResult.value();
 
-        // ---- Core body function (once per kernel ID) ----
-        // Parameters: ["kernel", "in0", ..., "out0", ...]
+        // Shared parameter list used by every core function for this kernel.
         std::vector<std::string> params = {"kernel"};
         for (int i = 0; i < numInputs;  ++i) params.push_back("in"  + std::to_string(i));
         for (int i = 0; i < numOutputs; ++i) params.push_back("out" + std::to_string(i));
 
-        std::vector<hlir::HlirBridge::AcquireSpec> acquires;
-        for (int i = 0; i < numInputs;  ++i)
-            acquires.push_back({"in"  + std::to_string(i), 1, "buf_in"  + std::to_string(i)});
-        for (int i = 0; i < numOutputs; ++i)
-            acquires.push_back({"out" + std::to_string(i), 1, "buf_out" + std::to_string(i)});
+        // ---- Core function + worker per tile ----
+        // Default tiles share one "core_{kernelId}" (created lazily on first default tile).
+        // Custom body_stmts tiles each get "core_{tileName}".
+        hlir::ComponentId sharedDefaultCoreFnId; // empty until first default tile registers it
 
-        std::vector<std::string> kernelArgVars;
-        for (int i = 0; i < numInputs;  ++i) kernelArgVars.push_back("buf_in"  + std::to_string(i));
-        for (int i = 0; i < numOutputs; ++i) kernelArgVars.push_back("buf_out" + std::to_string(i));
-
-        std::vector<hlir::HlirBridge::ReleaseSpec> releases;
-        for (int i = 0; i < numInputs;  ++i) releases.push_back({"in"  + std::to_string(i), 1});
-        for (int i = 0; i < numOutputs; ++i) releases.push_back({"out" + std::to_string(i), 1});
-
-        auto coreFuncResult = m_bridge->addCoreFunction(
-            "core_" + kernel->id.toStdString(),
-            params,
-            acquires,
-            {"kernel", kernelArgVars},
-            releases,
-            {});
-
-        if (!coreFuncResult) {
-            qCWarning(hlirSyncLog) << "HlirSyncService: failed to add core function for"
-                                   << kernelId;
-            continue;
-        }
-        m_coreFuncMap[kernelId] = coreFuncResult.value();
-
-        // ---- Phase 3: one worker per tile using this kernel ----
         for (const auto& spec : tileSpecs) {
+            const Canvas::CanvasBlock* blk = blockById.value(spec.blockId, nullptr);
+            const bool isCustom = blk
+                && blk->hasCoreFunctionConfig()
+                && blk->coreFunctionConfig()->mode
+                       == Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts
+                && !blk->coreFunctionConfig()->bodyStmtsJson.isEmpty();
+
+            hlir::ComponentId coreFnId;
+
+            if (isCustom) {
+                // Per-tile custom body_stmts core function.
+                // Build the params vector by scanning the JSON for every fifo_param and
+                // kernel_param referenced, so the names the user wrote (e.g. "a_in", "matvec")
+                // are used as-is instead of the generic "in0" / "kernel" names.
+                std::vector<std::string> customParams;
+                QString bodyOnlyJson;
+                if (!parseBodyStmtsJson(blk->coreFunctionConfig()->bodyStmtsJson,
+                                        customParams, bodyOnlyJson)) {
+                    qCWarning(hlirSyncLog)
+                        << "HlirSyncService: body_stmts JSON for" << QString::fromStdString(spec.tileName)
+                        << "references no parameters or failed to parse — skipping tile";
+                    continue;
+                }
+                auto result = m_bridge->addCoreFunctionBody(
+                    "core_" + spec.tileName,
+                    customParams,
+                    bodyOnlyJson.toStdString(),
+                    {});
+                if (!result) {
+                    qCWarning(hlirSyncLog)
+                        << "HlirSyncService: failed to add custom core function for"
+                        << QString::fromStdString(spec.tileName);
+                    continue;
+                }
+                coreFnId = result.value();
+                m_coreFuncMap[spec.blockId] = coreFnId;
+            } else {
+                // Default acquire/call/release — shared across all default tiles for this kernel.
+                if (sharedDefaultCoreFnId.empty()) {
+                    std::vector<hlir::HlirBridge::AcquireSpec> acquires;
+                    for (int i = 0; i < numInputs;  ++i)
+                        acquires.push_back({"in"  + std::to_string(i), 1, "buf_in"  + std::to_string(i)});
+                    for (int i = 0; i < numOutputs; ++i)
+                        acquires.push_back({"out" + std::to_string(i), 1, "buf_out" + std::to_string(i)});
+
+                    std::vector<std::string> kernelArgVars;
+                    for (int i = 0; i < numInputs;  ++i)
+                        kernelArgVars.push_back("buf_in"  + std::to_string(i));
+                    for (int i = 0; i < numOutputs; ++i)
+                        kernelArgVars.push_back("buf_out" + std::to_string(i));
+
+                    std::vector<hlir::HlirBridge::ReleaseSpec> releases;
+                    for (int i = 0; i < numInputs;  ++i)
+                        releases.push_back({"in"  + std::to_string(i), 1});
+                    for (int i = 0; i < numOutputs; ++i)
+                        releases.push_back({"out" + std::to_string(i), 1});
+
+                    auto result = m_bridge->addCoreFunction(
+                        "core_" + kernel->id.toStdString(),
+                        params,
+                        acquires,
+                        {"kernel", kernelArgVars},
+                        releases,
+                        {});
+                    if (!result) {
+                        qCWarning(hlirSyncLog)
+                            << "HlirSyncService: failed to add default core function for"
+                            << kernelId;
+                        continue;
+                    }
+                    sharedDefaultCoreFnId = result.value();
+                }
+                coreFnId = sharedDefaultCoreFnId;
+                m_coreFuncMap[spec.blockId] = coreFnId;
+            }
+
+            // ---- Worker for this tile ----
             std::vector<hlir::HlirBridge::FunctionArg> fnArgs;
             fnArgs.push_back(hlir::HlirBridge::FunctionArg::kernel(kernelResult.value()));
             for (const auto& ep : spec.inputs)  fnArgs.push_back(ep.arg);
@@ -1632,7 +1772,7 @@ void HlirSyncService::buildWorkers()
 
             auto workerResult = m_bridge->addWorker(
                 "worker_" + spec.tileName,
-                coreFuncResult.value(),
+                coreFnId,
                 fnArgs,
                 spec.tileId,
                 {});
@@ -2055,8 +2195,13 @@ void HlirSyncService::resetTrackedComponents()
         m_bridge->remove(id);
     m_workerMap.clear();
 
-    for (const hlir::ComponentId& id : std::as_const(m_coreFuncMap))
-        m_bridge->remove(id);
+    {
+        std::unordered_set<std::string> seenCoreFns;
+        for (const hlir::ComponentId& id : std::as_const(m_coreFuncMap)) {
+            if (seenCoreFns.insert(id.value).second)
+                m_bridge->remove(id);
+        }
+    }
     m_coreFuncMap.clear();
 
     for (const hlir::ComponentId& id : std::as_const(m_kernelMap))

@@ -33,6 +33,7 @@
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
+#include <QtWidgets/QPlainTextEdit>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSpinBox>
@@ -937,7 +938,52 @@ void AiePropertiesPanel::buildUi()
     m_armWireGroup = armWireGroup;
     m_armFifoEdit  = armFifoEdit;
 
+    // --- Core Function group (compute kernel tiles only) ---
+    auto* coreFnGroup = new QGroupBox(QStringLiteral("Core Function"), fieldsHost);
+    coreFnGroup->setObjectName(QStringLiteral("AiePropertiesSectionCard"));
+    auto* coreFnVLayout = new QVBoxLayout(coreFnGroup);
+    coreFnVLayout->setContentsMargins(12, 12, 12, 12);
+    coreFnVLayout->setSpacing(8);
+
+    auto* coreFnFormHost = new QWidget(coreFnGroup);
+    auto* coreFnForm = new QFormLayout(coreFnFormHost);
+    coreFnForm->setContentsMargins(0, 0, 0, 0);
+    coreFnForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    coreFnForm->setHorizontalSpacing(10);
+    coreFnForm->setVerticalSpacing(8);
+    coreFnForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    auto* coreFnModeCombo = new QComboBox(coreFnGroup);
+    coreFnModeCombo->setObjectName(QStringLiteral("AiePropertiesField"));
+    coreFnModeCombo->addItem(QStringLiteral("Default (acquire/call/release)"),
+                             QStringLiteral("default"));
+    coreFnModeCombo->addItem(QStringLiteral("Body Statements (custom JSON)"),
+                             QStringLiteral("bodyStmts"));
+    {
+        auto* lbl = new QLabel(QStringLiteral("Mode"), coreFnGroup);
+        lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+        coreFnForm->addRow(lbl, coreFnModeCombo);
+    }
+    coreFnVLayout->addWidget(coreFnFormHost);
+
+    auto* coreFnJsonLabel = new QLabel(QStringLiteral("Body Statements JSON"), coreFnGroup);
+    coreFnJsonLabel->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+    auto* coreFnJsonEdit = new QPlainTextEdit(coreFnGroup);
+    coreFnJsonEdit->setObjectName(QStringLiteral("AiePropertiesField"));
+    coreFnJsonEdit->setPlaceholderText(QStringLiteral(
+        "[{\"type\":\"Acquire\",\"fifo_param\":\"in0\",\"count\":1,\"local_var\":\"buf_in0\"},"
+        "{\"type\":\"KernelCall\",\"kernel_param\":\"kernel\",\"args\":[\"buf_in0\"]},"
+        "{\"type\":\"Release\",\"fifo_param\":\"in0\",\"count\":1}]"));
+    coreFnJsonEdit->setMinimumHeight(120);
+    coreFnVLayout->addWidget(coreFnJsonLabel);
+    coreFnVLayout->addWidget(coreFnJsonEdit);
+
+    m_coreFnGroup     = coreFnGroup;
+    m_coreFnModeCombo = coreFnModeCombo;
+    m_coreFnJsonEdit  = coreFnJsonEdit;
+
     fieldsLayout->addWidget(tileGroup);
+    fieldsLayout->addWidget(coreFnGroup);
     fieldsLayout->addWidget(hubPivotGroup);
     fieldsLayout->addWidget(fifoGroup);
     fieldsLayout->addWidget(ddrTransferGroup);
@@ -1015,6 +1061,11 @@ void AiePropertiesPanel::buildUi()
 
     connect(armFifoEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyArmWireEntry);
+
+    connect(coreFnModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &AiePropertiesPanel::applyCoreFunctionBody);
+    connect(coreFnJsonEdit, &QPlainTextEdit::textChanged,
+            this, &AiePropertiesPanel::applyCoreFunctionBody);
 
     connect(objectFifoDefaultNameEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyObjectFifoDefaults);
@@ -1349,6 +1400,8 @@ void AiePropertiesPanel::showSelectionState(SelectionKind kind,
         m_objectFifosGroup->setVisible(m_canvasHost && m_canvasHost->canvasActive() && m_document);
     if (m_tileGroup)
         m_tileGroup->setVisible(showTile);
+    if (m_coreFnGroup)
+        m_coreFnGroup->setVisible(showTile && m_tileIsKernelTile);
     if (m_hubPivotGroup)
         m_hubPivotGroup->setVisible(showHubPivot);
     if (m_fifoGroup)
@@ -1566,6 +1619,23 @@ void AiePropertiesPanel::refreshSelection()
                 if (m_tileStereotypeClearBtn)
                     m_tileStereotypeClearBtn->setEnabled(!block->stereotype().isEmpty());
             }
+
+            // Populate core function group (only for compute tiles with a kernel).
+            const bool hasKernel = isComputeTile && !block->stereotype().isEmpty();
+            m_tileIsKernelTile = hasKernel;
+            if (hasKernel && m_coreFnModeCombo && m_coreFnJsonEdit) {
+                const auto& cfg = block->coreFunctionConfig();
+                const bool isBodyStmts = cfg.has_value()
+                    && cfg->mode == Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts;
+                QSignalBlocker modeBlock(m_coreFnModeCombo);
+                QSignalBlocker jsonBlock(m_coreFnJsonEdit);
+                m_coreFnModeCombo->setCurrentIndex(isBodyStmts ? 1 : 0);
+                const QString newJson = cfg.has_value() ? cfg->bodyStmtsJson : QString{};
+                if (m_coreFnJsonEdit->toPlainText().trimmed() != newJson)
+                    m_coreFnJsonEdit->setPlainText(newJson);
+                m_coreFnJsonEdit->setVisible(isBodyStmts);
+            }
+
             m_updatingUi = false;
 
             showSelectionState(SelectionKind::Tile,
@@ -1789,6 +1859,32 @@ void AiePropertiesPanel::applyTileLabel()
         return;
 
     block->setLabel(next);
+    m_document->notifyChanged();
+}
+
+void AiePropertiesPanel::applyCoreFunctionBody()
+{
+    if (m_updatingUi || !m_document || !m_coreFnModeCombo || !m_coreFnJsonEdit)
+        return;
+
+    auto* block = selectedBlock();
+    if (!block)
+        return;
+
+    const bool isBodyStmts = (m_coreFnModeCombo->currentData().toString() == QStringLiteral("bodyStmts"));
+
+    // Show/hide the JSON editor whenever the mode changes.
+    m_coreFnJsonEdit->setVisible(isBodyStmts);
+
+    if (!isBodyStmts) {
+        block->clearCoreFunctionConfig();
+    } else {
+        Canvas::CanvasBlock::CoreFunctionConfig cfg;
+        cfg.mode          = Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts;
+        cfg.bodyStmtsJson = m_coreFnJsonEdit->toPlainText().trimmed();
+        block->setCoreFunctionConfig(std::move(cfg));
+    }
+
     m_document->notifyChanged();
 }
 

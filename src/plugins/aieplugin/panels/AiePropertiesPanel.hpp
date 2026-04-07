@@ -12,6 +12,7 @@
 QT_BEGIN_NAMESPACE
 class QLabel;
 class QLineEdit;
+class QPlainTextEdit;
 class QPushButton;
 class QSpinBox;
 class QComboBox;
@@ -88,6 +89,7 @@ private:
 
     void applyTileLabel();
     void applyTileStereotype();
+    void applyCoreFunctionBody();
     void applyFifoAnnotation();
     void applyHubPivotProperties();
     void applyDdrTransferHubTap();
@@ -165,10 +167,15 @@ private:
     QPointer<QGroupBox> m_ddrPivotWireGroup;
     QPointer<QLineEdit> m_ddrPivotParamEdit;
 
-    QPointer<QGroupBox> m_armWireGroup;
-    QPointer<QLineEdit> m_armFifoEdit;   // typed FIFO name for arm wire
+    QPointer<QGroupBox>      m_armWireGroup;
+    QPointer<QLineEdit>      m_armFifoEdit;   // typed FIFO name for arm wire
+
+    QPointer<QGroupBox>      m_coreFnGroup;
+    QPointer<QComboBox>      m_coreFnModeCombo;
+    QPointer<QPlainTextEdit> m_coreFnJsonEdit;
 
     Canvas::ObjectId m_effectiveFifoWireId{};
+    bool m_tileIsKernelTile = false; // set in refreshSelection(), used by showSelectionState()
     Canvas::ObjectId m_armWireId{};      // currently-selected arm wire
     Canvas::ObjectId m_ddrPivotWireId{}; // currently-selected DDR pivot wire
     Canvas::ObjectId m_ddrTapWireId{};   // wire whose TAP is being edited

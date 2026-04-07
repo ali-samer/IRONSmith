@@ -14,6 +14,7 @@
 #include <QtGui/QColor>
 #include <QtCore/QString>
 #include <QtCore/QMarginsF>
+#include <cstdint>
 
 namespace Canvas {
 
@@ -22,6 +23,16 @@ class BlockContent;
 class CANVAS_EXPORT CanvasBlock final : public CanvasItem
 {
 public:
+    // Configuration for custom core function body (body_stmts mode).
+    // When mode == BodyStmts and bodyStmtsJson is non-empty, buildWorkers() calls
+    // addCoreFunctionBody() instead of the default addCoreFunction().
+    struct CoreFunctionConfig final {
+        enum class Mode : uint8_t { Default, BodyStmts };
+        Mode    mode         = Mode::Default;
+        QString bodyStmtsJson; // JSON array of body statements (non-empty when mode == BodyStmts)
+    };
+
+
     CanvasBlock(QRectF boundsScene, bool movable, QString label = {})
         : m_boundsScene(boundsScene)
         , m_movable(movable)
@@ -98,6 +109,11 @@ public:
     BlockContent* content() const { return m_content.get(); }
     void clearContent() { m_content.reset(); }
 
+    bool hasCoreFunctionConfig() const noexcept { return m_coreFunctionConfig.has_value(); }
+    const std::optional<CoreFunctionConfig>& coreFunctionConfig() const noexcept { return m_coreFunctionConfig; }
+    void setCoreFunctionConfig(CoreFunctionConfig config);
+    void clearCoreFunctionConfig();
+
     const QMarginsF& contentPadding() const { return m_contentPadding; }
     void setContentPadding(const QMarginsF& padding) { m_contentPadding = padding; }
 
@@ -139,6 +155,7 @@ private:
     QColor m_fillColor;
     QColor m_labelColor;
     double m_cornerRadius = -1.0;
+    std::optional<CoreFunctionConfig> m_coreFunctionConfig;
 };
 
 } // namespace Canvas

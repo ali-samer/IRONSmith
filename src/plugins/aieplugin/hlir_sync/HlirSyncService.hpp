@@ -160,9 +160,11 @@ private:
     QHash<Canvas::ObjectId, hlir::ComponentId> m_splitJoinMap;
     QHash<Canvas::ObjectId, hlir::ComponentId> m_workerMap;
 
-    // One external kernel and core function per unique kernel ID (shared across all tiles).
+    // One external kernel per unique kernel ID (shared across all tiles using it).
     QHash<QString, hlir::ComponentId> m_kernelMap;   // kernelId → external kernel ComponentId
-    QHash<QString, hlir::ComponentId> m_coreFuncMap; // kernelId → core function ComponentId
+    // Per-tile core function: default tiles sharing a kernel share one entry; custom body_stmts
+    // tiles each get their own. Keyed by block ObjectId so workers can look up their fn.
+    QHash<Canvas::ObjectId, hlir::ComponentId> m_coreFuncMap; // blockId → core fn ComponentId
 
     // Maps constant symbol name → HLIR ComponentId
     QHash<QString, hlir::ComponentId> m_constantMap;

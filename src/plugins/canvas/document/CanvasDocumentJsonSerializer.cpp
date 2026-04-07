@@ -434,6 +434,18 @@ QJsonObject CanvasDocumentJsonSerializer::serialize(const CanvasDocument& docume
                 ports.append(portObject);
             }
             obj.insert(u"ports"_s, ports);
+
+            if (block->hasCoreFunctionConfig()) {
+                const auto& cfg = block->coreFunctionConfig().value();
+                QJsonObject cfnObj;
+                cfnObj.insert(u"mode"_s,
+                    cfg.mode == CanvasBlock::CoreFunctionConfig::Mode::BodyStmts
+                        ? u"bodyStmts"_s : u"default"_s);
+                if (!cfg.bodyStmtsJson.isEmpty())
+                    cfnObj.insert(u"bodyStmtsJson"_s, cfg.bodyStmtsJson);
+                obj.insert(u"coreFn"_s, cfnObj);
+            }
+
             items.append(obj);
             continue;
         }
@@ -763,6 +775,15 @@ Utils::Result CanvasDocumentJsonSerializer::deserialize(const QJsonObject& json,
             }
             normalizeAutoOppositePortNames(ports, block->autoOppositeProducerPort());
             block->setPorts(std::move(ports));
+
+            const QJsonObject coreFnObject = item.value(u"coreFn"_s).toObject();
+            if (!coreFnObject.isEmpty()) {
+                CanvasBlock::CoreFunctionConfig cfg;
+                if (coreFnObject.value(u"mode"_s).toString().trimmed() == u"bodyStmts"_s)
+                    cfg.mode = CanvasBlock::CoreFunctionConfig::Mode::BodyStmts;
+                cfg.bodyStmtsJson = coreFnObject.value(u"bodyStmtsJson"_s).toString();
+                block->setCoreFunctionConfig(std::move(cfg));
+            }
 
             const ObjectId blockId = block->id();
             if (!document.insertItem(document.items().size(), std::move(block))) {
