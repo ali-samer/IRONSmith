@@ -9,6 +9,7 @@
 
 #include "canvas/CanvasBlock.hpp"
 #include "canvas/CanvasController.hpp"
+#include "canvas/CanvasPorts.hpp"
 #include "canvas/CanvasDocument.hpp"
 #include "canvas/CanvasItem.hpp"
 #include "canvas/CanvasSymbolContent.hpp"
@@ -20,6 +21,9 @@
 
 #include <utils/ui/SidebarPanelFrame.hpp>
 
+#include <QtCore/QJsonArray>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
 #include <QtCore/QSet>
 #include <QtCore/QSignalBlocker>
 #include <QtCore/QTimer>
@@ -33,7 +37,7 @@
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
-#include <QtWidgets/QPlainTextEdit>
+#include "aieplugin/panels/BodyStmtsEditor.hpp"
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QScrollArea>
 #include <QtWidgets/QSpinBox>
@@ -957,7 +961,7 @@ void AiePropertiesPanel::buildUi()
     coreFnModeCombo->setObjectName(QStringLiteral("AiePropertiesField"));
     coreFnModeCombo->addItem(QStringLiteral("Default (acquire/call/release)"),
                              QStringLiteral("default"));
-    coreFnModeCombo->addItem(QStringLiteral("Body Statements (custom JSON)"),
+    coreFnModeCombo->addItem(QStringLiteral("Body Statements (custom)"),
                              QStringLiteral("bodyStmts"));
     {
         auto* lbl = new QLabel(QStringLiteral("Mode"), coreFnGroup);
@@ -966,21 +970,18 @@ void AiePropertiesPanel::buildUi()
     }
     coreFnVLayout->addWidget(coreFnFormHost);
 
-    auto* coreFnJsonLabel = new QLabel(QStringLiteral("Body Statements JSON"), coreFnGroup);
-    coreFnJsonLabel->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
-    auto* coreFnJsonEdit = new QPlainTextEdit(coreFnGroup);
-    coreFnJsonEdit->setObjectName(QStringLiteral("AiePropertiesField"));
-    coreFnJsonEdit->setPlaceholderText(QStringLiteral(
-        "[{\"type\":\"Acquire\",\"fifo_param\":\"in0\",\"count\":1,\"local_var\":\"buf_in0\"},"
-        "{\"type\":\"KernelCall\",\"kernel_param\":\"kernel\",\"args\":[\"buf_in0\"]},"
-        "{\"type\":\"Release\",\"fifo_param\":\"in0\",\"count\":1}]"));
-    coreFnJsonEdit->setMinimumHeight(120);
-    coreFnVLayout->addWidget(coreFnJsonLabel);
-    coreFnVLayout->addWidget(coreFnJsonEdit);
+    auto* coreFnEditor = new BodyStmtsEditor(coreFnGroup);
+    coreFnVLayout->addWidget(coreFnEditor);
+
+    auto* coreFnClearBtn = new QPushButton(QStringLiteral("Clear"), coreFnGroup);
+    coreFnClearBtn->setObjectName(QStringLiteral("AiePropertiesClearBtn"));
+    coreFnClearBtn->setToolTip(QStringLiteral("Clear custom body and revert to Default mode"));
+    coreFnVLayout->addWidget(coreFnClearBtn, 0, Qt::AlignLeft);
 
     m_coreFnGroup     = coreFnGroup;
     m_coreFnModeCombo = coreFnModeCombo;
-    m_coreFnJsonEdit  = coreFnJsonEdit;
+    m_coreFnEditor    = coreFnEditor;
+    m_coreFnClearBtn  = coreFnClearBtn;
 
     fieldsLayout->addWidget(tileGroup);
     fieldsLayout->addWidget(coreFnGroup);
@@ -1064,8 +1065,28 @@ void AiePropertiesPanel::buildUi()
 
     connect(coreFnModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &AiePropertiesPanel::applyCoreFunctionBody);
-    connect(coreFnJsonEdit, &QPlainTextEdit::textChanged,
+    connect(coreFnEditor, &BodyStmtsEditor::jsonChanged,
             this, &AiePropertiesPanel::applyCoreFunctionBody);
+    connect(coreFnClearBtn, &QPushButton::clicked, this, [this]() {
+        if (m_updatingUi || !m_document || !m_coreFnModeCombo || !m_coreFnEditor)
+            return;
+        auto* block = selectedBlock();
+        if (!block) return;
+        // Erase bodyStmtsJson and revert to Default — next switch to BodyStmts will repopulate.
+        Canvas::CanvasBlock::CoreFunctionConfig cfg;
+        cfg.mode          = Canvas::CanvasBlock::CoreFunctionConfig::Mode::Default;
+        cfg.bodyStmtsJson = QString{};
+        block->setCoreFunctionConfig(std::move(cfg));
+        {
+            QSignalBlocker blkCombo(m_coreFnModeCombo);
+            QSignalBlocker blkEditor(m_coreFnEditor);
+            m_coreFnModeCombo->setCurrentIndex(0);
+            m_coreFnEditor->setJson(QString{});
+            m_coreFnEditor->setVisible(false);
+            m_coreFnClearBtn->setVisible(false);
+        }
+        m_document->notifyChanged();
+    });
 
     connect(objectFifoDefaultNameEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyObjectFifoDefaults);
@@ -1623,17 +1644,21 @@ void AiePropertiesPanel::refreshSelection()
             // Populate core function group (only for compute tiles with a kernel).
             const bool hasKernel = isComputeTile && !block->stereotype().isEmpty();
             m_tileIsKernelTile = hasKernel;
-            if (hasKernel && m_coreFnModeCombo && m_coreFnJsonEdit) {
+            if (hasKernel && m_coreFnModeCombo && m_coreFnEditor) {
                 const auto& cfg = block->coreFunctionConfig();
                 const bool isBodyStmts = cfg.has_value()
                     && cfg->mode == Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts;
                 QSignalBlocker modeBlock(m_coreFnModeCombo);
-                QSignalBlocker jsonBlock(m_coreFnJsonEdit);
+                QSignalBlocker editorBlock(m_coreFnEditor);
                 m_coreFnModeCombo->setCurrentIndex(isBodyStmts ? 1 : 0);
                 const QString newJson = cfg.has_value() ? cfg->bodyStmtsJson : QString{};
-                if (m_coreFnJsonEdit->toPlainText().trimmed() != newJson)
-                    m_coreFnJsonEdit->setPlainText(newJson);
-                m_coreFnJsonEdit->setVisible(isBodyStmts);
+                // Only rebuild the visual editor when content actually changed from outside
+                // (avoids resetting widget state on every keystroke cycle-back).
+                const QString currentJson = m_coreFnEditor->toJson();
+                if (newJson != currentJson && !(newJson.isEmpty() && m_coreFnEditor->isEmpty()))
+                    m_coreFnEditor->setJson(newJson);
+                m_coreFnEditor->setVisible(isBodyStmts);
+                if (m_coreFnClearBtn) m_coreFnClearBtn->setVisible(isBodyStmts);
             }
 
             m_updatingUi = false;
@@ -1862,9 +1887,144 @@ void AiePropertiesPanel::applyTileLabel()
     m_document->notifyChanged();
 }
 
+/// Build the default template JSON for a kernel tile when switching to BodyStmts mode
+/// with no pre-existing body.  Mirrors what HlirSyncService::buildWorkers generates for
+/// the default acquire/call/release pattern, using in0/in1.../out0/out1... naming.
+static QString buildDefaultBodyJson(const Canvas::CanvasBlock* block,
+                                    const Canvas::CanvasDocument* document)
+{
+    // Collect kernel name
+    QString kernelName = block->stereotype();
+    if (kernelName.startsWith(u"<<") && kernelName.endsWith(u">>"))
+        kernelName = kernelName.sliced(2, kernelName.size() - 4).trimmed();
+    if (kernelName.startsWith(u"kernel:"))
+        kernelName = kernelName.sliced(7).trimmed();
+    if (kernelName.isEmpty())
+        kernelName = u"kernel"_s;
+
+    // Walk all wires connected to this tile and mirror HlirSyncService's classification:
+    //
+    // Convention: hub is always at endpoint A, tile always at endpoint B for arm wires.
+    //   - Hub port at A is Producer (split/broadcast) → tile receives → input
+    //   - Hub port at A is Consumer (join)            → tile sends    → output
+    // For direct FIFO wires (no hub):
+    //   - Tile at B (consumer endpoint) → input
+    //   - Tile at A (producer endpoint) → output
+    int numInputs = 0;
+    int numOutputs = 0;
+
+    // Build a quick id→block lookup for hub classification.
+    QHash<Canvas::ObjectId, Canvas::CanvasBlock*> blockIndex;
+    for (const auto& wItem : document->items()) {
+        auto* blk = dynamic_cast<Canvas::CanvasBlock*>(wItem.get());
+        if (blk) blockIndex.insert(blk->id(), blk);
+    }
+
+    for (const auto& wItem : document->items()) {
+        auto* wire = dynamic_cast<Canvas::CanvasWire*>(wItem.get());
+        if (!wire || !wire->hasObjectFifo()) continue;
+        const auto& epA = wire->a();
+        const auto& epB = wire->b();
+        if (!epA.attached || !epB.attached) continue;
+
+        const bool tileIsA = (epA.attached->itemId == block->id());
+        const bool tileIsB = (epB.attached->itemId == block->id());
+        if (!tileIsA && !tileIsB) continue;
+
+        if (tileIsB) {
+            Canvas::CanvasBlock* blockA = blockIndex.value(epA.attached->itemId, nullptr);
+            if (!blockA) continue;
+
+            if (!blockA->isLinkHub()) {
+                // Direct FIFO, tile is consumer → input.
+                ++numInputs;
+            } else {
+                // Arm wire: direction determined by hub's port role at endpoint A.
+                Canvas::PortRole hubRole = Canvas::PortRole::Dynamic;
+                for (const auto& port : blockA->ports()) {
+                    if (port.id == epA.attached->portId) {
+                        hubRole = port.role;
+                        break;
+                    }
+                }
+                if (hubRole == Canvas::PortRole::Producer)
+                    ++numInputs;   // split or broadcast → tile receives
+                else if (hubRole == Canvas::PortRole::Consumer)
+                    ++numOutputs;  // join → tile sends
+            }
+        } else { // tileIsA
+            Canvas::CanvasBlock* blockB = blockIndex.value(epB.attached->itemId, nullptr);
+            if (!blockB || blockB->isLinkHub()) continue;
+            // Direct FIFO, tile is producer → output.
+            ++numOutputs;
+        }
+    }
+
+    // Build params array and role map: kernel first, then inputs, then outputs.
+    // param_roles: 0=kernel, 1=input, 2=output — read by BodyStmtsEditor::setJson.
+    QJsonArray  params;
+    QJsonObject paramRoles;
+    auto addParam = [&](const QString& name, int role) {
+        params.append(name);
+        paramRoles.insert(name, role);
+    };
+    addParam(kernelName, 0);
+    for (int i = 0; i < numInputs;  ++i) addParam(QString(u"in%1"_s).arg(i),  1);
+    for (int i = 0; i < numOutputs; ++i) addParam(QString(u"out%1"_s).arg(i), 2);
+
+    // Build body statements: acquire all, kernel call, release all
+    QJsonArray body;
+    for (int i = 0; i < numInputs; ++i) {
+        QJsonObject acq;
+        acq[u"type"_s]       = u"Acquire"_s;
+        acq[u"fifo_param"_s] = QString(u"in%1"_s).arg(i);
+        acq[u"count"_s]      = 1;
+        acq[u"local_var"_s]  = QString(u"buf_in%1"_s).arg(i);
+        body.append(acq);
+    }
+    for (int i = 0; i < numOutputs; ++i) {
+        QJsonObject acq;
+        acq[u"type"_s]       = u"Acquire"_s;
+        acq[u"fifo_param"_s] = QString(u"out%1"_s).arg(i);
+        acq[u"count"_s]      = 1;
+        acq[u"local_var"_s]  = QString(u"buf_out%1"_s).arg(i);
+        body.append(acq);
+    }
+
+    QJsonObject call;
+    call[u"type"_s]         = u"KernelCall"_s;
+    call[u"kernel_param"_s] = kernelName;
+    QJsonArray args;
+    for (int i = 0; i < numInputs;  ++i) args.append(QString(u"buf_in%1"_s).arg(i));
+    for (int i = 0; i < numOutputs; ++i) args.append(QString(u"buf_out%1"_s).arg(i));
+    call[u"args"_s] = args;
+    body.append(call);
+
+    for (int i = 0; i < numInputs; ++i) {
+        QJsonObject rel;
+        rel[u"type"_s]       = u"Release"_s;
+        rel[u"fifo_param"_s] = QString(u"in%1"_s).arg(i);
+        rel[u"count"_s]      = 1;
+        body.append(rel);
+    }
+    for (int i = 0; i < numOutputs; ++i) {
+        QJsonObject rel;
+        rel[u"type"_s]       = u"Release"_s;
+        rel[u"fifo_param"_s] = QString(u"out%1"_s).arg(i);
+        rel[u"count"_s]      = 1;
+        body.append(rel);
+    }
+
+    QJsonObject root;
+    root[u"params"_s]      = params;
+    root[u"param_roles"_s] = paramRoles;
+    root[u"body"_s]        = body;
+    return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
+}
+
 void AiePropertiesPanel::applyCoreFunctionBody()
 {
-    if (m_updatingUi || !m_document || !m_coreFnModeCombo || !m_coreFnJsonEdit)
+    if (m_updatingUi || !m_document || !m_coreFnModeCombo || !m_coreFnEditor)
         return;
 
     auto* block = selectedBlock();
@@ -1873,18 +2033,30 @@ void AiePropertiesPanel::applyCoreFunctionBody()
 
     const bool isBodyStmts = (m_coreFnModeCombo->currentData().toString() == QStringLiteral("bodyStmts"));
 
-    // Show/hide the JSON editor whenever the mode changes.
-    m_coreFnJsonEdit->setVisible(isBodyStmts);
+    m_coreFnEditor->setVisible(isBodyStmts);
 
-    if (!isBodyStmts) {
-        block->clearCoreFunctionConfig();
+    Canvas::CanvasBlock::CoreFunctionConfig cfg;
+    cfg.mode = isBodyStmts
+        ? Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts
+        : Canvas::CanvasBlock::CoreFunctionConfig::Mode::Default;
+
+    const auto& existing = block->coreFunctionConfig();
+
+    if (isBodyStmts) {
+        // If switching into BodyStmts with no saved body, auto-populate the default template.
+        const QString savedJson = existing.has_value() ? existing->bodyStmtsJson : QString{};
+        if (savedJson.isEmpty() && m_coreFnEditor->isEmpty()) {
+            const QString defaultJson = buildDefaultBodyJson(block, m_document);
+            QSignalBlocker blk(m_coreFnEditor);
+            m_coreFnEditor->setJson(defaultJson);
+        }
+        cfg.bodyStmtsJson = m_coreFnEditor->toJson();
     } else {
-        Canvas::CanvasBlock::CoreFunctionConfig cfg;
-        cfg.mode          = Canvas::CanvasBlock::CoreFunctionConfig::Mode::BodyStmts;
-        cfg.bodyStmtsJson = m_coreFnJsonEdit->toPlainText().trimmed();
-        block->setCoreFunctionConfig(std::move(cfg));
+        // Preserve bodyStmtsJson when switching back to Default so it can be restored.
+        cfg.bodyStmtsJson = existing.has_value() ? existing->bodyStmtsJson : QString{};
     }
 
+    block->setCoreFunctionConfig(std::move(cfg));
     m_document->notifyChanged();
 }
 

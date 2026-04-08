@@ -12,7 +12,6 @@
 QT_BEGIN_NAMESPACE
 class QLabel;
 class QLineEdit;
-class QPlainTextEdit;
 class QPushButton;
 class QSpinBox;
 class QComboBox;
@@ -38,6 +37,7 @@ class ICanvasDocumentService;
 namespace Aie::Internal {
 
 class AieService;
+class BodyStmtsEditor;
 class SymbolsController;
 
 class AiePropertiesPanel final : public QWidget
@@ -170,9 +170,10 @@ private:
     QPointer<QGroupBox>      m_armWireGroup;
     QPointer<QLineEdit>      m_armFifoEdit;   // typed FIFO name for arm wire
 
-    QPointer<QGroupBox>      m_coreFnGroup;
-    QPointer<QComboBox>      m_coreFnModeCombo;
-    QPointer<QPlainTextEdit> m_coreFnJsonEdit;
+    QPointer<QGroupBox>       m_coreFnGroup;
+    QPointer<QComboBox>       m_coreFnModeCombo;
+    QPointer<BodyStmtsEditor> m_coreFnEditor;
+    QPointer<QPushButton>     m_coreFnClearBtn;
 
     Canvas::ObjectId m_effectiveFifoWireId{};
     bool m_tileIsKernelTile = false; // set in refreshSelection(), used by showSelectionState()

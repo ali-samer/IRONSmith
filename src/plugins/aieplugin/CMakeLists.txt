@@ -54,6 +54,8 @@ ironsmith_add_plugin(AiePlugin
             panels/AieKernelsPanel.cpp
             panels/AiePropertiesPanel.hpp
             panels/AiePropertiesPanel.cpp
+            panels/BodyStmtsEditor.hpp
+            panels/BodyStmtsEditor.cpp
             symbol_table/SymbolTableTypes.hpp
             symbol_table/SymbolTableTypes.cpp
             symbol_table/SymbolsController.hpp
