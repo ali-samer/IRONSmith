@@ -1687,8 +1687,7 @@ void AiePropertiesPanel::refreshSelection()
             if (isComputeTile && m_tileKernelRow)
                 rebuildKernelChips(block->assignedKernels(), block->specId());
 
-            if (isComputeTile)
-                refreshFifoRows(block);
+            refreshFifoRows(block);
 
             // Populate core function group (only for compute tiles with a kernel).
             const bool hasKernel = isComputeTile && !block->assignedKernels().isEmpty();
@@ -2293,8 +2292,8 @@ void AiePropertiesPanel::refreshFifoRows(Canvas::CanvasBlock* block)
     QStringList inputs, outputs;
     for (const auto& f : fifos)
         (f.isInput ? inputs : outputs) << f.name;
-    m_tileInputFifosValue->setText(inputs.isEmpty()  ? QStringLiteral("-") : inputs.join(QStringLiteral(", ")));
-    m_tileOutputFifosValue->setText(outputs.isEmpty() ? QStringLiteral("-") : outputs.join(QStringLiteral(", ")));
+    m_tileInputFifosValue->setText(inputs.isEmpty()  ? QStringLiteral("-") : inputs.join(u'\n'));
+    m_tileOutputFifosValue->setText(outputs.isEmpty() ? QStringLiteral("-") : outputs.join(u'\n'));
 }
 
 void AiePropertiesPanel::refreshArgList(Canvas::CanvasBlock* block)
