@@ -382,6 +382,12 @@ QJsonObject CanvasDocumentJsonSerializer::serialize(const CanvasDocument& docume
             obj.insert(u"label"_s, block->label());
             if (!block->stereotype().trimmed().isEmpty())
                 obj.insert(u"stereotype"_s, block->stereotype());
+            if (!block->assignedKernels().isEmpty()) {
+                QJsonArray kernelsArr;
+                for (const auto& k : block->assignedKernels())
+                    kernelsArr.append(k);
+                obj.insert(u"assignedKernels"_s, kernelsArr);
+            }
             obj.insert(u"specId"_s, specId);
             obj.insert(u"showPorts"_s, block->showPorts());
             obj.insert(u"allowMultiplePorts"_s, block->allowMultiplePorts());
@@ -661,6 +667,13 @@ Utils::Result CanvasDocumentJsonSerializer::deserialize(const QJsonObject& json,
             block->setDeletable(item.value(u"deletable"_s).toBool(true));
             block->setStereotype(item.value(u"stereotype"_s).toString());
             block->setSpecId(specId);
+            {
+                QStringList kernels;
+                for (const auto& v : item.value(u"assignedKernels"_s).toArray())
+                    kernels.append(v.toString());
+                if (!kernels.isEmpty())
+                    block->setAssignedKernels(kernels);
+            }
             block->setShowPorts(item.value(u"showPorts"_s).toBool(true));
             block->setAllowMultiplePorts(item.value(u"allowMultiplePorts"_s).toBool(false));
             block->setAutoOppositeProducerPort(item.value(u"autoOppositeProducerPort"_s).toBool(false));

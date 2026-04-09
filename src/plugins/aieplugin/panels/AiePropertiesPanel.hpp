@@ -7,9 +7,11 @@
 #include "canvas/CanvasWire.hpp"
 
 #include <QtCore/QPointer>
+#include <QtCore/QStringList>
 #include <QtWidgets/QWidget>
 
 QT_BEGIN_NAMESPACE
+class QHBoxLayout;
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -38,6 +40,7 @@ namespace Aie::Internal {
 
 class AieService;
 class BodyStmtsEditor;
+class KernelAssignmentController;
 class SymbolsController;
 
 class AiePropertiesPanel final : public QWidget
@@ -50,6 +53,7 @@ public:
                                 QWidget* parent = nullptr);
 
     void setSymbolsController(SymbolsController* controller);
+    void setKernelAssignmentController(KernelAssignmentController* controller);
 
 private:
     enum class SelectionKind : uint8_t {
@@ -88,8 +92,8 @@ private:
     Canvas::CanvasWire* findPivotWireForArmWire(Canvas::CanvasWire* wire) const;
 
     void applyTileLabel();
-    void applyTileStereotype();
     void applyCoreFunctionBody();
+    void rebuildKernelChips(const QStringList& kernels, const QString& tileSpecId);
     void applyFifoAnnotation();
     void applyHubPivotProperties();
     void applyDdrTransferHubTap();
@@ -120,15 +124,16 @@ private:
     QPointer<QSpinBox> m_objectFifoDefaultDepthSpin;
     QPointer<QComboBox> m_objectFifoDefaultTypeCombo;
 
+    QPointer<KernelAssignmentController> m_kernelAssignmentController;
+
     QPointer<QGroupBox> m_tileGroup;
     QPointer<QLabel> m_tileIdValue;
     QPointer<QLabel> m_tileSpecIdValue;
     QPointer<QLabel> m_tileBoundsValue;
     QPointer<QLineEdit> m_tileLabelEdit;
-    QPointer<QLineEdit> m_tileStereotypeEdit;
-    QPointer<QPushButton> m_tileStereotypeClearBtn;
     QPointer<QWidget> m_tileKernelRow;
     QPointer<QLabel> m_tileKernelRowLabel;
+    QHBoxLayout* m_kernelChipsLayout = nullptr; // layout inside m_tileKernelRow; not owned via QPointer
 
     QPointer<QGroupBox> m_hubPivotGroup;
     QPointer<QLineEdit> m_hubPivotNameEdit;

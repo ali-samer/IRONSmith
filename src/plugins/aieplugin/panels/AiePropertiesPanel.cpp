@@ -4,6 +4,7 @@
 #include "aieplugin/panels/AiePropertiesPanel.hpp"
 
 #include "aieplugin/AieService.hpp"
+#include "aieplugin/kernels/KernelAssignmentController.hpp"
 #include "aieplugin/symbol_table/SymbolsController.hpp"
 #include "aieplugin/symbol_table/SymbolTableTypes.hpp"
 
@@ -418,6 +419,63 @@ void AiePropertiesPanel::setSymbolsController(SymbolsController* controller)
     populateFifoSymbolCombo();
 }
 
+void AiePropertiesPanel::setKernelAssignmentController(KernelAssignmentController* controller)
+{
+    m_kernelAssignmentController = controller;
+}
+
+void AiePropertiesPanel::rebuildKernelChips(const QStringList& kernels, const QString& tileSpecId)
+{
+    if (!m_kernelChipsLayout)
+        return;
+
+    // Remove all current items from the layout.
+    QLayoutItem* child;
+    while ((child = m_kernelChipsLayout->takeAt(0)) != nullptr) {
+        if (child->widget())
+            child->widget()->deleteLater();
+        delete child;
+    }
+
+    if (kernels.isEmpty()) {
+        auto* placeholder = new QLabel(QStringLiteral("None"), m_tileKernelRow);
+        placeholder->setObjectName(QStringLiteral("AiePropertiesValueLabel"));
+        m_kernelChipsLayout->addWidget(placeholder);
+        m_kernelChipsLayout->addStretch(1);
+        return;
+    }
+
+    for (const QString& kernelId : kernels) {
+        // Chip: small rounded container with label + × button.
+        auto* chip = new QWidget(m_tileKernelRow);
+        chip->setObjectName(QStringLiteral("AieKernelChip"));
+        auto* chipLayout = new QHBoxLayout(chip);
+        chipLayout->setContentsMargins(6, 2, 4, 2);
+        chipLayout->setSpacing(4);
+
+        auto* nameLabel = new QLabel(kernelId, chip);
+        nameLabel->setObjectName(QStringLiteral("AieKernelChipLabel"));
+
+        auto* removeBtn = new QPushButton(QStringLiteral("\u00D7"), chip); // ×
+        removeBtn->setObjectName(QStringLiteral("AieKernelChipRemoveButton"));
+        removeBtn->setFixedSize(16, 16);
+        removeBtn->setFlat(true);
+
+        chipLayout->addWidget(nameLabel);
+        chipLayout->addWidget(removeBtn);
+
+        const QString capturedKernelId = kernelId;
+        const QString capturedSpecId = tileSpecId;
+        connect(removeBtn, &QPushButton::clicked, this, [this, capturedKernelId, capturedSpecId]() {
+            if (m_kernelAssignmentController)
+                m_kernelAssignmentController->removeKernelFromTile(capturedSpecId, capturedKernelId);
+        });
+
+        m_kernelChipsLayout->addWidget(chip);
+    }
+    m_kernelChipsLayout->addStretch(1);
+}
+
 void AiePropertiesPanel::populateFifoSymbolCombo()
 {
     refreshObjectFifoSection();
@@ -583,21 +641,12 @@ void AiePropertiesPanel::buildUi()
 
     auto* tileLabelEdit = new QLineEdit(tileGroup);
     tileLabelEdit->setObjectName(QStringLiteral("AiePropertiesField"));
-    auto* tileStereotypeEdit = new QLineEdit(tileGroup);
-    tileStereotypeEdit->setObjectName(QStringLiteral("AiePropertiesField"));
-    tileStereotypeEdit->setReadOnly(true);
-    tileStereotypeEdit->setPlaceholderText(QStringLiteral("None"));
-
-    auto* tileStereotypeClearBtn = new QPushButton(QStringLiteral("Clear"), tileGroup);
-    tileStereotypeClearBtn->setObjectName(QStringLiteral("AiePropertiesClearButton"));
-    tileStereotypeClearBtn->setEnabled(false);
-
+    // Kernel chips row: dynamically rebuilt in rebuildKernelChips() on every selection refresh.
     auto* kernelRow = new QWidget(tileGroup);
     auto* kernelRowLayout = new QHBoxLayout(kernelRow);
     kernelRowLayout->setContentsMargins(0, 0, 0, 0);
     kernelRowLayout->setSpacing(6);
-    kernelRowLayout->addWidget(tileStereotypeEdit, 1);
-    kernelRowLayout->addWidget(tileStereotypeClearBtn);
+    kernelRowLayout->addStretch(1); // placeholder — gets cleared and repopulated
 
     tileForm->addRow(makeKeyLabel(QStringLiteral("Item ID")), tileIdValue);
     tileForm->addRow(makeKeyLabel(QStringLiteral("Spec ID")), tileSpecIdValue);
@@ -611,10 +660,9 @@ void AiePropertiesPanel::buildUi()
     m_tileSpecIdValue = tileSpecIdValue;
     m_tileBoundsValue = tileBoundsValue;
     m_tileLabelEdit = tileLabelEdit;
-    m_tileStereotypeEdit = tileStereotypeEdit;
-    m_tileStereotypeClearBtn = tileStereotypeClearBtn;
     m_tileKernelRow = kernelRow;
     m_tileKernelRowLabel = kernelRowLabel;
+    m_kernelChipsLayout = kernelRowLayout;
 
     // --- Hub Pivot group (Split / Join wires) ---
     auto* hubPivotGroup = new QGroupBox(QStringLiteral("Split / Join"), fieldsHost);
@@ -1005,8 +1053,6 @@ void AiePropertiesPanel::buildUi()
 
     connect(tileLabelEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyTileLabel);
-    connect(tileStereotypeClearBtn, &QPushButton::clicked, this,
-            &AiePropertiesPanel::applyTileStereotype);
 
     connect(hubPivotNameEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyHubPivotProperties);
@@ -1629,20 +1675,11 @@ void AiePropertiesPanel::refreshSelection()
             if (m_tileKernelRowLabel)
                 m_tileKernelRowLabel->setVisible(isComputeTile);
 
-            if (isComputeTile && m_tileStereotypeEdit) {
-                // Strip UML stereotype decorators: <<kernel: name>> → name
-                QString kernelDisplay = block->stereotype();
-                if (kernelDisplay.startsWith(u"<<") && kernelDisplay.endsWith(u">>"))
-                    kernelDisplay = kernelDisplay.sliced(2, kernelDisplay.size() - 4).trimmed();
-                if (kernelDisplay.startsWith(u"kernel:"))
-                    kernelDisplay = kernelDisplay.sliced(7).trimmed();
-                m_tileStereotypeEdit->setText(kernelDisplay);
-                if (m_tileStereotypeClearBtn)
-                    m_tileStereotypeClearBtn->setEnabled(!block->stereotype().isEmpty());
-            }
+            if (isComputeTile && m_tileKernelRow)
+                rebuildKernelChips(block->assignedKernels(), block->specId());
 
             // Populate core function group (only for compute tiles with a kernel).
-            const bool hasKernel = isComputeTile && !block->stereotype().isEmpty();
+            const bool hasKernel = isComputeTile && !block->assignedKernels().isEmpty();
             m_tileIsKernelTile = hasKernel;
             if (hasKernel && m_coreFnModeCombo && m_coreFnEditor) {
                 const auto& cfg = block->coreFunctionConfig();
@@ -1665,7 +1702,7 @@ void AiePropertiesPanel::refreshSelection()
 
             showSelectionState(SelectionKind::Tile,
                                QStringLiteral("Tile selected"),
-                               QStringLiteral("Update tile label and stereotype."));
+                               QStringLiteral("Update tile label and kernel assignments."));
             return;
         }
     }
@@ -1893,14 +1930,9 @@ void AiePropertiesPanel::applyTileLabel()
 static QString buildDefaultBodyJson(const Canvas::CanvasBlock* block,
                                     const Canvas::CanvasDocument* document)
 {
-    // Collect kernel name
-    QString kernelName = block->stereotype();
-    if (kernelName.startsWith(u"<<") && kernelName.endsWith(u">>"))
-        kernelName = kernelName.sliced(2, kernelName.size() - 4).trimmed();
-    if (kernelName.startsWith(u"kernel:"))
-        kernelName = kernelName.sliced(7).trimmed();
-    if (kernelName.isEmpty())
-        kernelName = u"kernel"_s;
+    // Collect kernel name — prefer new assignedKernels list; fall back to "kernel".
+    const QStringList& assigned = block->assignedKernels();
+    QString kernelName = assigned.isEmpty() ? u"kernel"_s : assigned.first();
 
     // Walk all wires connected to this tile and mirror HlirSyncService's classification:
     //
@@ -2060,24 +2092,6 @@ void AiePropertiesPanel::applyCoreFunctionBody()
     m_document->notifyChanged();
 }
 
-void AiePropertiesPanel::applyTileStereotype()
-{
-    if (m_updatingUi || !m_document || !m_tileStereotypeEdit)
-        return;
-
-    auto* block = selectedBlock();
-    if (!block || block->stereotype().isEmpty())
-        return;
-
-    block->setStereotype(QString{});
-    m_document->notifyChanged();
-
-    m_updatingUi = true;
-    m_tileStereotypeEdit->clear();
-    if (m_tileStereotypeClearBtn)
-        m_tileStereotypeClearBtn->setEnabled(false);
-    m_updatingUi = false;
-}
 
 void AiePropertiesPanel::applyHubPivotProperties()
 {

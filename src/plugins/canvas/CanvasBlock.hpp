@@ -14,6 +14,7 @@
 #include <QtGui/QColor>
 #include <QtCore/QString>
 #include <QtCore/QMarginsF>
+#include <QtCore/QStringList>
 #include <cstdint>
 
 namespace Canvas {
@@ -109,6 +110,13 @@ public:
     BlockContent* content() const { return m_content.get(); }
     void clearContent() { m_content.reset(); }
 
+    // Assigned kernels — displayed as chips inside the tile.
+    // The list is ordered; code generation uses the first entry.
+    const QStringList& assignedKernels() const noexcept;
+    void setAssignedKernels(QStringList kernels);
+    void addAssignedKernel(const QString& kernelId);
+    void removeAssignedKernel(const QString& kernelId);
+
     bool hasCoreFunctionConfig() const noexcept { return m_coreFunctionConfig.has_value(); }
     const std::optional<CoreFunctionConfig>& coreFunctionConfig() const noexcept { return m_coreFunctionConfig; }
     void setCoreFunctionConfig(CoreFunctionConfig config);
@@ -156,6 +164,7 @@ private:
     QColor m_labelColor;
     double m_cornerRadius = -1.0;
     std::optional<CoreFunctionConfig> m_coreFunctionConfig;
+    QStringList m_assignedKernels;
 };
 
 } // namespace Canvas

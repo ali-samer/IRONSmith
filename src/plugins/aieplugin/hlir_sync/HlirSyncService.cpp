@@ -1510,15 +1510,22 @@ void HlirSyncService::buildWorkers()
         if (!parsed || parsed->kind != hlir::TileKind::COMPUTE)
             continue;
 
-        // Extract kernel ID from stereotype, then label as fallback.
+        // Extract kernel ID: prefer new assignedKernels list (first entry); fall back to
+        // legacy <<kernel: id>> stereotype annotation for backward compatibility with old
+        // documents that were saved before the kernel refactor.
         QString kernelId;
         {
-            QRegularExpressionMatch m = kKernelAnnotationPattern.match(block->stereotype());
-            if (!m.hasMatch())
-                m = kKernelAnnotationPattern.match(block->label());
-            if (!m.hasMatch())
-                continue;
-            kernelId = m.captured(1).trimmed();
+            const QStringList& assigned = block->assignedKernels();
+            if (!assigned.isEmpty()) {
+                kernelId = assigned.first();
+            } else {
+                QRegularExpressionMatch m = kKernelAnnotationPattern.match(block->stereotype());
+                if (!m.hasMatch())
+                    m = kKernelAnnotationPattern.match(block->label());
+                if (!m.hasMatch())
+                    continue;
+                kernelId = m.captured(1).trimmed();
+            }
         }
 
         const hlir::ComponentId tileId = m_tileMap.value(block->id());
