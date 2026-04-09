@@ -9,6 +9,8 @@ CMakeUserPresets.json
 .venv/
 ironvenv/
 ironenv/
+__pycache__/
+*.py[cod]
 
 # IDE editor settings
 .vscode/
@@ -27,5 +29,4 @@ Thumbs.db
 Sandbox/
 sandbox (1)/
 sandbox_designs/
-src/aiecad_compiler/hlir/__pycache__/
 example_designs/
