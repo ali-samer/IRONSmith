@@ -19,20 +19,21 @@ from aie.helpers.taplib import TensorAccessPattern
 @iron.jit(is_placed=False)
 def gui_design_jit(input_activation, weight_layer1, weight_layer2, weight_layer3):
     # Tensor Types
-    type_int16_1x256 = np.ndarray[(1, 256), np.dtype[np.int16]]
+    type_int16_256 = np.ndarray[(256,), np.dtype[np.int16]]
     type_int16_64 = np.ndarray[(64,), np.dtype[np.int16]]
+    type_int16_256x256 = np.ndarray[(256, 256), np.dtype[np.int16]]
 
     # Data Movement
     # Object Fifos
-    input_activation_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="input_activation_fifo")
-    inter_activation_fifo1 = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="inter_activation_fifo1")
-    weights_col0_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="weights_col0_fifo")
-    weights_col1_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="weights_col1_fifo")
-    weights_col2_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="weights_col2_fifo")
-    weights_col3_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="weights_col3_fifo")
-    output_activation_fifo = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="output_activation_fifo")
-    inter_activation_fifo2 = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="inter_activation_fifo2")
-    inter_activation_fifo3 = ObjectFifo(obj_type=type_int16_1x256, depth=2, name="inter_activation_fifo3")
+    input_activation_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="input_activation_fifo")
+    inter_activation_fifo1 = ObjectFifo(obj_type=type_int16_256, depth=2, name="inter_activation_fifo1")
+    weights_col0_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="weights_col0_fifo")
+    weights_col1_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="weights_col1_fifo")
+    weights_col2_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="weights_col2_fifo")
+    weights_col3_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="weights_col3_fifo")
+    output_activation_fifo = ObjectFifo(obj_type=type_int16_256, depth=2, name="output_activation_fifo")
+    inter_activation_fifo2 = ObjectFifo(obj_type=type_int16_256, depth=2, name="inter_activation_fifo2")
+    inter_activation_fifo3 = ObjectFifo(obj_type=type_int16_256, depth=2, name="inter_activation_fifo3")
     # Splits
     weight_tile_split_col0 = weights_col0_fifo.cons().split(names=["weight_tile_split_col0_out1", "weight_tile_split_col0_out2", "weight_tile_split_col0_out3", "weight_tile_split_col0_out4"], obj_types=[type_int16_64, type_int16_64, type_int16_64, type_int16_64], offsets=[0, 64, 128, 192], placement=Tile(0, 1))
     weight_tile_split_col1 = weights_col1_fifo.cons().split(names=["weight_tile_split_col1_out1", "weight_tile_split_col1_out2", "weight_tile_split_col1_out3", "weight_tile_split_col1_out4"], obj_types=[type_int16_64, type_int16_64, type_int16_64, type_int16_64], offsets=[0, 64, 128, 192], placement=Tile(1, 1))
@@ -50,61 +51,64 @@ def gui_design_jit(input_activation, weight_layer1, weight_layer2, weight_layer3
     input_activation_col3_fifo = inter_activation_fifo3.cons().forward(placement=Tile(3, 1))
 
     # Compute Kernels
-    kernel_matmul_bf16 = ExternalFunction(
-        name="matmul_bf16_bf16", source_file="C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_bf16/mm.cc", arg_types=[type_int16_1x256, type_int16_64, type_int16_64], include_dirs=["C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_bf16"]
+    kernel_matmul_i16_i16 = ExternalFunction(
+        name="matmul_i16_i16", source_file="C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_i16_i16/mm.cc", arg_types=[type_int16_256, type_int16_64, type_int16_64], include_dirs=["C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_i16_i16"]
     )
 
-    kernel_relu_bf16 = ExternalFunction(
-        name="bf16_relu", source_file="C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_bf16/relu.cc", arg_types=[type_int16_1x256, type_int16_64, type_int16_64], include_dirs=["C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_bf16"]
+    kernel_relu_i16 = ExternalFunction(
+        name="relu_i16", source_file="C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_i16/relu_i16.cc", arg_types=[type_int16_256, type_int16_64, type_int16_64], include_dirs=["C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_i16"]
+    )
+
+    kernel_zero_i16 = ExternalFunction(
+        name="zero_i16", source_file="C:/Users/fasta/Projects/IRONSmith/resources/kernels/zero_i16/mm.cc", arg_types=[type_int16_256, type_int16_64, type_int16_64], include_dirs=["C:/Users/fasta/Projects/IRONSmith/resources/kernels/zero_i16"]
     )
 
     # Core Body Functions
-    def core_shared_matmul_relu(Kernel1, Kernel2, in0, in1, out0):
+    def core_shared_matmul_relu(Kernel1, Kernel2, Kernel3, in0, in1, out0):
         buf_in0 = in0.acquire(1)
         buf_in1 = in1.acquire(1)
         buf_out0 = out0.acquire(1)
         Kernel1(buf_in0, buf_in1, buf_out0)
         Kernel2(buf_in0, buf_in1, buf_out0)
+        Kernel3(buf_in0, buf_in1, buf_out0)
         in0.release(1)
         in1.release(1)
         out0.release(1)
 
-    def core_shared_matmul_final(kernel, in0, in1, out0):
+    def core_shared_matmul_final(kernel, kernel2, in0, in1, out0):
         buf_in0 = in0.acquire(1)
         buf_in1 = in1.acquire(1)
         buf_out0 = out0.acquire(1)
         kernel(buf_in0, buf_in1, buf_out0)
+        kernel2(buf_in0, buf_in1, buf_out0)
         in0.release(1)
         in1.release(1)
         out0.release(1)
 
     # Workers
     Workers = []
-    worker_aie0_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col0_fifo.cons(), weight_tile_split_col0[0].cons(), activation_tile_join_col0[0].prod()], placement=Tile(0, 2))
-    worker_aie1_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col1_fifo.cons(), weight_tile_split_col1[0].cons(), activation_tile_join_col1[0].prod()], placement=Tile(1, 2))
-    worker_aie2_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col2_fifo.cons(), weight_tile_split_col2[0].cons(), activation_tile_join_col2[0].prod()], placement=Tile(2, 2))
-    worker_aie3_2 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_bf16, input_activation_col3_fifo.cons(), weight_tile_split_col3[0].cons(), activation_tile_join_col3[0].prod()], placement=Tile(3, 2))
-    worker_aie0_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col0_fifo.cons(), weight_tile_split_col0[1].cons(), activation_tile_join_col0[1].prod()], placement=Tile(0, 3))
-    worker_aie1_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col1_fifo.cons(), weight_tile_split_col1[1].cons(), activation_tile_join_col1[1].prod()], placement=Tile(1, 3))
-    worker_aie2_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col2_fifo.cons(), weight_tile_split_col2[1].cons(), activation_tile_join_col2[1].prod()], placement=Tile(2, 3))
-    worker_aie3_3 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_bf16, input_activation_col3_fifo.cons(), weight_tile_split_col3[1].cons(), activation_tile_join_col3[1].prod()], placement=Tile(3, 3))
-    worker_aie0_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col0_fifo.cons(), weight_tile_split_col0[2].cons(), activation_tile_join_col0[2].prod()], placement=Tile(0, 4))
-    worker_aie1_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col1_fifo.cons(), weight_tile_split_col1[2].cons(), activation_tile_join_col1[2].prod()], placement=Tile(1, 4))
-    worker_aie2_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col2_fifo.cons(), weight_tile_split_col2[2].cons(), activation_tile_join_col2[2].prod()], placement=Tile(2, 4))
-    worker_aie3_4 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_bf16, input_activation_col3_fifo.cons(), weight_tile_split_col3[2].cons(), activation_tile_join_col3[2].prod()], placement=Tile(3, 4))
-    worker_aie0_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col0_fifo.cons(), weight_tile_split_col0[3].cons(), activation_tile_join_col0[3].prod()], placement=Tile(0, 5))
-    worker_aie1_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col1_fifo.cons(), weight_tile_split_col1[3].cons(), activation_tile_join_col1[3].prod()], placement=Tile(1, 5))
-    worker_aie2_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_bf16, kernel_relu_bf16, input_activation_col2_fifo.cons(), weight_tile_split_col2[3].cons(), activation_tile_join_col2[3].prod()], placement=Tile(2, 5))
-    worker_aie3_5 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_bf16, input_activation_col3_fifo.cons(), weight_tile_split_col3[3].cons(), activation_tile_join_col3[3].prod()], placement=Tile(3, 5))
+    worker_aie0_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col0_fifo.cons(), weight_tile_split_col0[0].cons(), activation_tile_join_col0[0].prod()], placement=Tile(0, 2))
+    worker_aie1_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col1_fifo.cons(), weight_tile_split_col1[0].cons(), activation_tile_join_col1[0].prod()], placement=Tile(1, 2))
+    worker_aie2_2 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col2_fifo.cons(), weight_tile_split_col2[0].cons(), activation_tile_join_col2[0].prod()], placement=Tile(2, 2))
+    worker_aie3_2 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_i16_i16, input_activation_col3_fifo.cons(), weight_tile_split_col3[0].cons(), activation_tile_join_col3[0].prod()], placement=Tile(3, 2))
+    worker_aie0_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col0_fifo.cons(), weight_tile_split_col0[1].cons(), activation_tile_join_col0[1].prod()], placement=Tile(0, 3))
+    worker_aie1_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col1_fifo.cons(), weight_tile_split_col1[1].cons(), activation_tile_join_col1[1].prod()], placement=Tile(1, 3))
+    worker_aie2_3 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col2_fifo.cons(), weight_tile_split_col2[1].cons(), activation_tile_join_col2[1].prod()], placement=Tile(2, 3))
+    worker_aie3_3 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_i16_i16, input_activation_col3_fifo.cons(), weight_tile_split_col3[1].cons(), activation_tile_join_col3[1].prod()], placement=Tile(3, 3))
+    worker_aie0_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col0_fifo.cons(), weight_tile_split_col0[2].cons(), activation_tile_join_col0[2].prod()], placement=Tile(0, 4))
+    worker_aie1_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col1_fifo.cons(), weight_tile_split_col1[2].cons(), activation_tile_join_col1[2].prod()], placement=Tile(1, 4))
+    worker_aie2_4 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col2_fifo.cons(), weight_tile_split_col2[2].cons(), activation_tile_join_col2[2].prod()], placement=Tile(2, 4))
+    worker_aie3_4 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_i16_i16, input_activation_col3_fifo.cons(), weight_tile_split_col3[2].cons(), activation_tile_join_col3[2].prod()], placement=Tile(3, 4))
+    worker_aie0_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, kernel_zero_i16, input_activation_col0_fifo.cons(), weight_tile_split_col0[3].cons(), activation_tile_join_col0[3].prod()], placement=Tile(0, 5))
+    worker_aie1_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col1_fifo.cons(), weight_tile_split_col1[3].cons(), activation_tile_join_col1[3].prod()], placement=Tile(1, 5))
+    worker_aie2_5 = Worker(core_fn=core_shared_matmul_relu, fn_args=[kernel_matmul_i16_i16, kernel_relu_i16, input_activation_col2_fifo.cons(), weight_tile_split_col2[3].cons(), activation_tile_join_col2[3].prod()], placement=Tile(2, 5))
+    worker_aie3_5 = Worker(core_fn=core_shared_matmul_final, fn_args=[kernel_matmul_i16_i16, kernel_zero_i16, input_activation_col3_fifo.cons(), weight_tile_split_col3[3].cons(), activation_tile_join_col3[3].prod()], placement=Tile(3, 5))
 
     Workers = [worker_aie0_2, worker_aie1_2, worker_aie2_2, worker_aie3_2, worker_aie0_3, worker_aie1_3, worker_aie2_3, worker_aie3_3, worker_aie0_4, worker_aie1_4, worker_aie2_4, worker_aie3_4, worker_aie0_5, worker_aie1_5, worker_aie2_5, worker_aie3_5]
 
-    # Tensor Access Patterns (TAPs)
-    Newtap = TensorAccessPattern((16, 16,), offset=0, sizes=[4, 4], strides=[16, 1])
-
     # Runtime
     rt = Runtime()
-    with rt.sequence(type_int16_1x256, type_int16_1x256, type_int16_1x256, type_int16_1x256) as (input_activation_in, weight_layer1_in, weight_layer2_in, weight_layer3_in):
+    with rt.sequence(type_int16_256x256, type_int16_256, type_int16_256, type_int16_256) as (input_activation_in, weight_layer1_in, weight_layer2_in, weight_layer3_in):
         # Start Workers
         rt.start(*Workers)
         # Fills
@@ -121,10 +125,12 @@ def gui_design_jit(input_activation, weight_layer1, weight_layer2, weight_layer3
 
 
 def main():
-    input_activation = iron.arange((1, 256), dtype=np.int16, device="npu")
-    weight_layer1 = iron.arange((1, 256), dtype=np.int16, device="npu")
-    weight_layer2 = iron.arange((1, 256), dtype=np.int16, device="npu")
-    weight_layer3 = iron.arange((1, 256), dtype=np.int16, device="npu")
+    input_activation = iron.zeros(256 * 256, dtype=np.int16, device="npu")
+    input_activation.data[:] = np.arange(256 * 256, dtype=np.int16)
+    input_activation._sync_to_device()
+    weight_layer1 = iron.arange(256, dtype=np.int16, device="npu")
+    weight_layer2 = iron.arange(256, dtype=np.int16, device="npu")
+    weight_layer3 = iron.arange(256, dtype=np.int16, device="npu")
     gui_design_jit(input_activation, weight_layer1, weight_layer2, weight_layer3)
 
 

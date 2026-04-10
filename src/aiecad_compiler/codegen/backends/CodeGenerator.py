@@ -326,6 +326,10 @@ class CodeGenerator:
             self._process_for(stmt_id)
         elif kind == 'Print':
             self._process_print(stmt_id)
+        elif kind == 'RawLine':
+            raw_text = self._get_node_attr(stmt_id, 'raw_text') or self._get_node_attr(stmt_id, 'label')
+            if raw_text:
+                self._emit(raw_text)
     
     def _process_assign(self, assign_id: str):
         """Process assignment statement."""
@@ -870,8 +874,9 @@ class CodeGenerator:
                         args.append(f"{name}={value}")
                 
                 args_str = ", ".join(args) if args else ""
-                return f"{func_name}({args_str})"
-        
+                chain_suffix = self._get_node_attr(method_id, 'chain_suffix') or ''
+                return f"{func_name}({args_str}){chain_suffix}"
+
         # No method or function found - return empty string
         return ""
     

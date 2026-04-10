@@ -1004,7 +1004,8 @@ class GUIXMLSerializer:
                         pt = program.symbols[param_type_ref].value
                         if isinstance(pt, TensorType):
                             if pt.shape and len(pt.shape) > 0:
-                                param_size = str(pt.shape[0])
+                                # Capture all shape dimensions so 2D → "M x K"
+                                param_size = ' x '.join(str(d) for d in pt.shape)
                             if pt.dtype:
                                 param_dtype = str(pt.dtype.value)
 
@@ -1015,16 +1016,38 @@ class GUIXMLSerializer:
                     else:
                         dtype_arg = 'bfloat16'
 
-                # For matrix (2D) sizes, convert "M x N" → "(M, N)" tuple shape.
+                # Build flat/reshape args for arange/zeros calls.
                 if 'x' in size_arg.lower():
-                    parts = [p.strip() for p in size_arg.replace('x', ',').split(',') if p.strip()]
-                    size_arg = '(' + ', '.join(parts) + ')'
-
-                # Determine if input or output
-                if i < len(program.runtime.input_types):
-                    init_elem.text = f'iron.arange({size_arg}, dtype={dtype_arg}, device="npu")'
+                    # 2D (or higher): use product for flat count + .reshape(...)
+                    parts = [p.strip() for p in size_arg.lower().split('x') if p.strip()]
+                    flat_arg = ' * '.join(parts)
+                    reshape_suffix = f'.reshape({", ".join(parts)})'
                 else:
-                    init_elem.text = f'iron.zeros({size_arg}, dtype={dtype_arg}, device="npu")'
+                    flat_arg = size_arg
+                    reshape_suffix = ''
+
+                # Determine if input or output.
+                # For 2D inputs: allocate an XRTTensor with iron.zeros, then populate
+                # via .data[:] = np.arange(...) + _sync_to_device() so it is hashable
+                # (numpy.ndarray is not hashable and cannot be passed to @iron.jit).
+                # For 2D outputs: np.zeros with the shape tuple is sufficient.
+                if i < len(program.runtime.input_types):
+                    if reshape_suffix:
+                        init_elem.text = f'iron.zeros({flat_arg}, dtype={dtype_arg}, device="npu")'
+                        rl1 = SubElement(body_elem, 'RawLine')
+                        rl1.text = f'{param_name}.data[:] = np.arange({flat_arg}, dtype={dtype_arg})'
+                        rl1.tail = '\n'
+                        rl2 = SubElement(body_elem, 'RawLine')
+                        rl2.text = f'{param_name}._sync_to_device()'
+                        rl2.tail = '\n'
+                    else:
+                        init_elem.text = f'iron.arange({flat_arg}, dtype={dtype_arg}, device="npu")'
+                else:
+                    if reshape_suffix:
+                        shape_tuple = f'({", ".join(parts)})'
+                        init_elem.text = f'np.zeros({shape_tuple}, dtype={dtype_arg})'
+                    else:
+                        init_elem.text = f'iron.zeros({flat_arg}, dtype={dtype_arg}, device="npu")'
                 init_elem.tail = '\n'
 
         # Call JIT function

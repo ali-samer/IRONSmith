@@ -21,12 +21,9 @@
     <Import name="aie.helpers.taplib">
       <Submodule name="TensorAccessPattern"/>
     </Import>
-    <TypeAbstraction name="type_int16_1x256">
+    <TypeAbstraction name="type_int16_256">
       <ndarray>
         <shape>
-          <tuple>
-            <expr>1</expr>
-          </tuple>
           <tuple>
             <expr>256</expr>
           </tuple>
@@ -48,41 +45,73 @@
         </dtype>
       </ndarray>
     </TypeAbstraction>
-    <TensorAccessPattern name="Newtap" offset="0" tensor_dims="16, 16" sizes="4, 4" strides="16, 1"/>
+    <TypeAbstraction name="type_int16_256x256">
+      <ndarray>
+        <shape>
+          <tuple>
+            <expr>256</expr>
+          </tuple>
+          <tuple>
+            <expr>256</expr>
+          </tuple>
+        </shape>
+        <dtype>
+          <numpy_dtype>int16</numpy_dtype>
+        </dtype>
+      </ndarray>
+    </TypeAbstraction>
   </Symbols>
   <DataFlow>
-    <ExternalFunction name="kernel_matmul_bf16">
+    <ExternalFunction name="kernel_matmul_i16_i16">
       <attributes>
-        <kwarg name="name" value="matmul_bf16_bf16"/>
-        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_bf16/mm.cc"/>
+        <kwarg name="name" value="matmul_i16_i16"/>
+        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_i16_i16/mm.cc"/>
         <kwarg name="arg_types">
           <list>
-            <type_ref>type_int16_1x256</type_ref>
+            <type_ref>type_int16_256</type_ref>
             <type_ref>type_int16_64</type_ref>
             <type_ref>type_int16_64</type_ref>
           </list>
         </kwarg>
         <kwarg name="include_dirs">
           <list>
-            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_bf16</string>
+            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/matmul_i16_i16</string>
           </list>
         </kwarg>
       </attributes>
     </ExternalFunction>
-    <ExternalFunction name="kernel_relu_bf16">
+    <ExternalFunction name="kernel_relu_i16">
       <attributes>
-        <kwarg name="name" value="bf16_relu"/>
-        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_bf16/relu.cc"/>
+        <kwarg name="name" value="relu_i16"/>
+        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_i16/relu_i16.cc"/>
         <kwarg name="arg_types">
           <list>
-            <type_ref>type_int16_1x256</type_ref>
+            <type_ref>type_int16_256</type_ref>
             <type_ref>type_int16_64</type_ref>
             <type_ref>type_int16_64</type_ref>
           </list>
         </kwarg>
         <kwarg name="include_dirs">
           <list>
-            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_bf16</string>
+            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/relu_i16</string>
+          </list>
+        </kwarg>
+      </attributes>
+    </ExternalFunction>
+    <ExternalFunction name="kernel_zero_i16">
+      <attributes>
+        <kwarg name="name" value="zero_i16"/>
+        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/zero_i16/mm.cc"/>
+        <kwarg name="arg_types">
+          <list>
+            <type_ref>type_int16_256</type_ref>
+            <type_ref>type_int16_64</type_ref>
+            <type_ref>type_int16_64</type_ref>
+          </list>
+        </kwarg>
+        <kwarg name="include_dirs">
+          <list>
+            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/zero_i16</string>
           </list>
         </kwarg>
       </attributes>
@@ -91,6 +120,7 @@
       <parameters>
         <param name="Kernel1"/>
         <param name="Kernel2"/>
+        <param name="Kernel3"/>
         <param name="in0"/>
         <param name="in1"/>
         <param name="out0"/>
@@ -149,6 +179,19 @@
             </arg>
           </function>
         </Call>
+        <Call>
+          <function ref="Kernel3">
+            <arg>
+              <var ref="buf_in0"/>
+            </arg>
+            <arg>
+              <var ref="buf_in1"/>
+            </arg>
+            <arg>
+              <var ref="buf_out0"/>
+            </arg>
+          </function>
+        </Call>
         <Release>
           <call>
             <method ref="in0" name="release">
@@ -181,6 +224,7 @@
     <CoreFunction name="core_shared_matmul_final">
       <parameters>
         <param name="kernel"/>
+        <param name="kernel2"/>
         <param name="in0"/>
         <param name="in1"/>
         <param name="out0"/>
@@ -226,6 +270,19 @@
             </arg>
           </function>
         </Call>
+        <Call>
+          <function ref="kernel2">
+            <arg>
+              <var ref="buf_in0"/>
+            </arg>
+            <arg>
+              <var ref="buf_in1"/>
+            </arg>
+            <arg>
+              <var ref="buf_out0"/>
+            </arg>
+          </function>
+        </Call>
         <Release>
           <call>
             <method ref="in0" name="release">
@@ -257,7 +314,7 @@
     </CoreFunction>
     <ObjectFifo name="input_activation_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -266,7 +323,7 @@
     </ObjectFifo>
     <ObjectFifo name="inter_activation_fifo1">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -275,7 +332,7 @@
     </ObjectFifo>
     <ObjectFifo name="weights_col0_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -284,7 +341,7 @@
     </ObjectFifo>
     <ObjectFifo name="weights_col1_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -293,7 +350,7 @@
     </ObjectFifo>
     <ObjectFifo name="weights_col2_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -302,7 +359,7 @@
     </ObjectFifo>
     <ObjectFifo name="weights_col3_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -311,7 +368,7 @@
     </ObjectFifo>
     <ObjectFifo name="output_activation_fifo">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -320,7 +377,7 @@
     </ObjectFifo>
     <ObjectFifo name="inter_activation_fifo2">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -329,7 +386,7 @@
     </ObjectFifo>
     <ObjectFifo name="inter_activation_fifo3">
       <obj_type>
-        <type_ref>type_int16_1x256</type_ref>
+        <type_ref>type_int16_256</type_ref>
       </obj_type>
       <attributes>
         <kwarg name="depth" value="2"/>
@@ -840,10 +897,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -905,10 +962,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -970,10 +1027,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1035,7 +1092,7 @@
       <core_fn ref="core_shared_matmul_final"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1097,10 +1154,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1162,10 +1219,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1227,10 +1284,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1292,7 +1349,7 @@
       <core_fn ref="core_shared_matmul_final"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1354,10 +1411,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1419,10 +1476,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1484,10 +1541,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1549,7 +1606,7 @@
       <core_fn ref="core_shared_matmul_final"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1611,10 +1668,13 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1676,10 +1736,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1741,10 +1801,10 @@
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
-          <var ref="kernel_relu_bf16"/>
+          <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1806,7 +1866,10 @@
       <core_fn ref="core_shared_matmul_final"/>
       <fn_args>
         <arg>
-          <var ref="kernel_matmul_bf16"/>
+          <var ref="kernel_matmul_i16_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1893,18 +1956,18 @@
       <context>
         <call>
           <method ref="rt" name="sequence">
-            <arg type_ref="type_int16_1x256"/>
-            <arg type_ref="type_int16_1x256"/>
-            <arg type_ref="type_int16_1x256"/>
-            <arg type_ref="type_int16_1x256"/>
+            <arg type_ref="type_int16_256x256"/>
+            <arg type_ref="type_int16_256"/>
+            <arg type_ref="type_int16_256"/>
+            <arg type_ref="type_int16_256"/>
           </method>
         </call>
       </context>
       <bindings>
-        <bind name="input_activation_in" type_ref="type_int16_1x256"/>
-        <bind name="weight_layer1_in" type_ref="type_int16_1x256"/>
-        <bind name="weight_layer2_in" type_ref="type_int16_1x256"/>
-        <bind name="weight_layer3_in" type_ref="type_int16_1x256"/>
+        <bind name="input_activation_in" type_ref="type_int16_256x256"/>
+        <bind name="weight_layer1_in" type_ref="type_int16_256"/>
+        <bind name="weight_layer2_in" type_ref="type_int16_256"/>
+        <bind name="weight_layer3_in" type_ref="type_int16_256"/>
       </bindings>
       <body>
         <Operation name="start">
@@ -2050,18 +2113,19 @@
   </DataFlow>
   <Function name="gui_design_jit" decorator="iron.jit">
     <parameters>
-      <param name="input_activation" type_ref="type_int16_1x256"/>
-      <param name="weight_layer1" type_ref="type_int16_1x256"/>
-      <param name="weight_layer2" type_ref="type_int16_1x256"/>
-      <param name="weight_layer3" type_ref="type_int16_1x256"/>
+      <param name="input_activation" type_ref="type_int16_256x256"/>
+      <param name="weight_layer1" type_ref="type_int16_256"/>
+      <param name="weight_layer2" type_ref="type_int16_256"/>
+      <param name="weight_layer3" type_ref="type_int16_256"/>
     </parameters>
     <attributes>
       <kwarg name="is_placed" value="False"/>
     </attributes>
     <body>
       <UseDataFlow>
-        <UseType name="type_int16_1x256"/>
+        <UseType name="type_int16_256"/>
         <UseType name="type_int16_64"/>
+        <UseType name="type_int16_256x256"/>
       </UseDataFlow>
       <Return>
         <var ref="program"/>
@@ -2074,12 +2138,9 @@
         <target>input_activation</target>
         <source>
           <call>
-            <function ref="iron.arange">
+            <function ref="iron.zeros">
               <arg>
-                <var>(1</var>
-              </arg>
-              <arg>
-                <var>256)</var>
+                <var>256 * 256</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>
@@ -2091,16 +2152,15 @@
           </call>
         </source>
       </Assign>
+      <RawLine>input_activation.data[:] = np.arange(256 * 256, dtype=np.int16)</RawLine>
+      <RawLine>input_activation._sync_to_device()</RawLine>
       <Assign>
         <target>weight_layer1</target>
         <source>
           <call>
             <function ref="iron.arange">
               <arg>
-                <var>(1</var>
-              </arg>
-              <arg>
-                <var>256)</var>
+                <var>256</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>
@@ -2118,10 +2178,7 @@
           <call>
             <function ref="iron.arange">
               <arg>
-                <var>(1</var>
-              </arg>
-              <arg>
-                <var>256)</var>
+                <var>256</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>
@@ -2139,10 +2196,7 @@
           <call>
             <function ref="iron.arange">
               <arg>
-                <var>(1</var>
-              </arg>
-              <arg>
-                <var>256)</var>
+                <var>256</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>

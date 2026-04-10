@@ -1744,6 +1744,10 @@ class XMLTransformer:
                 elif stmt.tag == "Tensor":
                     self._transform_tensor_assign(stmt, body_section)
 
+                elif stmt.tag == "RawLine":
+                    rawline = etree.SubElement(body_section, "RawLine")
+                    rawline.text = stmt.text
+
                 elif stmt.tag == "Call":
                     self._transform_call(stmt, body_section)
 
@@ -1793,36 +1797,61 @@ class XMLTransformer:
 
     def _parse_function_call(self, call_text: str, parent: etree.Element):
         """Parse function call text and create XML structure."""
-        # Match function_name(args)
-        match = re.match(r'([a-zA-Z_.]+)\((.*)\)', call_text)
-        if match:
-            func_name = match.group(1)
-            args_text = match.group(2)
+        # Find function name (handles dotted names like iron.arange)
+        name_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_.]*)\(', call_text)
+        if not name_match:
+            return
 
-            call = etree.SubElement(parent, "call")
-            func = etree.SubElement(call, "function", ref=func_name)
+        func_name = name_match.group(1)
+        open_pos = name_match.end() - 1  # position of '('
 
-            # Parse arguments
-            if args_text:
-                for arg in args_text.split(","):
-                    arg = arg.strip()
-                    if "=" in arg:
-                        # Keyword argument
-                        key, value = arg.split("=", 1)
-                        key = key.strip()
-                        value = value.strip()
-                        kwarg = etree.SubElement(func, "kwarg", name=key)
-                        if value.startswith('"') or value.startswith("'"):
-                            string = etree.SubElement(kwarg, "string")
-                            string.text = value.strip('"').strip("'")
-                        else:
-                            var = etree.SubElement(kwarg, "var")
-                            var.text = value
+        # Find the matching closing paren using depth counting so that
+        # chained method calls like iron.arange(...).reshape(...) are not
+        # consumed into the args_text by the greedy regex.
+        depth = 0
+        close_pos = -1
+        for i in range(open_pos, len(call_text)):
+            if call_text[i] == '(':
+                depth += 1
+            elif call_text[i] == ')':
+                depth -= 1
+                if depth == 0:
+                    close_pos = i
+                    break
+
+        if close_pos == -1:
+            return
+
+        args_text = call_text[open_pos + 1:close_pos]
+        chain_text = call_text[close_pos + 1:].strip()  # e.g. ".reshape(256, 256)"
+
+        call_attrs = {"chain": chain_text} if chain_text else {}
+        call = etree.SubElement(parent, "call", **call_attrs)
+        func = etree.SubElement(call, "function", ref=func_name)
+
+        # Parse arguments
+        if args_text.strip():
+            for arg in args_text.split(","):
+                arg = arg.strip()
+                if not arg:
+                    continue
+                if "=" in arg:
+                    # Keyword argument
+                    key, value = arg.split("=", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    kwarg = etree.SubElement(func, "kwarg", name=key)
+                    if value.startswith('"') or value.startswith("'"):
+                        string = etree.SubElement(kwarg, "string")
+                        string.text = value.strip('"').strip("'")
                     else:
-                        # Positional argument
-                        arg_elem = etree.SubElement(func, "arg")
-                        var = etree.SubElement(arg_elem, "var")
-                        var.text = arg
+                        var = etree.SubElement(kwarg, "var")
+                        var.text = value
+                else:
+                    # Positional argument
+                    arg_elem = etree.SubElement(func, "arg")
+                    var = etree.SubElement(arg_elem, "var")
+                    var.text = arg
 
     def _transform_entrypoint(self, parent: etree.Element):
         """Transform EntryPoint."""
