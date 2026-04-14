@@ -735,7 +735,8 @@ class GraphBuilder:
         if function is not None:
             func_name = function.get("name") or function.get("ref")
             if func_name:
-                fn = self._add_node(func_name, "FunctionCall")
+                chain_suffix = e.get("chain") or None  # e.g. ".reshape(256, 256)"
+                fn = self._add_node(func_name, "FunctionCall", chain_suffix=chain_suffix)
                 self._link(call, fn, "calls")
                 
                 # Process arguments that are children of the function element
@@ -1120,6 +1121,12 @@ class GraphBuilder:
         """Process standalone call statement."""
         call = self._walk_call_chain(e, p)
         self._link(p, call, "contains")
+
+    def _func_rawline(self, e: etree.Element, p: NodeId):
+        """Process a raw Python line emitted verbatim (bypasses expression parsing)."""
+        text = e.text.strip() if e.text else ""
+        n = self._add_node(text, "RawLine", raw_text=text)
+        self._link(p, n, "contains")
 
     def _func_comment(self, e: etree.Element, p: NodeId):
         """
