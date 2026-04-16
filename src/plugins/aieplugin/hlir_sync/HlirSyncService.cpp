@@ -2162,8 +2162,6 @@ void HlirSyncService::buildRuntime()
     }
 
     QList<HubGroup> hubGroups;
-    // Track hub block IDs so we can look up groups quickly in Pass 2.
-    QHash<Canvas::ObjectId, int> hubGroupIndex; // hubBlockId → index in hubGroups
 
     for (const auto& item : items) {
         auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
@@ -2224,14 +2222,13 @@ void HlirSyncService::buildRuntime()
                 hubBlock = otherBlock;
         }
 
-        if (!hubBlock || hubGroupIndex.contains(hubBlock->id()))
+        if (!hubBlock)
             continue;
 
         HubGroup grp;
         grp.hubBlockId = hubBlock->id();
         grp.ddrWire    = wire;
         grp.isFill     = wireIsFill;
-        hubGroupIndex.insert(hubBlock->id(), hubGroups.size());
         hubGroups.append(grp);
     }
 

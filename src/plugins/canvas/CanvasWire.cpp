@@ -217,14 +217,24 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
 
 QString fillDrainAnnotationText(const CanvasWire::FillDrainConfig& config, bool compact)
 {
-    const QString prefix = config.isFill ? QStringLiteral("Input") : QStringLiteral("Output");
-    const QString name   = config.paramName.trimmed().isEmpty() ? QStringLiteral("buf") : config.paramName;
-    if (compact)
-        return prefix + QStringLiteral(": ") + name;
+    const QString prefix    = config.isFill ? QStringLiteral("Input") : QStringLiteral("Output");
+    const QString name      = config.paramName.trimmed().isEmpty() ? QStringLiteral("buf") : config.paramName;
+    const QString fifoLabel = config.isFill ? QStringLiteral("FILL") : QStringLiteral("DRAIN");
+    const QString fifo      = config.fifoName.trimmed();
+
+    if (compact) {
+        QString text = prefix + QStringLiteral(": ") + name;
+        if (!fifo.isEmpty())
+            text += QStringLiteral(", ") + fifoLabel + QStringLiteral(": ") + fifo;
+        return text;
+    }
     const QString dims = config.totalDims.trimmed();
-    if (dims.isEmpty())
-        return prefix + QStringLiteral(": ") + name;
-    return prefix + QStringLiteral(": %1, D:%2").arg(name, dims);
+    QString text = prefix + QStringLiteral(": ") + name;
+    if (!dims.isEmpty())
+        text += QStringLiteral(", D:") + dims;
+    if (!fifo.isEmpty())
+        text += QStringLiteral(", ") + fifoLabel + QStringLiteral(": ") + fifo;
+    return text;
 }
 
 bool isDdrSpecId(const QString& specId)
