@@ -21,6 +21,18 @@
     <Import name="aie.helpers.taplib">
       <Submodule name="TensorAccessPattern"/>
     </Import>
+    <TypeAbstraction name="output_type">
+      <ndarray>
+        <shape>
+          <tuple>
+            <expr>256</expr>
+          </tuple>
+        </shape>
+        <dtype>
+          <numpy_dtype>float16</numpy_dtype>
+        </dtype>
+      </ndarray>
+    </TypeAbstraction>
     <TypeAbstraction name="type_int16_256">
       <ndarray>
         <shape>
@@ -53,6 +65,18 @@
           </tuple>
           <tuple>
             <expr>256</expr>
+          </tuple>
+        </shape>
+        <dtype>
+          <numpy_dtype>int16</numpy_dtype>
+        </dtype>
+      </ndarray>
+    </TypeAbstraction>
+    <TypeAbstraction name="type_int16_1024">
+      <ndarray>
+        <shape>
+          <tuple>
+            <expr>1024</expr>
           </tuple>
         </shape>
         <dtype>
@@ -116,6 +140,24 @@
         </kwarg>
       </attributes>
     </ExternalFunction>
+    <ExternalFunction name="kernel_softmax_i16">
+      <attributes>
+        <kwarg name="name" value="softmax_i16"/>
+        <kwarg name="source_file" value="C:/Users/fasta/Projects/IRONSmith/resources/kernels/softmax_i16/softmax_i16.cc"/>
+        <kwarg name="arg_types">
+          <list>
+            <type_ref>type_int16_64</type_ref>
+            <type_ref>type_int16_256</type_ref>
+            <type_ref>type_int16_64</type_ref>
+          </list>
+        </kwarg>
+        <kwarg name="include_dirs">
+          <list>
+            <string>C:/Users/fasta/Projects/IRONSmith/resources/kernels/softmax_i16</string>
+          </list>
+        </kwarg>
+      </attributes>
+    </ExternalFunction>
     <CoreFunction name="core_shared_matmul_relu">
       <parameters>
         <param name="Kernel1"/>
@@ -154,6 +196,13 @@
           </call>
         </Acquire>
         <Call>
+          <function ref="Kernel3">
+            <arg>
+              <var ref="buf_out0"/>
+            </arg>
+          </function>
+        </Call>
+        <Call>
           <function ref="Kernel1">
             <arg>
               <var ref="buf_in0"/>
@@ -168,25 +217,6 @@
         </Call>
         <Call>
           <function ref="Kernel2">
-            <arg>
-              <var ref="buf_in0"/>
-            </arg>
-            <arg>
-              <var ref="buf_in1"/>
-            </arg>
-            <arg>
-              <var ref="buf_out0"/>
-            </arg>
-          </function>
-        </Call>
-        <Call>
-          <function ref="Kernel3">
-            <arg>
-              <var ref="buf_in0"/>
-            </arg>
-            <arg>
-              <var ref="buf_in1"/>
-            </arg>
             <arg>
               <var ref="buf_out0"/>
             </arg>
@@ -221,10 +251,11 @@
         </Release>
       </body>
     </CoreFunction>
-    <CoreFunction name="core_shared_matmul_final">
+    <CoreFunction name="core_shared_matmul_softmax">
       <parameters>
-        <param name="kernel"/>
-        <param name="kernel2"/>
+        <param name="Kernel1"/>
+        <param name="Kernel2"/>
+        <param name="Kernel3"/>
         <param name="in0"/>
         <param name="in1"/>
         <param name="out0"/>
@@ -258,7 +289,14 @@
           </call>
         </Acquire>
         <Call>
-          <function ref="kernel">
+          <function ref="Kernel2">
+            <arg>
+              <var ref="buf_out0"/>
+            </arg>
+          </function>
+        </Call>
+        <Call>
+          <function ref="Kernel1">
             <arg>
               <var ref="buf_in0"/>
             </arg>
@@ -271,13 +309,7 @@
           </function>
         </Call>
         <Call>
-          <function ref="kernel2">
-            <arg>
-              <var ref="buf_in0"/>
-            </arg>
-            <arg>
-              <var ref="buf_in1"/>
-            </arg>
+          <function ref="Kernel3">
             <arg>
               <var ref="buf_out0"/>
             </arg>
@@ -514,81 +546,6 @@
                 </constructor>
               </kwarg>
             </method>
-          </call>
-        </method_chain>
-      </source>
-    </ObjectFifo>
-    <ObjectFifo name="input_activation_col1_fifo">
-      <source>
-        <method_chain>
-          <base>
-            <var ref="inter_activation_fifo1"/>
-          </base>
-          <call>
-            <method name="cons"/>
-          </call>
-          <call>
-            <method name="forward"/>
-            <kwarg name="placement">
-              <constructor ref="Tile">
-                <arg>
-                  <const>1</const>
-                </arg>
-                <arg>
-                  <const>1</const>
-                </arg>
-              </constructor>
-            </kwarg>
-          </call>
-        </method_chain>
-      </source>
-    </ObjectFifo>
-    <ObjectFifo name="input_activation_col2_fifo">
-      <source>
-        <method_chain>
-          <base>
-            <var ref="inter_activation_fifo2"/>
-          </base>
-          <call>
-            <method name="cons"/>
-          </call>
-          <call>
-            <method name="forward"/>
-            <kwarg name="placement">
-              <constructor ref="Tile">
-                <arg>
-                  <const>2</const>
-                </arg>
-                <arg>
-                  <const>1</const>
-                </arg>
-              </constructor>
-            </kwarg>
-          </call>
-        </method_chain>
-      </source>
-    </ObjectFifo>
-    <ObjectFifo name="input_activation_col3_fifo">
-      <source>
-        <method_chain>
-          <base>
-            <var ref="inter_activation_fifo3"/>
-          </base>
-          <call>
-            <method name="cons"/>
-          </call>
-          <call>
-            <method name="forward"/>
-            <kwarg name="placement">
-              <constructor ref="Tile">
-                <arg>
-                  <const>3</const>
-                </arg>
-                <arg>
-                  <const>1</const>
-                </arg>
-              </constructor>
-            </kwarg>
           </call>
         </method_chain>
       </source>
@@ -893,6 +850,81 @@
         </method_chain>
       </source>
     </ObjectFifo>
+    <ObjectFifo name="bcast2">
+      <source>
+        <method_chain>
+          <base>
+            <var ref="inter_activation_fifo1"/>
+          </base>
+          <call>
+            <method name="cons"/>
+          </call>
+          <call>
+            <method name="forward"/>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>1</const>
+                </arg>
+                <arg>
+                  <const>1</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </call>
+        </method_chain>
+      </source>
+    </ObjectFifo>
+    <ObjectFifo name="bcast3">
+      <source>
+        <method_chain>
+          <base>
+            <var ref="inter_activation_fifo2"/>
+          </base>
+          <call>
+            <method name="cons"/>
+          </call>
+          <call>
+            <method name="forward"/>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>2</const>
+                </arg>
+                <arg>
+                  <const>1</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </call>
+        </method_chain>
+      </source>
+    </ObjectFifo>
+    <ObjectFifo name="bcast4">
+      <source>
+        <method_chain>
+          <base>
+            <var ref="inter_activation_fifo3"/>
+          </base>
+          <call>
+            <method name="cons"/>
+          </call>
+          <call>
+            <method name="forward"/>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>3</const>
+                </arg>
+                <arg>
+                  <const>1</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </call>
+        </method_chain>
+      </source>
+    </ObjectFifo>
     <Worker name="worker_aie0_2">
       <core_fn ref="core_shared_matmul_relu"/>
       <fn_args>
@@ -901,6 +933,9 @@
         </arg>
         <arg>
           <var ref="kernel_relu_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -968,9 +1003,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col1_fifo"/>
+              <var ref="bcast2"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1033,9 +1071,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col2_fifo"/>
+              <var ref="bcast3"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1089,15 +1130,21 @@
       </placement>
     </Worker>
     <Worker name="worker_aie3_2">
-      <core_fn ref="core_shared_matmul_final"/>
+      <core_fn ref="core_shared_matmul_softmax"/>
       <fn_args>
         <arg>
           <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_softmax_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col3_fifo"/>
+              <var ref="bcast4"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1158,6 +1205,9 @@
         </arg>
         <arg>
           <var ref="kernel_relu_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1225,9 +1275,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col1_fifo"/>
+              <var ref="bcast2"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1290,9 +1343,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col2_fifo"/>
+              <var ref="bcast3"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1346,15 +1402,21 @@
       </placement>
     </Worker>
     <Worker name="worker_aie3_3">
-      <core_fn ref="core_shared_matmul_final"/>
+      <core_fn ref="core_shared_matmul_softmax"/>
       <fn_args>
         <arg>
           <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_softmax_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col3_fifo"/>
+              <var ref="bcast4"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1415,6 +1477,9 @@
         </arg>
         <arg>
           <var ref="kernel_relu_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
           <method_chain>
@@ -1482,9 +1547,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col1_fifo"/>
+              <var ref="bcast2"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1547,9 +1615,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col2_fifo"/>
+              <var ref="bcast3"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1603,15 +1674,21 @@
       </placement>
     </Worker>
     <Worker name="worker_aie3_4">
-      <core_fn ref="core_shared_matmul_final"/>
+      <core_fn ref="core_shared_matmul_softmax"/>
       <fn_args>
         <arg>
           <var ref="kernel_matmul_i16_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
+          <var ref="kernel_softmax_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col3_fifo"/>
+              <var ref="bcast4"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1742,9 +1819,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col1_fifo"/>
+              <var ref="bcast2"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1807,9 +1887,12 @@
           <var ref="kernel_relu_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_zero_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col2_fifo"/>
+              <var ref="bcast3"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1863,7 +1946,7 @@
       </placement>
     </Worker>
     <Worker name="worker_aie3_5">
-      <core_fn ref="core_shared_matmul_final"/>
+      <core_fn ref="core_shared_matmul_softmax"/>
       <fn_args>
         <arg>
           <var ref="kernel_matmul_i16_i16"/>
@@ -1872,9 +1955,12 @@
           <var ref="kernel_zero_i16"/>
         </arg>
         <arg>
+          <var ref="kernel_softmax_i16"/>
+        </arg>
+        <arg>
           <method_chain>
             <base>
-              <var ref="input_activation_col3_fifo"/>
+              <var ref="bcast4"/>
             </base>
             <call>
               <method name="cons"/>
@@ -1957,17 +2043,21 @@
         <call>
           <method ref="rt" name="sequence">
             <arg type_ref="type_int16_256x256"/>
-            <arg type_ref="type_int16_256"/>
-            <arg type_ref="type_int16_256"/>
+            <arg type_ref="type_int16_1024"/>
+            <arg type_ref="type_int16_1024"/>
+            <arg type_ref="type_int16_1024"/>
+            <arg type_ref="type_int16_1024"/>
             <arg type_ref="type_int16_256"/>
           </method>
         </call>
       </context>
       <bindings>
         <bind name="input_activation_in" type_ref="type_int16_256x256"/>
-        <bind name="weight_layer1_in" type_ref="type_int16_256"/>
-        <bind name="weight_layer2_in" type_ref="type_int16_256"/>
-        <bind name="weight_layer3_in" type_ref="type_int16_256"/>
+        <bind name="weight_layer0_in" type_ref="type_int16_1024"/>
+        <bind name="weight_layer1_in" type_ref="type_int16_1024"/>
+        <bind name="weight_layer2_in" type_ref="type_int16_1024"/>
+        <bind name="weight_layer3_in" type_ref="type_int16_1024"/>
+        <bind name="output_activation_out" type_ref="type_int16_256"/>
       </bindings>
       <body>
         <Operation name="start">
@@ -1992,6 +2082,31 @@
             </arg>
             <arg>
               <var ref="input_activation_in"/>
+            </arg>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>0</const>
+                </arg>
+                <arg>
+                  <const>0</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </args>
+        </Operation>
+        <Operation name="fill_weight_layer0_in_col0">
+          <target>
+            <method ref="rt" name="fill"/>
+          </target>
+          <args>
+            <arg>
+              <call>
+                <method ref="weights_col0_fifo" name="prod"/>
+              </call>
+            </arg>
+            <arg>
+              <var ref="weight_layer0_in"/>
             </arg>
             <kwarg name="placement">
               <constructor ref="Tile">
@@ -2080,6 +2195,32 @@
             </kwarg>
           </args>
         </Operation>
+        <Operation name="drain_output_activation_out_col0">
+          <target>
+            <method ref="rt" name="drain"/>
+          </target>
+          <args>
+            <arg>
+              <call>
+                <method ref="output_activation_fifo" name="cons"/>
+              </call>
+            </arg>
+            <arg>
+              <var ref="output_activation_out"/>
+            </arg>
+            <kwarg name="wait" value="True"/>
+            <kwarg name="placement">
+              <constructor ref="Tile">
+                <arg>
+                  <const>3</const>
+                </arg>
+                <arg>
+                  <const>0</const>
+                </arg>
+              </constructor>
+            </kwarg>
+          </args>
+        </Operation>
       </body>
     </SequenceBlock>
     <Program name="my_program">
@@ -2114,18 +2255,22 @@
   <Function name="gui_design_jit" decorator="iron.jit">
     <parameters>
       <param name="input_activation" type_ref="type_int16_256x256"/>
-      <param name="weight_layer1" type_ref="type_int16_256"/>
-      <param name="weight_layer2" type_ref="type_int16_256"/>
-      <param name="weight_layer3" type_ref="type_int16_256"/>
+      <param name="weight_layer0" type_ref="type_int16_1024"/>
+      <param name="weight_layer1" type_ref="type_int16_1024"/>
+      <param name="weight_layer2" type_ref="type_int16_1024"/>
+      <param name="weight_layer3" type_ref="type_int16_1024"/>
+      <param name="output_activation" type_ref="type_int16_256"/>
     </parameters>
     <attributes>
       <kwarg name="is_placed" value="False"/>
     </attributes>
     <body>
       <UseDataFlow>
+        <UseType name="output_type"/>
         <UseType name="type_int16_256"/>
         <UseType name="type_int16_64"/>
         <UseType name="type_int16_256x256"/>
+        <UseType name="type_int16_1024"/>
       </UseDataFlow>
       <Return>
         <var ref="program"/>
@@ -2155,12 +2300,30 @@
       <RawLine>input_activation.data[:] = np.arange(256 * 256, dtype=np.int16)</RawLine>
       <RawLine>input_activation._sync_to_device()</RawLine>
       <Assign>
+        <target>weight_layer0</target>
+        <source>
+          <call>
+            <function ref="iron.arange">
+              <arg>
+                <var>1024</var>
+              </arg>
+              <kwarg name="dtype">
+                <var>np.int16</var>
+              </kwarg>
+              <kwarg name="device">
+                <string>npu</string>
+              </kwarg>
+            </function>
+          </call>
+        </source>
+      </Assign>
+      <Assign>
         <target>weight_layer1</target>
         <source>
           <call>
             <function ref="iron.arange">
               <arg>
-                <var>256</var>
+                <var>1024</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>
@@ -2178,7 +2341,7 @@
           <call>
             <function ref="iron.arange">
               <arg>
-                <var>256</var>
+                <var>1024</var>
               </arg>
               <kwarg name="dtype">
                 <var>np.int16</var>
@@ -2195,6 +2358,24 @@
         <source>
           <call>
             <function ref="iron.arange">
+              <arg>
+                <var>1024</var>
+              </arg>
+              <kwarg name="dtype">
+                <var>np.int16</var>
+              </kwarg>
+              <kwarg name="device">
+                <string>npu</string>
+              </kwarg>
+            </function>
+          </call>
+        </source>
+      </Assign>
+      <Assign>
+        <target>output_activation</target>
+        <source>
+          <call>
+            <function ref="iron.zeros">
               <arg>
                 <var>256</var>
               </arg>
@@ -2214,6 +2395,9 @@
             <var>input_activation</var>
           </arg>
           <arg>
+            <var>weight_layer0</var>
+          </arg>
+          <arg>
             <var>weight_layer1</var>
           </arg>
           <arg>
@@ -2221,6 +2405,9 @@
           </arg>
           <arg>
             <var>weight_layer3</var>
+          </arg>
+          <arg>
+            <var>output_activation</var>
           </arg>
         </function>
       </Call>

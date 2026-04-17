@@ -735,6 +735,14 @@ void AiePropertiesPanel::buildUi()
     fifoTypeCombo->addItem(QStringLiteral("i8"));
     fifoTypeCombo->addItem(QStringLiteral("i16"));
     fifoTypeCombo->addItem(QStringLiteral("i32"));
+    fifoTypeCombo->addItem(QStringLiteral("i64"));
+    fifoTypeCombo->addItem(QStringLiteral("ui8"));
+    fifoTypeCombo->addItem(QStringLiteral("ui16"));
+    fifoTypeCombo->addItem(QStringLiteral("ui32"));
+    fifoTypeCombo->addItem(QStringLiteral("bf16"));
+    fifoTypeCombo->addItem(QStringLiteral("f16"));
+    fifoTypeCombo->addItem(QStringLiteral("f32"));
+    fifoTypeCombo->addItem(QStringLiteral("f64"));
     auto* fifoDimensionsEdit = new QLineEdit(fifoGroup);
     fifoDimensionsEdit->setObjectName(QStringLiteral("AiePropertiesField"));
 
@@ -974,6 +982,35 @@ void AiePropertiesPanel::buildUi()
     m_armWireGroup = armWireGroup;
     m_armFifoEdit  = armFifoEdit;
 
+    // --- Direct DDR Wire group (DDR↔SHIM without a hub) ---
+    auto* directDdrWireGroup = new QGroupBox(QStringLiteral("Direct DDR Wire"), fieldsHost);
+    directDdrWireGroup->setObjectName(QStringLiteral("AiePropertiesSectionCard"));
+    auto* directDdrWireForm = new QFormLayout(directDdrWireGroup);
+    directDdrWireForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+    directDdrWireForm->setContentsMargins(12, 12, 12, 12);
+    directDdrWireForm->setHorizontalSpacing(10);
+    directDdrWireForm->setVerticalSpacing(8);
+    directDdrWireForm->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    auto* directDdrParamValue = new QLabel(directDdrWireGroup);
+    directDdrParamValue->setObjectName(QStringLiteral("AiePropertiesValueLabel"));
+    directDdrParamValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto* directDdrFifoEdit = new QLineEdit(directDdrWireGroup);
+    directDdrFifoEdit->setObjectName(QStringLiteral("AiePropertiesField"));
+    directDdrFifoEdit->setPlaceholderText(QStringLiteral("e.g. weights_col0_fifo"));
+    {
+        auto* lbl = new QLabel(QStringLiteral("Buffer"), directDdrWireGroup);
+        lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+        directDdrWireForm->addRow(lbl, directDdrParamValue);
+    }
+    {
+        auto* lbl = new QLabel(QStringLiteral("Target FIFO"), directDdrWireGroup);
+        lbl->setObjectName(QStringLiteral("AiePropertiesKeyLabel"));
+        directDdrWireForm->addRow(lbl, directDdrFifoEdit);
+    }
+    m_directDdrWireGroup  = directDdrWireGroup;
+    m_directDdrParamValue = directDdrParamValue;
+    m_directDdrFifoEdit   = directDdrFifoEdit;
+
     // --- Core Function group (compute kernel tiles only) ---
     auto* coreFnGroup = new QGroupBox(QStringLiteral("Core Function"), fieldsHost);
     coreFnGroup->setObjectName(QStringLiteral("AiePropertiesSectionCard"));
@@ -1103,6 +1140,7 @@ void AiePropertiesPanel::buildUi()
     fieldsLayout->addWidget(ddrGroup);
     fieldsLayout->addWidget(ddrPivotWireGroup);
     fieldsLayout->addWidget(armWireGroup);
+    fieldsLayout->addWidget(directDdrWireGroup);
     fieldsLayout->addWidget(objectFifosGroup);
     fieldsLayout->addStretch(1);
 
@@ -1172,6 +1210,9 @@ void AiePropertiesPanel::buildUi()
 
     connect(armFifoEdit, &QLineEdit::editingFinished,
             this, &AiePropertiesPanel::applyArmWireEntry);
+
+    connect(directDdrFifoEdit, &QLineEdit::editingFinished,
+            this, &AiePropertiesPanel::applyDirectDdrFifo);
 
     connect(coreFnModeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &AiePropertiesPanel::applyCoreFunctionBody);
@@ -1515,13 +1556,14 @@ void AiePropertiesPanel::showSelectionState(SelectionKind kind,
         m_detailLabel->setText(detail);
     }
 
-    const bool showTile         = (kind == SelectionKind::Tile);
-    const bool showHubPivot     = (kind == SelectionKind::HubPivotWire);
-    const bool showFifo         = (kind == SelectionKind::FifoWire);
+    const bool showTile           = (kind == SelectionKind::Tile);
+    const bool showHubPivot       = (kind == SelectionKind::HubPivotWire);
+    const bool showFifo           = (kind == SelectionKind::FifoWire);
     const bool showDdrTransferHub = (kind == SelectionKind::DdrTransferHub);
-    const bool showDdr          = (kind == SelectionKind::DdrBlock);
-    const bool showDdrPivot     = (kind == SelectionKind::DdrPivotWire);
-    const bool showArmWire      = (kind == SelectionKind::ArmWire);
+    const bool showDdr            = (kind == SelectionKind::DdrBlock);
+    const bool showDdrPivot       = (kind == SelectionKind::DdrPivotWire);
+    const bool showArmWire        = (kind == SelectionKind::ArmWire);
+    const bool showDirectDdrWire  = (kind == SelectionKind::DirectDdrWire);
     if (m_objectFifosGroup) {
         const bool showObjectFifos = (m_canvasHost && m_canvasHost->canvasActive() && m_document) &&
                                      (kind != SelectionKind::Tile && kind != SelectionKind::DdrBlock);
@@ -1545,6 +1587,8 @@ void AiePropertiesPanel::showSelectionState(SelectionKind kind,
         m_ddrPivotWireGroup->setVisible(showDdrPivot);
     if (m_armWireGroup)
         m_armWireGroup->setVisible(showArmWire);
+    if (m_directDdrWireGroup)
+        m_directDdrWireGroup->setVisible(showDirectDdrWire);
 }
 
 // Returns the first FIFO wire whose endpoint A or B is attached to blockId.
@@ -1847,6 +1891,29 @@ void AiePropertiesPanel::refreshSelection()
                                    QStringLiteral("Type the target FIFO name."));
                 return;
             }
+            // Direct DDR wire: one endpoint DDR, other is not a hub (e.g. SHIM tile).
+            if (aIsDdr || bIsDdr) {
+                m_directDdrWireId = wire->id();
+                m_updatingUi = true;
+                if (m_directDdrParamValue) {
+                    const bool isFill = !wire->hasFillDrain() || wire->fillDrain()->isFill;
+                    const QString paramName = wire->hasFillDrain()
+                        ? wire->fillDrain()->paramName : QString{};
+                    const QString prefix = isFill ? QStringLiteral("Input") : QStringLiteral("Output");
+                    m_directDdrParamValue->setText(
+                        paramName.isEmpty() ? QStringLiteral("(unnamed)") : prefix + QStringLiteral(": ") + paramName);
+                }
+                if (m_directDdrFifoEdit) {
+                    const QString cur = wire->hasFillDrain()
+                        ? wire->fillDrain()->fifoName : QString{};
+                    m_directDdrFifoEdit->setText(cur);
+                }
+                m_updatingUi = false;
+                showSelectionState(SelectionKind::DirectDdrWire,
+                                   QStringLiteral("Direct DDR wire selected"),
+                                   QStringLiteral("Type the target FIFO name for fill/drain routing."));
+                return;
+            }
             showSelectionState(SelectionKind::Unsupported,
                                QStringLiteral("Wire selected"),
                                QStringLiteral("Only FIFO annotation wires are editable in this panel."));
@@ -1967,9 +2034,16 @@ void AiePropertiesPanel::refreshSelection()
         if (m_fifoDepthSpin)
             m_fifoDepthSpin->setValue(fifo.depth);
 
-        // Symbol combo
+        // Symbol combo — repopulate from metadata on every selection so newly
+        // added TypeAbstraction entries appear without restarting the app.
         const QString currentSymbol = fifo.type.symbolRef.value_or(QString{});
         if (m_fifoSymbolCombo) {
+            m_fifoSymbolCombo->clear();
+            m_fifoSymbolCombo->addItem(QStringLiteral("None"));
+            const QJsonObject metadata = m_canvasDocuments
+                ? m_canvasDocuments->activeMetadata() : QJsonObject{};
+            for (const FifoTypeOption& opt : fifoTypeOptionsFromMetadata(metadata))
+                m_fifoSymbolCombo->addItem(opt.name, opt.id);
             const int symIdx = currentSymbol.isEmpty() ? 0 : m_fifoSymbolCombo->findText(currentSymbol);
             m_fifoSymbolCombo->setCurrentIndex(symIdx >= 0 ? symIdx : 0);
         }
@@ -2347,7 +2421,8 @@ void AiePropertiesPanel::applyCoreFunctionBody()
         cfg.bodyStmtsJson      = m_coreFnEditor->toJson();
         cfg.sharedFunctionName = existingSharedName;
 
-        // If this tile owns a shared function, auto-update the library entry.
+        // If this tile owns a shared function, auto-update the library entry and
+        // refresh fn_args on every consumer tile so their tables stay in sync.
         if (!existingSharedName.isEmpty() && m_canvasDocuments
             && m_canvasDocuments->hasOpenDocument()) {
             QJsonObject metadata = m_canvasDocuments->activeMetadata();
@@ -2362,6 +2437,20 @@ void AiePropertiesPanel::applyCoreFunctionBody()
             }
             metadata.insert(kCoreFunctionLibraryKey, library);
             m_canvasDocuments->updateActiveMetadata(metadata);
+
+            // Re-populate fn_args for all consumer tiles that reference this shared function.
+            using Mode = Canvas::CanvasBlock::CoreFunctionConfig::Mode;
+            for (const auto& item : m_document->items()) {
+                auto* consumerBlk = dynamic_cast<Canvas::CanvasBlock*>(item.get());
+                if (!consumerBlk || !consumerBlk->hasCoreFunctionConfig())
+                    continue;
+                const auto& consumerCfg = consumerBlk->coreFunctionConfig();
+                if (consumerCfg->mode == Mode::SharedRef
+                        && consumerCfg->sharedFunctionName == existingSharedName) {
+                    consumerBlk->clearCoreBodyArgs();
+                    autoPopulateArgList(consumerBlk);
+                }
+            }
         }
     } else if (isSharedRef) {
         cfg.mode = Mode::SharedRef;
@@ -2460,7 +2549,11 @@ void AiePropertiesPanel::applySharedFunctionSelection()
             : QStringLiteral("Shared Function: ") + name);
     }
 
-    m_document->notifyChanged();
+    // Clear stale fn_args from any previous assignment and auto-populate
+    // from the new shared function's parameter list so the table updates
+    // immediately without the user having to click Clear.
+    block->clearCoreBodyArgs();
+    autoPopulateArgList(block);  // saves + notifies
 }
 
 void AiePropertiesPanel::saveCoreFunctionAsShared()
@@ -3234,6 +3327,46 @@ void AiePropertiesPanel::applyArmWireEntry()
     fd.fifoName = typed;
 
     armWire->setFillDrain(fd);
+
+    m_updatingUi = true;
+    m_document->notifyChanged();
+    m_updatingUi = false;
+}
+
+void AiePropertiesPanel::applyDirectDdrFifo()
+{
+    if (m_updatingUi || !m_document || !m_directDdrFifoEdit || m_directDdrWireId.isNull())
+        return;
+
+    auto* wire = dynamic_cast<Canvas::CanvasWire*>(m_document->findItem(m_directDdrWireId));
+    if (!wire)
+        return;
+
+    const QString typed = m_directDdrFifoEdit->text().trimmed();
+
+    Canvas::CanvasWire::FillDrainConfig fd;
+    if (wire->hasFillDrain()) {
+        fd = wire->fillDrain().value();
+    } else {
+        // Infer isFill from SHIM port role: Consumer port means DDR→SHIM (fill).
+        bool isFill = true;
+        for (const Canvas::CanvasWire::Endpoint* ep : {&wire->a(), &wire->b()}) {
+            if (!ep->attached.has_value()) continue;
+            auto* blk = dynamic_cast<Canvas::CanvasBlock*>(m_document->findItem(ep->attached->itemId));
+            if (!blk || blk->specId().trimmed() == QStringLiteral("ddr")) continue;
+            for (const auto& port : blk->ports()) {
+                if (port.id == ep->attached->portId) {
+                    isFill = (port.role == Canvas::PortRole::Consumer);
+                    break;
+                }
+            }
+            break;
+        }
+        fd.isFill = isFill;
+    }
+    fd.fifoName = typed;
+
+    wire->setFillDrain(fd);
 
     m_updatingUi = true;
     m_document->notifyChanged();

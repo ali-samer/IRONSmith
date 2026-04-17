@@ -65,6 +65,7 @@ private:
         DdrBlock,
         DdrPivotWire,
         ArmWire,
+        DirectDdrWire,
         Unsupported
     };
 
@@ -112,6 +113,7 @@ private:
     void applyDdrTap();
     void applyDdrPivotParam();
     void applyArmWireEntry();
+    void applyDirectDdrFifo();
 
     void populateFifoSymbolCombo();
     Canvas::CanvasWire* selectedDdrTransferWire() const;
@@ -187,6 +189,11 @@ private:
 
     QPointer<QGroupBox>      m_armWireGroup;
     QPointer<QLineEdit>      m_armFifoEdit;   // typed FIFO name for arm wire
+
+    QPointer<QGroupBox>      m_directDdrWireGroup;
+    QPointer<QLabel>         m_directDdrParamValue; // read-only display of paramName (Input/Output)
+    QPointer<QLineEdit>      m_directDdrFifoEdit;   // target FIFO name for direct DDR↔SHIM wire
+    Canvas::ObjectId         m_directDdrWireId{};
 
     QPointer<QGroupBox>       m_coreFnGroup;
     QPointer<QComboBox>       m_coreFnModeCombo;

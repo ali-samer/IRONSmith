@@ -217,14 +217,24 @@ QString objectFifoAnnotationText(const CanvasWire::ObjectFifoConfig& config, boo
 
 QString fillDrainAnnotationText(const CanvasWire::FillDrainConfig& config, bool compact)
 {
-    const QString prefix = config.isFill ? QStringLiteral("Input") : QStringLiteral("Output");
-    const QString name   = config.paramName.trimmed().isEmpty() ? QStringLiteral("buf") : config.paramName;
-    if (compact)
-        return prefix + QStringLiteral(": ") + name;
+    const QString prefix    = config.isFill ? QStringLiteral("Input") : QStringLiteral("Output");
+    const QString name      = config.paramName.trimmed().isEmpty() ? QStringLiteral("buf") : config.paramName;
+    const QString fifoLabel = config.isFill ? QStringLiteral("FILL") : QStringLiteral("DRAIN");
+    const QString fifo      = config.fifoName.trimmed();
+
+    if (compact) {
+        QString text = prefix + QStringLiteral(": ") + name;
+        if (!fifo.isEmpty())
+            text += QStringLiteral(", ") + fifoLabel + QStringLiteral(": ") + fifo;
+        return text;
+    }
     const QString dims = config.totalDims.trimmed();
-    if (dims.isEmpty())
-        return prefix + QStringLiteral(": ") + name;
-    return prefix + QStringLiteral(": %1, D:%2").arg(name, dims);
+    QString text = prefix + QStringLiteral(": ") + name;
+    if (!dims.isEmpty())
+        text += QStringLiteral(", D:") + dims;
+    if (!fifo.isEmpty())
+        text += QStringLiteral(", ") + fifoLabel + QStringLiteral(": ") + fifo;
+    return text;
 }
 
 bool isDdrSpecId(const QString& specId)
@@ -766,8 +776,19 @@ QString CanvasWire::annotationText(AnnotationDetail detail, const CanvasRenderCo
     if (m_fillDrain.has_value())
         return fillDrainAnnotationText(*m_fillDrain, detail == AnnotationDetail::Compact);
 
-    if (m_objectFifo.has_value())
-        return objectFifoAnnotationText(*m_objectFifo, detail == AnnotationDetail::Compact);
+    if (m_objectFifo.has_value()) {
+        // BCAST pivot wire: if the source FIFO is already a join target in this
+        // document, the broadcast is redundant — show only "BCAST: {fifoName}"
+        // (no hub name) to signal the reduced role.  Valid broadcasts keep the
+        // full "BCAST: {hubName}, {fifoName}" format.
+        const auto& of = *m_objectFifo;
+        if (of.operation == ObjectFifoOperation::Forward
+                && !of.hubName.trimmed().isEmpty()
+                && ctx.joinTargetFifoNames.contains(of.name.trimmed()))
+            return QStringLiteral("BCAST: ") + of.name.trimmed();
+
+        return objectFifoAnnotationText(of, detail == AnnotationDetail::Compact);
+    }
 
     if (const QString legacyDdrLabel = legacyDdrAnnotationText(m_a, m_b, ctx);
         !legacyDdrLabel.isEmpty())
