@@ -1,0 +1,21 @@
+## License
+
+IRONSmith is licensed under the **GNU General Public License v3.0**.
+
+This project uses open-source third-party software, including **Qt** and **QScintilla**.  
+Qt is used under its open-source licensing terms, and QScintilla is used under the **GNU GPL v3**.
+
+Because IRONSmith links against QScintilla, distributions of this project must comply with the terms of the **GPL-3.0** license.
+
+A copy of the full license text is provided in the [`LICENSE`](./LICENSE) file.
+
+## Third-Party Dependencies
+
+IRONSmith depends on third-party libraries and frameworks, including:
+
+- **Qt**
+- **QScintilla**
+- **nlohmann_json**
+- **GoogleTest / GMock** (for testing, when enabled)
+
+Please review the licenses of these dependencies before redistribution. Where required, preserve copyright notices, license texts, and attribution information.
