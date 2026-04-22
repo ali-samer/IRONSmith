@@ -2,17 +2,22 @@
 
 **IRONSmith** is an interactive **GUI-based design application** that allows developers, students, and performance engineers to visually construct and simulate **AMD AI Engine (AIE) / Ryzen AI NPU** programs using the [IRON](https://github.com/Xilinx/mlir-aie) framework.
 
-![IRONSmith](misc/IRONSmith_Canvas.png)
+![IRONSmith](misc/canvas_preview.png)
 
 ---
 
 ### Code Editing Area
-![IRONSmith](misc/IRONSmith_CodeEditor.png)
+![IRONSmith](misc/IRONSmith_codeeditor_pe.png)
 
 ---
 
 ### Kernels Catalog With Preview
-![IRONSmith](misc/IRONSmith_KernelsCatalog.png)
+![IRONSmith](misc/kernel_preview.png)
+
+---
+
+### Messages Panel
+![IRONSmith](misc/log_panel.png)
 
 ---
 
