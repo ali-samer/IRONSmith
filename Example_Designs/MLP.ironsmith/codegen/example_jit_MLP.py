@@ -119,12 +119,12 @@ def mlp_4col_jit(input_activation, weight_layer0, weight_layer1, weight_layer2, 
         out0.release(1)
 
     def core_shared_matmul_softmax(zero, matmul, softmax, in0, in1, out0):
-        buf_in0 = in0.acquire(1)
-        buf_in1 = in1.acquire(1)
+        buf_in0  = in0.acquire(1)
+        buf_in1  = in1.acquire(1)
         buf_out0 = out0.acquire(1)
         zero(buf_out0)
         matmul(buf_in0, buf_in1, buf_out0)
-        i32 = IntegerType.get_signless(32)
+        i32  = IntegerType.get_signless(32)
         size = arith.ConstantOp(i32, IntegerAttr.get(i32, tile_elements)).result
         softmax(buf_out0, buf_out0, size)
         in0.release(1)
