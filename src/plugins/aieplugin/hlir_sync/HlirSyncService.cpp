@@ -369,6 +369,11 @@ void HlirSyncService::syncCanvas()
         if (!wire)
             continue;
 
+        // Forward-operation wires are processed in syncSplitsAndJoins, not as standalone FIFOs.
+        if (wire->hasObjectFifo() &&
+            wire->objectFifo().value().operation == Canvas::CanvasWire::ObjectFifoOperation::Forward)
+            continue;
+
         const auto& epA = wire->a();
         const auto& epB = wire->b();
         if (!epA.attached.has_value() || !epB.attached.has_value())
@@ -988,6 +993,68 @@ void HlirSyncService::syncSplitsAndJoins()
             } else {
                 qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync join" << joinName;
             }
+        }
+    }
+
+    // Handle direct forward wires: operation == Forward, both endpoints are tile blocks (no hub block).
+    // These represent a single-output forward: fwdName = srcFifo.cons().forward(placement=Tile(...))
+    for (const auto& item : items) {
+        auto* wire = dynamic_cast<Canvas::CanvasWire*>(item.get());
+        if (!wire || !wire->hasObjectFifo())
+            continue;
+        const auto& fifo = wire->objectFifo().value();
+        if (fifo.operation != Canvas::CanvasWire::ObjectFifoOperation::Forward)
+            continue;
+        const QString fwdName = fifo.hubName.trimmed();
+        if (fwdName.isEmpty())
+            continue;
+
+        const auto& epA = wire->a();
+        const auto& epB = wire->b();
+        if (!epA.attached.has_value() || !epB.attached.has_value())
+            continue;
+
+        auto* blockA = dynamic_cast<Canvas::CanvasBlock*>(m_document->findItem(epA.attached->itemId));
+        auto* blockB = dynamic_cast<Canvas::CanvasBlock*>(m_document->findItem(epB.attached->itemId));
+        // Skip wires connected to a hub block — those are already handled by the hub block pass above.
+        if (!blockA || !blockB || blockA->isLinkHub() || blockB->isLinkHub())
+            continue;
+        if (blockA->specId().isEmpty() || blockB->specId().isEmpty())
+            continue;
+
+        const QString srcPreferred = fifo.name.trimmed();
+        const FifoInfo* srcFifo = pickFifo(consumerBlockFifos.value(blockA->id()), srcPreferred);
+        if (!srcFifo || srcFifo->fifoId.empty()) {
+            qCWarning(hlirSyncLog) << "HlirSyncService: direct forward '" << fwdName
+                                   << "' has no source FIFO for tile" << blockA->specId();
+            continue;
+        }
+
+        // Propagate resolved name/type back to the wire annotation.
+        {
+            Canvas::CanvasWire::ObjectFifoConfig cfg = fifo;
+            cfg.name              = srcFifo->baseName;
+            cfg.depth             = srcFifo->depth;
+            cfg.type.valueType    = srcFifo->valueType;
+            cfg.type.dimensions   = srcFifo->dimensions;
+            wire->setObjectFifo(cfg);
+        }
+
+        const hlir::ComponentId existingId = m_splitJoinMap.value(wire->id());
+        const std::map<std::string, std::string> metadata = {
+            {"placement", blockA->specId().toStdString()}
+        };
+
+        auto result = m_bridge->addFifoForward(
+            fwdName.toStdString(),
+            srcFifo->fifoId,
+            existingId,
+            metadata);
+
+        if (result) {
+            m_splitJoinMap[wire->id()] = result.value();
+        } else {
+            qCWarning(hlirSyncLog) << "HlirSyncService: failed to sync direct forward" << fwdName;
         }
     }
 }
@@ -1834,6 +1901,16 @@ void HlirSyncService::buildWorkers()
                             ? wire->objectFifo().value().name.trimmed() : QString();
                         inputs.append({hlir::HlirBridge::FunctionArg::fifoConsumer(fifoId, 0),
                                        typeIdForWire(wire), fifoName});
+                    } else if (wire->hasObjectFifo() &&
+                               wire->objectFifo().value().operation ==
+                                   Canvas::CanvasWire::ObjectFifoOperation::Forward) {
+                        // Direct forward wire: tile is consumer of the forward result.
+                        const hlir::ComponentId fwdId = m_splitJoinMap.value(wire->id());
+                        if (!fwdId.empty()) {
+                            const QString fwdName = wire->objectFifo().value().hubName.trimmed();
+                            inputs.append({hlir::HlirBridge::FunctionArg::forwardConsumer(fwdId),
+                                           typeIdForWire(wire), fwdName});
+                        }
                     }
                 } else {
                     // Arm wire with hub at A — direction depends on hub port role.

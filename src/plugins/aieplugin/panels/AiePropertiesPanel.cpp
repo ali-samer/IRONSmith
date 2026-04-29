@@ -2906,7 +2906,7 @@ void AiePropertiesPanel::applyFifoAnnotation()
             for (const auto& sym : m_symbolsController->symbols()) {
                 if (sym.name == symName && sym.kind == SymbolKind::TypeAbstraction) {
                     config.type.dimensions = sym.type.shapeTokens.join(u'x');
-                    config.type.valueType  = sym.type.dtype;
+                    config.type.valueType  = canonicalObjectFifoValueType(sym.type.dtype);
                     break;
                 }
             }
