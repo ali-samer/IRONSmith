@@ -320,6 +320,18 @@ void HlirSyncService::syncCanvas()
         }
     }
 
+    // Re-add LayoutDims symbols as list constants so they are emitted verbatim in generated code.
+    if (m_symbolsController) {
+        for (const auto& sym : m_symbolsController->symbols()) {
+            if (sym.kind != SymbolKind::LayoutDims || sym.name.isEmpty())
+                continue;
+            const QString pyExpr = layoutDimsPythonExpr(sym.layoutDims);
+            const auto res = m_bridge->addConstant(sym.name.toStdString(), pyExpr.toStdString(), "list");
+            if (res)
+                m_constantMap[sym.name] = res.value();
+        }
+    }
+
     // Tiles are not rebuilt every sync — only remove ones that are no longer on the canvas.
     for (auto it = m_tileMap.begin(); it != m_tileMap.end(); ) {
         if (!currentIds.contains(it.key())) {
@@ -501,13 +513,36 @@ void HlirSyncService::syncSplitsAndJoins()
     QHash<Canvas::ObjectId, QList<FifoInfo>> producerBlockFifos; // tile → all FIFOs produced
 
     // Compute total element count from "1024" → 1024, "32x4" → 128, "" → 1024 (data_ty default).
-    auto elementCountFromDims = [](const QString& dims) -> int {
+    // Evaluate a single token (integer literal, constant name, or "A * B" expression).
+    auto evalToken = [&constantsMap](const QString& raw) -> qint64 {
+        const QString t = raw.trimmed();
+        bool ok = false;
+        qint64 v = t.toLongLong(&ok);
+        if (ok)
+            return v;
+        if (constantsMap.contains(t))
+            return constantsMap.value(t);
+        // Simple product expression: "A * B * ..."
+        if (t.contains(u'*')) {
+            qint64 product = 1;
+            for (const QString& part : t.split(u'*')) {
+                const QString p = part.trimmed();
+                bool ok2 = false;
+                qint64 pv = p.toLongLong(&ok2);
+                if (!ok2) pv = constantsMap.value(p, 0);
+                product *= pv;
+            }
+            return product;
+        }
+        return 0;
+    };
+    auto elementCountFromDims = [&evalToken](const QString& dims) -> int {
         if (dims.isEmpty())
             return 1024;
-        int count = 1;
+        qint64 count = 1;
         for (const QString& d : dims.split(u'x', Qt::SkipEmptyParts))
-            count *= d.trimmed().toInt();
-        return count;
+            count *= evalToken(d);
+        return count > 0 ? static_cast<int>(count) : 1024;
     };
 
     for (const auto& item : items) {
@@ -711,9 +746,12 @@ void HlirSyncService::syncSplitsAndJoins()
                 {"placement", pivotBlock->specId().toStdString()}
             };
 
+            const auto& pivotFifo = pivotWire->objectFifo().value();
             auto result = m_bridge->addFifoForward(
                 bcastName.toStdString(),
                 srcFifo->fifoId,
+                pivotFifo.dimsFromStream.toStdString(),
+                pivotFifo.dimsToStream.toStdString(),
                 existingId,
                 metadata);
 
@@ -832,24 +870,60 @@ void HlirSyncService::syncSplitsAndJoins()
 
             const int numOut = static_cast<int>(outputNames.size());
             const int stride = srcFifo->elementCount / numOut;
-            const hlir::ComponentId branchTypeId =
-                ensureTensorType(QString::number(stride), srcFifo->valueType);
+
+            // Branch type: prefer user-specified symbol; fall back to auto-computed flat type.
+            const QString splitPivotBranchSym = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().branchTypeSymbol.trimmed() : QString();
+            hlir::ComponentId branchTypeId;
+            QString branchDims = QString::number(stride);
+            if (!splitPivotBranchSym.isEmpty()) {
+                if (m_symbolsController) {
+                    for (const auto& sym : m_symbolsController->symbols()) {
+                        if (sym.name == splitPivotBranchSym
+                                && sym.kind == SymbolKind::TypeAbstraction) {
+                            Canvas::CanvasWire::ObjectFifoTypeAbstraction typeAbs;
+                            typeAbs.symbolRef  = splitPivotBranchSym;
+                            typeAbs.dimensions = sym.type.shapeTokens.join(u'x');
+                            typeAbs.valueType  = sym.type.dtype;
+                            const auto resolved = resolveType(typeAbs, constantsMap);
+                            branchDims = resolved.dimensions;
+                            branchTypeId = ensureNamedTensorType(
+                                splitPivotBranchSym, resolved.dimensions,
+                                normalizeValueType(resolved.valueType));
+                            break;
+                        }
+                    }
+                }
+            }
+            if (branchTypeId.empty())
+                branchTypeId = ensureTensorType(branchDims, srcFifo->valueType);
+
+            // Offsets: prefer user-specified comma-separated list; fall back to auto-computed.
+            const QString splitOffsetsOverride = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().offsetsOverride.trimmed() : QString();
             std::vector<int> offsets;
             offsets.reserve(numOut);
-            for (int i = 0; i < numOut; ++i)
-                offsets.push_back(stride * i);
+            if (!splitOffsetsOverride.isEmpty()) {
+                for (const QString& tok : splitOffsetsOverride.split(u',', Qt::SkipEmptyParts))
+                    offsets.push_back(static_cast<int>(evalToken(tok)));
+            } else {
+                for (int i = 0; i < numOut; ++i)
+                    offsets.push_back(stride * i);
+            }
 
-            // Propagate resolved arm type (valueType + per-arm element count) to every arm wire
-            // so that buildFifoTypeMap() sees the correct type during verification.
+            // Propagate resolved arm type to every arm wire for verification.
             for (const auto& port : hubBlock->ports()) {
                 if (port.role != Canvas::PortRole::Producer) continue;
                 auto* armWire = portToArmWire.value(port.id, nullptr);
                 if (!armWire || !armWire->hasObjectFifo()) continue;
                 Canvas::CanvasWire::ObjectFifoConfig cfg = armWire->objectFifo().value();
                 cfg.type.valueType  = srcFifo->valueType;
-                cfg.type.dimensions = QString::number(stride);
+                cfg.type.dimensions = branchDims;
                 armWire->setObjectFifo(cfg);
             }
+
+            const QString splitDimsToStream = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().dimsToStream.trimmed() : QString();
 
             auto result = m_bridge->addFifoSplit(
                 splitName.toStdString(),
@@ -859,6 +933,7 @@ void HlirSyncService::syncSplitsAndJoins()
                 outputNames,
                 offsets,
                 placementTileId,
+                splitDimsToStream.toStdString(),
                 existingId);
 
             if (result) {
@@ -958,24 +1033,60 @@ void HlirSyncService::syncSplitsAndJoins()
 
             const int numIn = static_cast<int>(inputNames.size());
             const int stride = dstFifo->elementCount / numIn;
-            const hlir::ComponentId branchTypeId =
-                ensureTensorType(QString::number(stride), dstFifo->valueType);
+
+            // Branch type: prefer user-specified symbol; fall back to auto-computed flat type.
+            const QString joinPivotBranchSym = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().branchTypeSymbol.trimmed() : QString();
+            hlir::ComponentId branchTypeId;
+            QString branchDims = QString::number(stride);
+            if (!joinPivotBranchSym.isEmpty()) {
+                if (m_symbolsController) {
+                    for (const auto& sym : m_symbolsController->symbols()) {
+                        if (sym.name == joinPivotBranchSym
+                                && sym.kind == SymbolKind::TypeAbstraction) {
+                            Canvas::CanvasWire::ObjectFifoTypeAbstraction typeAbs;
+                            typeAbs.symbolRef  = joinPivotBranchSym;
+                            typeAbs.dimensions = sym.type.shapeTokens.join(u'x');
+                            typeAbs.valueType  = sym.type.dtype;
+                            const auto resolved = resolveType(typeAbs, constantsMap);
+                            branchDims = resolved.dimensions;
+                            branchTypeId = ensureNamedTensorType(
+                                joinPivotBranchSym, resolved.dimensions,
+                                normalizeValueType(resolved.valueType));
+                            break;
+                        }
+                    }
+                }
+            }
+            if (branchTypeId.empty())
+                branchTypeId = ensureTensorType(branchDims, dstFifo->valueType);
+
+            // Offsets: prefer user-specified comma-separated list; fall back to auto-computed.
+            const QString joinOffsetsOverride = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().offsetsOverride.trimmed() : QString();
             std::vector<int> offsets;
             offsets.reserve(numIn);
-            for (int i = 0; i < numIn; ++i)
-                offsets.push_back(stride * i);
+            if (!joinOffsetsOverride.isEmpty()) {
+                for (const QString& tok : joinOffsetsOverride.split(u',', Qt::SkipEmptyParts))
+                    offsets.push_back(static_cast<int>(evalToken(tok)));
+            } else {
+                for (int i = 0; i < numIn; ++i)
+                    offsets.push_back(stride * i);
+            }
 
-            // Propagate resolved arm type (valueType + per-arm element count) to every arm wire
-            // so that buildFifoTypeMap() sees the correct type during verification.
+            // Propagate resolved arm type to every arm wire for verification.
             for (const auto& port : hubBlock->ports()) {
                 if (port.role != Canvas::PortRole::Consumer) continue;
                 auto* armWire = portToArmWire.value(port.id, nullptr);
                 if (!armWire || !armWire->hasObjectFifo()) continue;
                 Canvas::CanvasWire::ObjectFifoConfig cfg = armWire->objectFifo().value();
                 cfg.type.valueType  = dstFifo->valueType;
-                cfg.type.dimensions = QString::number(stride);
+                cfg.type.dimensions = branchDims;
                 armWire->setObjectFifo(cfg);
             }
+
+            const QString joinDimsFromStream = pivotWire->hasObjectFifo()
+                ? pivotWire->objectFifo().value().dimsFromStream.trimmed() : QString();
 
             auto result = m_bridge->addFifoJoin(
                 joinName.toStdString(),
@@ -985,6 +1096,7 @@ void HlirSyncService::syncSplitsAndJoins()
                 inputNames,
                 offsets,
                 placementTileId,
+                joinDimsFromStream.toStdString(),
                 existingId);
 
             if (result) {
@@ -1048,6 +1160,8 @@ void HlirSyncService::syncSplitsAndJoins()
         auto result = m_bridge->addFifoForward(
             fwdName.toStdString(),
             srcFifo->fifoId,
+            fifo.dimsFromStream.toStdString(),
+            fifo.dimsToStream.toStdString(),
             existingId,
             metadata);
 
@@ -1637,6 +1751,12 @@ hlir::ComponentId HlirSyncService::ensureTap(
 
     const auto& diags = result.error();
     if (!diags.empty()) {
+        // If the TAP already exists, recover its existing ID rather than failing.
+        if (diags[0].code == hlir::ErrorCode::DUPLICATE_NAME && !diags[0].entityId.empty()) {
+            const hlir::ComponentId existingId{diags[0].entityId};
+            m_tilerMap[name] = existingId;
+            return existingId;
+        }
         qCWarning(hlirSyncLog) << "HlirSyncService: could not register TAP" << name
                                << ":" << QString::fromStdString(diags[0].message);
     } else {
@@ -2452,6 +2572,7 @@ void HlirSyncService::buildRuntime()
             hlir::ComponentId   fifoId;
             hlir::ComponentId   shimTileId;
             Canvas::CanvasWire* fifoWire = nullptr; // SHIM→compute FIFO wire
+            Canvas::CanvasWire* armWire  = nullptr; // hub↔SHIM wire (carries tapSymbolRef)
             int                 armIndex = 0;
         };
         QList<ArmEntry> arms;
@@ -2655,7 +2776,7 @@ void HlirSyncService::buildRuntime()
             if (fifoId.empty())
                 continue;
 
-            grp.arms.append({fifoId, shimId, fifoWire, armIdx++});
+            grp.arms.append({fifoId, shimId, fifoWire, armWire, armIdx++});
         }
     }
 
@@ -2769,10 +2890,16 @@ void HlirSyncService::buildRuntime()
             const std::string armName = grp->paramName + "_arm" + std::to_string(arm.armIndex);
 
             hlir::ComponentId tapId;
-            if (grp->ddrWire && grp->ddrWire->hasFillDrain()) {
+            // Per-arm TAP takes priority (set on the hub↔SHIM arm wire).
+            if (arm.armWire && arm.armWire->hasFillDrain()) {
+                const auto& afd = *arm.armWire->fillDrain();
+                if (afd.tapSymbolRef.has_value() && !afd.tapSymbolRef->isEmpty())
+                    tapId = m_tilerMap.value(*afd.tapSymbolRef);
+            }
+            // Fall back to group-level TAP on the DDR pivot wire.
+            if (tapId.empty() && grp->ddrWire && grp->ddrWire->hasFillDrain()) {
                 const auto& fd = *grp->ddrWire->fillDrain();
                 if (fd.tapSymbolRef.has_value() && !fd.tapSymbolRef->isEmpty()) {
-                    // Symbol-table TAP: already pre-registered in m_tilerMap by ensureTap().
                     tapId = m_tilerMap.value(*fd.tapSymbolRef);
                 } else if (fd.mode == Canvas::CanvasWire::DimensionMode::Matrix
                            && fd.tap.has_value() && !fd.tap->tileDims.isEmpty()) {

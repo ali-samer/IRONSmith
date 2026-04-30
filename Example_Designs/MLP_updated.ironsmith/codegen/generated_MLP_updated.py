@@ -19,22 +19,41 @@ from aie.helpers.taplib import TensorAccessPattern
 
 @iron.jit(is_placed=False)
 def gui_design_jit(Input_A, W, OutputC):
+    # Constants
+    N = 64
+    M = 64
+    K = 64
+    n_tiles = 4
+    M_tile = 16
+    micro_r = 4
+    const = 1
+    micro_s = 8
+    micro_t = 4
+    activation_layout_dims = [(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]
+    weight_layout_dims = [(K // micro_s, micro_s * N), (N // micro_t, micro_t), (micro_s, N), (micro_t, 1)]
+    layout_dims = [(M_tile // micro_r, micro_r * N), (N // micro_t, micro_t), (micro_r, N), (micro_t, 1)]
+
     # Tensor Types
-    output_tile_type = np.ndarray[(16, 64), np.dtype[bfloat16]]
-    type_bfloat16_4096 = np.ndarray[(4096,), np.dtype[bfloat16]]
-    type_bfloat16_1024 = np.ndarray[(1024,), np.dtype[bfloat16]]
+    activation_flat_type = np.ndarray[(M * K,), np.dtype[bfloat16]]
+    weight_all_flat_type = np.ndarray[(4 * K * N,), np.dtype[bfloat16]]
+    output_full_flat_type = np.ndarray[(M * N,), np.dtype[bfloat16]]
+    activation_tile_type = np.ndarray[(M_tile, K), np.dtype[bfloat16]]
+    weight_full_type = np.ndarray[(K, N), np.dtype[bfloat16]]
+    output_full_type = np.ndarray[(M, N), np.dtype[bfloat16]]
+    output_tile_type = np.ndarray[(M_tile, N), np.dtype[bfloat16]]
     type_int32_16x64 = np.ndarray[(16, 64), np.dtype[np.int32]]
+    type_int32_M_tilexN = np.ndarray[(M_tile, N), np.dtype[np.int32]]
     type_bfloat16_64x64 = np.ndarray[(64, 64), np.dtype[bfloat16]]
     type_bfloat16_64x256 = np.ndarray[(64, 256), np.dtype[bfloat16]]
 
     # Data Movement
     # Object Fifos
-    of_inA = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_inA")
-    of_W0 = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_W0")
-    of_W1 = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_W1")
-    of_W2 = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_W2")
-    of_W3 = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_W3")
-    of_outC = ObjectFifo(obj_type=type_bfloat16_4096, depth=2, name="of_outC")
+    of_inA = ObjectFifo(obj_type=activation_flat_type, depth=2, name="of_inA")
+    of_W0 = ObjectFifo(obj_type=weight_full_type, depth=1, name="of_W0")
+    of_W1 = ObjectFifo(obj_type=weight_full_type, depth=1, name="of_W1")
+    of_W2 = ObjectFifo(obj_type=weight_full_type, depth=1, name="of_W2")
+    of_W3 = ObjectFifo(obj_type=weight_full_type, depth=1, name="of_W3")
+    of_outC = ObjectFifo(obj_type=output_full_type, depth=2, name="of_outC")
     h01_0 = ObjectFifo(obj_type=output_tile_type, depth=2, name="h01_0")
     h12_0 = ObjectFifo(obj_type=output_tile_type, depth=2, name="h12_0")
     h23_0 = ObjectFifo(obj_type=output_tile_type, depth=2, name="h23_0")
@@ -48,26 +67,26 @@ def gui_design_jit(Input_A, W, OutputC):
     h12_3 = ObjectFifo(obj_type=output_tile_type, depth=2, name="h12_3")
     h23_3 = ObjectFifo(obj_type=output_tile_type, depth=2, name="h23_3")
     # Splits
-    split_inA = of_inA.cons().split(names=["split_inA_out1", "split_inA_out2", "split_inA_out3", "split_inA_out4"], obj_types=[type_bfloat16_1024, type_bfloat16_1024, type_bfloat16_1024, type_bfloat16_1024], offsets=[0, 1024, 2048, 3072], placement=Tile(0, 1))
+    split_inA = of_inA.cons().split(dims_to_stream=[activation_layout_dims, activation_layout_dims, activation_layout_dims, activation_layout_dims], names=["split_inA_out1", "split_inA_out2", "split_inA_out3", "split_inA_out4"], obj_types=[activation_tile_type, activation_tile_type, activation_tile_type, activation_tile_type], offsets=[0, 1024, 2048, 3072], placement=Tile(0, 1))
     # Joins
-    join1 = of_outC.prod().join(names=["join1_in1", "join1_in2", "join1_in3", "join1_in4"], obj_types=[type_bfloat16_1024, type_bfloat16_1024, type_bfloat16_1024, type_bfloat16_1024], offsets=[0, 1024, 2048, 3072], placement=Tile(0, 1))
+    join1 = of_outC.prod().join(names=["join1_in1", "join1_in2", "join1_in3", "join1_in4"], obj_types=[output_tile_type, output_tile_type, output_tile_type, output_tile_type], offsets=[0, 1024, 2048, 3072], placement=Tile(0, 1))
     # Broadcasts
-    weights_col0_broadcast = of_W0.cons().forward(placement=Tile(0, 1))
-    weights_col1_broadcast = of_W1.cons().forward(placement=Tile(1, 1))
-    weights_col2_broadcast = of_W2.cons().forward(placement=Tile(2, 1))
-    weights_col3_broadcast = of_W3.cons().forward(placement=Tile(3, 1))
-    h01_3_fwd = h01_3.cons().forward(placement=Tile(1, 1))
-    h01_2_fwd = h01_2.cons().forward(placement=Tile(1, 1))
-    h01_1_fwd = h01_1.cons().forward(placement=Tile(1, 1))
-    h01_0_fwd = h01_0.cons().forward(placement=Tile(1, 1))
-    h12_3_fwd = h12_3.cons().forward(placement=Tile(2, 1))
-    h12_2_fwd = h12_2.cons().forward(placement=Tile(2, 1))
-    h12_1_fwd = h12_1.cons().forward(placement=Tile(2, 1))
-    h12_0_fwd = h12_0.cons().forward(placement=Tile(2, 1))
-    h23_3_fwd = h23_3.cons().forward(placement=Tile(3, 1))
-    h23_2_fwd = h23_2.cons().forward(placement=Tile(3, 1))
-    h23_1_fwd = h23_1.cons().forward(placement=Tile(3, 1))
-    h23_0_fwd = h23_0.cons().forward(placement=Tile(3, 1))
+    weights_col0_broadcast = of_W0.cons().forward(dims_to_stream=weight_layout_dims, placement=Tile(0, 1))
+    weights_col1_broadcast = of_W1.cons().forward(dims_to_stream=weight_layout_dims, placement=Tile(1, 1))
+    weights_col2_broadcast = of_W2.cons().forward(dims_to_stream=weight_layout_dims, placement=Tile(2, 1))
+    weights_col3_broadcast = of_W3.cons().forward(dims_to_stream=weight_layout_dims, placement=Tile(3, 1))
+    h01_3_fwd = h01_3.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(1, 1))
+    h01_2_fwd = h01_2.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(1, 1))
+    h01_1_fwd = h01_1.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(1, 1))
+    h01_0_fwd = h01_0.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(1, 1))
+    h12_3_fwd = h12_3.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(2, 1))
+    h12_2_fwd = h12_2.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(2, 1))
+    h12_1_fwd = h12_1.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(2, 1))
+    h12_0_fwd = h12_0.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(2, 1))
+    h23_3_fwd = h23_3.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(3, 1))
+    h23_2_fwd = h23_2.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(3, 1))
+    h23_1_fwd = h23_1.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(3, 1))
+    h23_0_fwd = h23_0.cons(dims_from_stream=layout_dims).forward(dims_to_stream=activation_layout_dims, placement=Tile(3, 1))
 
     # Compute Kernels
     build_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build")
@@ -127,6 +146,14 @@ def gui_design_jit(Input_A, W, OutputC):
 
     Workers = [worker_aie0_2, worker_aie1_2, worker_aie2_2, worker_aie3_2, worker_aie0_3, worker_aie1_3, worker_aie2_3, worker_aie3_3, worker_aie0_4, worker_aie1_4, worker_aie2_4, worker_aie3_4, worker_aie0_5, worker_aie1_5, worker_aie2_5, worker_aie3_5]
 
+    # Tensor Access Patterns (TAPs)
+    tap_act = TensorAccessPattern((1, 4096,), offset=0, sizes=[1, 4096], strides=[4096, 1])
+    tap_out = TensorAccessPattern((1, 4096,), offset=0, sizes=[1, 4096], strides=[4096, 1])
+    tap_w_0 = TensorAccessPattern((1, 4096,), offset=0, sizes=[1, 4096], strides=[4096, 1])
+    tap_w_1 = TensorAccessPattern((1, 4096,), offset=4096, sizes=[1, 4096], strides=[4096, 1])
+    tap_w_2 = TensorAccessPattern((1, 4096,), offset=8192, sizes=[1, 4096], strides=[4096, 1])
+    tap_w_3 = TensorAccessPattern((1, 4096,), offset=12288, sizes=[1, 4096], strides=[4096, 1])
+
     # Runtime
     rt = Runtime()
     with rt.sequence(type_bfloat16_64x64, type_bfloat16_64x256, type_bfloat16_64x64) as (input_a_in, w_in, outputc_out):
@@ -139,7 +166,7 @@ def gui_design_jit(Input_A, W, OutputC):
         rt.fill(of_W2.prod(), w_in, placement=Tile(2, 0))
         rt.fill(of_W3.prod(), w_in, placement=Tile(3, 0))
         # Drains
-        rt.drain(of_outC.cons(), outputc_out, wait=True, placement=Tile(3, 0))
+        rt.drain(of_outC.cons(), outputc_out, wait=True, placement=Tile(0, 0))
 
     # Program
     my_program = Program(iron.get_current_device(), rt)
@@ -149,6 +176,18 @@ def gui_design_jit(Input_A, W, OutputC):
 
 
 def main():
+    N = 64
+    M = 64
+    K = 64
+    n_tiles = 4
+    M_tile = 16
+    micro_r = 4
+    const = 1
+    micro_s = 8
+    micro_t = 4
+    activation_layout_dims = [(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]
+    weight_layout_dims = [(K // micro_s, micro_s * N), (N // micro_t, micro_t), (micro_s, N), (micro_t, 1)]
+    layout_dims = [(M_tile // micro_r, micro_r * N), (N // micro_t, micro_t), (micro_r, N), (micro_t, 1)]
     Input_A = iron.zeros(64 * 64, dtype=bfloat16, device="npu")
     Input_A.data[:] = np.arange(64 * 64, dtype=bfloat16)
     Input_A._sync_to_device()
