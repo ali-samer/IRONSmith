@@ -27,7 +27,6 @@
     <Const name="n_tiles" type="int">4</Const>
     <Const name="M_tile" type="int">16</Const>
     <Const name="micro_r" type="int">4</Const>
-    <Const name="const" type="int">1</Const>
     <Const name="micro_s" type="int">8</Const>
     <Const name="micro_t" type="int">4</Const>
     <Const name="activation_layout_dims" type="list">[(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]</Const>
@@ -2353,12 +2352,6 @@
         <target>micro_r</target>
         <source>
           <const>4</const>
-        </source>
-      </Assign>
-      <Assign>
-        <target>const</target>
-        <source>
-          <const>1</const>
         </source>
       </Assign>
       <Assign>

@@ -7,7 +7,6 @@
         <Const name="n_tiles" type="int">4</Const>
         <Const name="M_tile" type="int">16</Const>
         <Const name="micro_r" type="int">4</Const>
-        <Const name="const" type="int">1</Const>
         <Const name="micro_s" type="int">8</Const>
         <Const name="micro_t" type="int">4</Const>
         <Const name="activation_layout_dims" type="list">[(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]</Const>
@@ -568,7 +567,6 @@
             <Assign name="n_tiles" value="4"/>
             <Assign name="M_tile" value="16"/>
             <Assign name="micro_r" value="4"/>
-            <Assign name="const" value="1"/>
             <Assign name="micro_s" value="8"/>
             <Assign name="micro_t" value="4"/>
             <Assign name="activation_layout_dims" value="[(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]"/>

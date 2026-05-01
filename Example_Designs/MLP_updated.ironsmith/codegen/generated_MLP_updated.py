@@ -26,7 +26,6 @@ def gui_design_jit(Input_A, W, OutputC):
     n_tiles = 4
     M_tile = 16
     micro_r = 4
-    const = 1
     micro_s = 8
     micro_t = 4
     activation_layout_dims = [(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]
@@ -180,7 +179,6 @@ def main():
     n_tiles = 4
     M_tile = 16
     micro_r = 4
-    const = 1
     micro_s = 8
     micro_t = 4
     activation_layout_dims = [(M_tile // micro_r, micro_r * K), (K // micro_s, micro_s), (micro_r, K), (micro_s, 1)]
